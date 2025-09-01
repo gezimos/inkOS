@@ -1,1 +1,1 @@
-InkOS - Text based & E-ink friendly Android Launcher 
+InkOS - Text based & E-ink friendly Launcher

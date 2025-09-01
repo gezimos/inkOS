@@ -1,1 +1,1 @@
-Text based & E-ink friendly Android Launcher
+inkOS is minimal android app launcher, text based and optimized for e-ink displays & keypad phones.

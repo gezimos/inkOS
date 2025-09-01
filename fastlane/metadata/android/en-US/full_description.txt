@@ -1,4 +1,4 @@
-<h2>Text based & E-ink friendly Android Launcher </h2>
+<h2>InkOS - Text based & E-ink friendly Launcher</h2>
 
 <b>Key features:</b>
 
@@ -6,8 +6,9 @@
 
 - Drag-and-drop app reordering with adjustable padding
 - Multiple pages with page indicators
-- Built-in clock and battery widgets
+- Built-in clock, audio, date, batter widgets
 - Configurable number of home apps
+- Paged App Drawer with no animations
 - Hide unwanted apps from the drawer
 - Rename apps with custom aliases
 - Lock apps behind biometric authentication
@@ -16,15 +17,15 @@
 <b>Notifications</b>
 
 - Smart notification indicators (asterisk or label previews)
-- Media playing indicators with song names
+- Media playing indicators with audio names
 - Notification window for reading full messages
-- Home screen allowlist for focused experience
+- Notification allowlist for focused experience
 
 <b>Gestures/Buttons</b>
 
 - Volume key navigation between pages
-- Customizable double-tap, clock tap, and swipe actions
-- Actions include: open apps, lock screen, show notifications, switch pages
+- Customizable double-tap, clock, date, quote, and swipe actions
+- Actions include: open apps, lock screen, show notifications, brightness & more.
 
 <b>Customization</b>
 
@@ -36,9 +37,7 @@
 <b>Advanced</b>
 
 - Biometric lock for settings
-- App usage tracking
 - Backup/restore settings
-- Crash reporting via email
 
 <p>Forked from <a href="https://github.com/DroidWorksStudio/mLauncher">mlauncher</a>: A minimal and clean launcher with
     enhanced features.</p>
