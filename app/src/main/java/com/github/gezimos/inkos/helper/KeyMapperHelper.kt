@@ -79,6 +79,10 @@ object KeyMapperHelper {
         object None : AppDrawerKeyAction()
         object PageUp : AppDrawerKeyAction()
         object PageDown : AppDrawerKeyAction()
+        object MoveSelectionUp : AppDrawerKeyAction()
+        object MoveSelectionDown : AppDrawerKeyAction()
+        object SelectItem : AppDrawerKeyAction()
+        object LongPressItem : AppDrawerKeyAction()
     }
 
     fun mapNotificationsKey(prefs: Prefs, keyCode: Int, event: KeyEvent): NotificationKeyAction {
@@ -104,6 +108,19 @@ object KeyMapperHelper {
         if (event.action != KeyEvent.ACTION_DOWN) return AppDrawerKeyAction.None
 
         return when (keyCode) {
+            // Standard navigation keys for item-by-item movement
+            KeyEvent.KEYCODE_DPAD_UP -> AppDrawerKeyAction.MoveSelectionUp
+            KeyEvent.KEYCODE_DPAD_DOWN -> AppDrawerKeyAction.MoveSelectionDown
+            
+            // Page navigation keys
+            KeyEvent.KEYCODE_PAGE_UP -> AppDrawerKeyAction.PageUp
+            KeyEvent.KEYCODE_PAGE_DOWN -> AppDrawerKeyAction.PageDown
+            
+            // Selection keys
+            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
+                if (event.isLongPress) AppDrawerKeyAction.LongPressItem else AppDrawerKeyAction.SelectItem
+            }
+            
             // Volume keys for page navigation (if enabled)
             KeyEvent.KEYCODE_VOLUME_UP -> if (prefs.useVolumeKeysForPages) AppDrawerKeyAction.PageUp else AppDrawerKeyAction.None
             KeyEvent.KEYCODE_VOLUME_DOWN -> if (prefs.useVolumeKeysForPages) AppDrawerKeyAction.PageDown else AppDrawerKeyAction.None

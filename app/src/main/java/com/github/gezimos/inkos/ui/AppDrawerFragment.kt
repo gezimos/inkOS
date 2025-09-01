@@ -65,6 +65,9 @@ class AppDrawerFragment : Fragment() {
     private var totalPages = 1
     private var vibrator: Vibrator? = null
 
+    // Item selection state for keyboard navigation
+    private var selectedItemIndex = 0 // Index within the current page
+
     // Listener for app-drawer-specific preference changes
     private var appDrawerPrefListener: SharedPreferences.OnSharedPreferenceChangeListener? = null
 
@@ -125,6 +128,109 @@ class AppDrawerFragment : Fragment() {
                     } catch (_: Exception) {}
                 }
             }
+        } catch (_: Exception) {}
+    }
+
+    // Move selection up within the current page
+    private fun moveSelectionUp() {
+        if (selectedItemIndex > 0) {
+            selectedItemIndex--
+            focusSelectedItem()
+        } else {
+            // If at top of page, go to previous page (last item)
+            if (currentPage > 0) {
+                currentPage--
+                updatePagedList(fullAppsList, adapter)
+                updatePageIndicator()
+                selectedItemIndex = kotlin.math.max(0, getCurrentPageAppCount() - 1)
+                focusSelectedItem()
+                vibratePaging()
+            }
+        }
+    }
+
+    // Move selection down within the current page
+    private fun moveSelectionDown() {
+        val currentPageAppCount = getCurrentPageAppCount()
+        if (selectedItemIndex < currentPageAppCount - 1) {
+            selectedItemIndex++
+            focusSelectedItem()
+        } else {
+            // If at bottom of page, go to next page (first item)
+            if (currentPage < totalPages - 1) {
+                currentPage++
+                updatePagedList(fullAppsList, adapter)
+                updatePageIndicator()
+                selectedItemIndex = 0
+                focusSelectedItem()
+                vibratePaging()
+            }
+        }
+    }
+
+    // Focus the currently selected item
+    private fun focusSelectedItem() {
+        try {
+            val rv = binding.recyclerView
+            val vh = rv.findViewHolderForAdapterPosition(selectedItemIndex)
+            if (vh != null) {
+                vh.itemView.requestFocus()
+                // Try to focus the title TextView if possible
+                try {
+                    val title = vh.itemView.findViewById<View>(R.id.appTitle)
+                    title?.requestFocus()
+                } catch (_: Exception) {}
+            } else {
+                // If not attached yet, scrollToPosition then post focus
+                rv.scrollToPosition(selectedItemIndex)
+                rv.post {
+                    val vh2 = rv.findViewHolderForAdapterPosition(selectedItemIndex)
+                    vh2?.itemView?.requestFocus()
+                    try {
+                        val title = vh2?.itemView?.findViewById<View>(R.id.appTitle)
+                        title?.requestFocus()
+                    } catch (_: Exception) {}
+                }
+            }
+        } catch (_: Exception) {}
+    }
+
+    // Get the number of apps on the current page
+    private fun getCurrentPageAppCount(): Int {
+        val pageApps: List<AppListItem> = if (cachedPages.isNotEmpty()) {
+            if (currentPage in cachedPages.indices) cachedPages[currentPage] else emptyList()
+        } else {
+            val startIndex = currentPage * appsPerPage
+            val endIndex = kotlin.math.min(startIndex + appsPerPage, fullAppsList.size)
+            if (startIndex < fullAppsList.size) fullAppsList.subList(startIndex, endIndex) else emptyList()
+        }
+        return pageApps.size
+    }
+
+    // Select the currently focused item
+    private fun selectCurrentItem() {
+        try {
+            val pageApps: List<AppListItem> = if (cachedPages.isNotEmpty()) {
+                if (currentPage in cachedPages.indices) cachedPages[currentPage] else emptyList()
+            } else {
+                val startIndex = currentPage * appsPerPage
+                val endIndex = kotlin.math.min(startIndex + appsPerPage, fullAppsList.size)
+                if (startIndex < fullAppsList.size) fullAppsList.subList(startIndex, endIndex) else emptyList()
+            }
+            
+            if (selectedItemIndex in pageApps.indices) {
+                val selectedApp = pageApps[selectedItemIndex]
+                appClickListener(viewModel, flag, 0)(selectedApp)
+            }
+        } catch (_: Exception) {}
+    }
+
+    // Long press the currently focused item
+    private fun longPressCurrentItem() {
+        try {
+            val rv = binding.recyclerView
+            val vh = rv.findViewHolderForAdapterPosition(selectedItemIndex)
+            vh?.itemView?.performLongClick()
         } catch (_: Exception) {}
     }
 
@@ -507,6 +613,9 @@ class AppDrawerFragment : Fragment() {
     // from the fragment's `fullAppsList`, so we must sort here to ensure pages
     // (including HiddenApps mode) are alphabetically ordered.
     fullAppsList = apps.sortedWith(compareBy { it.customLabel.ifEmpty { it.label }.lowercase() })
+    
+    // Reset selection to the first item when app list changes
+    selectedItemIndex = 0
     // Use a local reference to binding to reduce nullable access inside lambdas
     val b = _binding ?: return
     b.recyclerView.post {
@@ -610,6 +719,16 @@ class AppDrawerFragment : Fragment() {
         // Reveal the RecyclerView once the first page has been applied.
         if (binding.recyclerView.visibility != View.VISIBLE) binding.recyclerView.visibility = View.VISIBLE
         binding.listEmptyHint.visibility = if (pageApps.isEmpty()) View.VISIBLE else View.GONE
+        
+        // Ensure selected item index is within bounds for this page
+        if (selectedItemIndex >= pageApps.size) {
+            selectedItemIndex = kotlin.math.max(0, pageApps.size - 1)
+        }
+        
+        // Focus the selected item after a brief delay to ensure RecyclerView is ready
+        binding.recyclerView.post {
+            focusSelectedItem()
+        }
     }
 
     private fun updatePageIndicator() {
@@ -714,6 +833,8 @@ class AppDrawerFragment : Fragment() {
                         currentPage--
                         updatePagedList(fullAppsList, adapter)
                         updatePageIndicator()
+                        selectedItemIndex = 0 // Reset selection to first item on new page
+                        focusSelectedItem()
                         vibratePaging()
                     }
                     true
@@ -723,8 +844,26 @@ class AppDrawerFragment : Fragment() {
                         currentPage++
                         updatePagedList(fullAppsList, adapter)
                         updatePageIndicator()
+                        selectedItemIndex = 0 // Reset selection to first item on new page
+                        focusSelectedItem()
                         vibratePaging()
                     }
+                    true
+                }
+                KeyMapperHelper.AppDrawerKeyAction.MoveSelectionUp -> {
+                    moveSelectionUp()
+                    true
+                }
+                KeyMapperHelper.AppDrawerKeyAction.MoveSelectionDown -> {
+                    moveSelectionDown()
+                    true
+                }
+                KeyMapperHelper.AppDrawerKeyAction.SelectItem -> {
+                    selectCurrentItem()
+                    true
+                }
+                KeyMapperHelper.AppDrawerKeyAction.LongPressItem -> {
+                    longPressCurrentItem()
                     true
                 }
                 else -> false
