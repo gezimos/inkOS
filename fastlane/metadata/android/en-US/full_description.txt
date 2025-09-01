@@ -39,5 +39,4 @@
 - Biometric lock for settings
 - Backup/restore settings
 
-<p>Forked from <a href="https://github.com/DroidWorksStudio/mLauncher">mlauncher</a>: A minimal and clean launcher with
-    enhanced features.</p>
+<p>Forked from <a href="https://github.com/DroidWorksStudio/mLauncher">mlauncher</a></p>
