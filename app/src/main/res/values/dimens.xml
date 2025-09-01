@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <dimen name="home_apps_default_padding">20dp</dimen>
+    <dimen name="app_drawer_item_height">56dp</dimen>
+    <dimen name="app_drawer_vertical_padding">32dp</dimen>
 </resources>

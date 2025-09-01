@@ -86,11 +86,22 @@ inkOS uses the following permissions:
 - `android.permission.SYSTEM_ALERT_WINDOW`
     - Required for overlay features, such as showing notifications or dialogs over other apps.
 - `android.permission.FOREGROUND_SERVICE`
-    - Allows the launcher to run foreground services for persistent features (e.g., notification
-      listener).
+    - Allows the launcher to run foreground services for persistent features (e.g., notification listener).
 - `android.permission.VIBRATE`
     - Enables vibration feedback for certain actions.
-
+- `android.permission.BLUETOOTH`
+    - Allows access to Bluetooth features (for device compatibility and widgets).
+- **Note:** Only needed for Mudita Kompakt to reconnect to headphones due to missing Bluetooth history.
+- `android.permission.BLUETOOTH_CONNECT`
+    - Allows the launcher to connect to Bluetooth devices (for widgets and device integration).
+- `android.permission.BLUETOOTH_SCAN`
+    - Allows the launcher to scan for nearby Bluetooth devices.
+- `android.permission.WRITE_SETTINGS`
+    - Allows the launcher to modify system settings (for features like brightness control).
+- `android.permission.BIND_ACCESSIBILITY_SERVICE`
+    - Required for accessibility features (used by ActionService for gestures and system actions).
+- `android.permission.BIND_NOTIFICATION_LISTENER_SERVICE`
+    - Required for notification features (used by NotificationService to listen for notifications).
 > **Note:** inkOS does not request internet access and does not collect or transmit any data.
 
 ## License

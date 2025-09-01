@@ -19,6 +19,9 @@ import android.util.TypedValue
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowManager
+import androidx.core.view.WindowCompat
+import androidx.fragment.app.Fragment
+import androidx.navigation.fragment.findNavController
 import com.github.gezimos.common.openAccessibilitySettings
 import com.github.gezimos.common.showLongToast
 import com.github.gezimos.inkos.R
@@ -28,14 +31,296 @@ import com.github.gezimos.inkos.data.Prefs
 import com.github.gezimos.inkos.services.ActionService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.xmlpull.v1.XmlPullParser
 import java.io.File
 import java.text.SimpleDateFormat
-import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import kotlin.math.pow
 import kotlin.math.sqrt
+
+/**
+ * Get synthetic apps (App Drawer, Notifications, Empty Space, System Shortcuts) based on context
+ */
+fun getSyntheticApps(
+    prefs: Prefs,
+    flag: Constants.AppDrawerFlag?,
+    includeHiddenApps: Boolean = false
+): List<AppListItem> {
+    val syntheticApps = mutableListOf<AppListItem>()
+
+    // Add internal synthetic apps (App Drawer, Notifications)
+    if (flag == Constants.AppDrawerFlag.SetHomeApp ||
+        flag == Constants.AppDrawerFlag.LaunchApp ||
+        flag == Constants.AppDrawerFlag.HiddenApps ||
+        flag == null
+    ) {
+
+        syntheticApps.addAll(getInternalSyntheticApps(prefs, flag, includeHiddenApps))
+    }
+
+    // Add Empty Space for SetHomeApp context only
+    if (flag == Constants.AppDrawerFlag.SetHomeApp) {
+        syntheticApps.add(getEmptySpaceApp())
+    }
+
+    // Add system shortcuts if enabled
+    if (prefs.systemShortcutsEnabled &&
+        (flag == Constants.AppDrawerFlag.SetHomeApp ||
+                flag == Constants.AppDrawerFlag.LaunchApp ||
+                flag == Constants.AppDrawerFlag.HiddenApps ||
+                flag == null)
+    ) {
+
+        syntheticApps.addAll(getSystemShortcutsForContext(prefs, flag, includeHiddenApps))
+    }
+
+    return syntheticApps
+}
+
+/**
+ * Get internal synthetic apps (App Drawer, Notifications)
+ */
+private fun getInternalSyntheticApps(
+    prefs: Prefs,
+    flag: Constants.AppDrawerFlag?,
+    includeHiddenApps: Boolean
+): List<AppListItem> {
+    val apps = mutableListOf<AppListItem>()
+    val hiddenApps = prefs.hiddenApps
+
+    // App Drawer synthetic app
+    val appDrawerPackage = "com.inkos.internal.app_drawer"
+    val isAppDrawerHidden = hiddenApps.contains("${appDrawerPackage}|${Process.myUserHandle()}")
+
+    if (shouldIncludeSyntheticApp(flag, isAppDrawerHidden, includeHiddenApps)) {
+        val customLabel = prefs.getAppAlias("app_alias_$appDrawerPackage")
+        apps.add(
+            AppListItem(
+                activityLabel = "App Drawer",
+                activityPackage = appDrawerPackage,
+                activityClass = "com.github.gezimos.inkos.ui.AppDrawerFragment",
+                user = Process.myUserHandle(),
+                customLabel = customLabel
+            )
+        )
+    }
+
+    // Notifications synthetic app (if enabled)
+    if (prefs.notificationsEnabled) {
+        val notificationsPackage = "com.inkos.internal.notifications"
+        val isNotificationsHidden =
+            hiddenApps.contains("${notificationsPackage}|${Process.myUserHandle()}")
+
+        if (shouldIncludeSyntheticApp(flag, isNotificationsHidden, includeHiddenApps)) {
+            val customLabel = prefs.getAppAlias("app_alias_$notificationsPackage")
+            apps.add(
+                AppListItem(
+                    activityLabel = "Notifications",
+                    activityPackage = notificationsPackage,
+                    activityClass = "com.github.gezimos.inkos.ui.notifications.NotificationsFragment",
+                    user = Process.myUserHandle(),
+                    customLabel = customLabel
+                )
+            )
+        }
+    }
+
+    return apps
+}
+
+/**
+ * Get Empty Space synthetic app
+ */
+private fun getEmptySpaceApp(): AppListItem {
+    return AppListItem(
+        activityLabel = "Empty Space",
+        activityPackage = "com.inkos.internal.empty_space",
+        activityClass = "",
+        user = Process.myUserHandle(),
+        customLabel = ""
+    )
+}
+
+/**
+ * Get system shortcuts for the given context
+ */
+private fun getSystemShortcutsForContext(
+    prefs: Prefs,
+    flag: Constants.AppDrawerFlag?,
+    includeHiddenApps: Boolean
+): List<AppListItem> {
+    return when (flag) {
+        Constants.AppDrawerFlag.HiddenApps -> {
+            SystemShortcutHelper.getFilteredSystemShortcuts(
+                prefs, includeHidden = false, onlyHidden = true
+            )
+        }
+
+        Constants.AppDrawerFlag.SetHomeApp -> {
+            SystemShortcutHelper.getFilteredSystemShortcuts(
+                prefs, includeHidden = false, onlyHidden = false
+            )
+        }
+
+        else -> {
+            SystemShortcutHelper.getFilteredSystemShortcuts(
+                prefs, includeHidden = includeHiddenApps, onlyHidden = false
+            )
+        }
+    }
+}
+
+/**
+ * Determine if a synthetic app should be included based on context and hidden status
+ */
+private fun shouldIncludeSyntheticApp(
+    flag: Constants.AppDrawerFlag?,
+    isHidden: Boolean,
+    includeHiddenApps: Boolean
+): Boolean {
+    return when (flag) {
+        Constants.AppDrawerFlag.SetHomeApp -> !isHidden || includeHiddenApps
+        Constants.AppDrawerFlag.LaunchApp -> !isHidden
+        Constants.AppDrawerFlag.HiddenApps -> isHidden
+        null -> !isHidden || includeHiddenApps
+        else -> false
+    }
+}
+
+/**
+ * Get all hidden apps (both synthetic and regular apps) for hidden apps management
+ */
+suspend fun getHiddenApps(
+    context: Context,
+    prefs: Prefs,
+    hiddenAppsSet: Set<String>
+): List<AppListItem> {
+    val hiddenApps = mutableListOf<AppListItem>()
+
+    // Get all installed apps to match against
+    val allApps = getAppsList(context, includeRegularApps = true, includeHiddenApps = true)
+
+    for (hiddenApp in hiddenAppsSet) {
+        try {
+            val parts = hiddenApp.split("|")
+            val packageName = parts[0]
+
+            when {
+                // Handle internal synthetic apps
+                packageName == "com.inkos.internal.app_drawer" -> {
+                    val customLabel = prefs.getAppAlias("app_alias_$packageName")
+                    hiddenApps.add(
+                        AppListItem(
+                            activityLabel = "App Drawer",
+                            activityPackage = packageName,
+                            activityClass = "com.github.gezimos.inkos.ui.AppDrawerFragment",
+                            user = Process.myUserHandle(),
+                            customLabel = customLabel
+                        )
+                    )
+                }
+
+                packageName == "com.inkos.internal.notifications" -> {
+                    val customLabel = prefs.getAppAlias("app_alias_$packageName")
+                    hiddenApps.add(
+                        AppListItem(
+                            activityLabel = "Notifications",
+                            activityPackage = packageName,
+                            activityClass = "com.github.gezimos.inkos.ui.notifications.NotificationsFragment",
+                            user = Process.myUserHandle(),
+                            customLabel = customLabel
+                        )
+                    )
+                }
+
+                // Handle system shortcuts (if enabled)
+                prefs.systemShortcutsEnabled && SystemShortcutHelper.isSystemShortcut(packageName) -> {
+                    val shortcut = SystemShortcutHelper.getSystemShortcut(packageName)
+                    if (shortcut != null) {
+                        val customLabel = prefs.getAppAlias("app_alias_$packageName")
+                        val item = SystemShortcutHelper.createAppListItem(shortcut, customLabel)
+                        hiddenApps.add(item)
+                    }
+                }
+
+                // Handle regular apps
+                else -> {
+                    val app = if (parts.size > 1) {
+                        allApps.find { app ->
+                            app.activityPackage == packageName &&
+                                    app.user.toString() == parts[1]
+                        }
+                    } else {
+                        allApps.find { app ->
+                            app.activityPackage == packageName
+                        }
+                    }
+
+                    app?.let {
+                        val customLabel = prefs.getAppAlias("app_alias_${it.activityPackage}")
+                        if (customLabel.isNotEmpty()) {
+                            it.customLabel = customLabel
+                        }
+                        hiddenApps.add(it)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("SystemUtils", "Error processing hidden app: $hiddenApp", e)
+            continue
+        }
+    }
+
+    return hiddenApps
+}
+
+/**
+ * Handle launching synthetic and system apps
+ * Returns true if the app was handled (launched or is a special case), false if it should be handled normally
+ */
+fun launchSyntheticOrSystemApp(
+    context: Context,
+    packageName: String,
+    fragment: Fragment
+): Boolean {
+    when {
+        // Handle synthetic "App Drawer" item
+        packageName == "com.inkos.internal.app_drawer" -> {
+            try {
+                if (fragment.findNavController().currentDestination?.id == R.id.mainFragment) {
+                    fragment.findNavController()
+                        .navigate(R.id.action_mainFragment_to_appListFragment)
+                }
+            } catch (_: Exception) {
+                fragment.findNavController().navigate(R.id.appListFragment)
+            }
+            return true
+        }
+
+        // Handle synthetic "Notifications" item
+        packageName == "com.inkos.internal.notifications" -> {
+            try {
+                fragment.findNavController().navigate(R.id.notificationsFragment)
+            } catch (_: Exception) {
+                // fallback: try direct navigation
+                fragment.findNavController().navigate(R.id.notificationsFragment)
+            }
+            return true
+        }
+
+        // Handle synthetic "Empty Space" item - do nothing
+        packageName == "com.inkos.internal.empty_space" -> {
+            return true
+        }
+
+        // Handle system shortcuts
+        SystemShortcutHelper.isSystemShortcut(packageName) -> {
+            return SystemShortcutHelper.launchSystemShortcut(context, packageName)
+        }
+
+        else -> return false
+    }
+}
 
 suspend fun getAppsList(
     context: Context,
@@ -61,13 +346,14 @@ suspend fun getAppsList(
                     if (includeHiddenApps && hiddenApps.contains(appPackage) ||
                         includeRegularApps && !hiddenApps.contains(appPackage)
                     ) {
+                        val customLabel = Prefs(context).getAppAlias("app_alias_$appPackage")
                         appList.add(
                             AppListItem(
                                 activityLabel = label,
                                 activityPackage = appPackage,
                                 activityClass = activityName,
                                 user = profile,
-                                customLabel = "" // Add empty string as default custom label
+                                customLabel = customLabel
                             )
                         )
                     }
@@ -75,8 +361,8 @@ suspend fun getAppsList(
             }
             appList.sort()
             combinedList.addAll(appList)
-        } catch (e: Exception) {
-            Log.d("appList", e.toString())
+        } catch (_: Exception) {
+            Log.d("appList", "error retrieving app list")
         }
 
         combinedList
@@ -128,47 +414,6 @@ fun setDefaultHomeScreen(context: Context, checkDefault: Boolean = false) {
     context.startActivity(intent)
 }
 
-@Suppress("DEPRECATION")
-fun checkWhoInstalled(context: Context): String {
-    val appName = context.getString(R.string.app_name)
-    val descriptionTemplate =
-        context.getString(R.string.advanced_settings_share_application_description)
-    val descriptionTemplate2 =
-        context.getString(R.string.advanced_settings_share_application_description_addon)
-
-    // Get the installer package name
-    val installer: String? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-        // For Android 11 (API 30) and above
-        val installSourceInfo = context.packageManager.getInstallSourceInfo(context.packageName)
-        installSourceInfo.installingPackageName
-    } else {
-        // For older versions
-        context.packageManager.getInstallerPackageName(context.packageName)
-    }
-
-    // Handle null installer package name
-    val installSource = when (installer) {
-        "com.android.vending" -> "Google Play Store"
-        "org.fdroid.fdroid" -> "F-Droid"
-        null -> "GitHub" // In case installer is null
-        else -> installer // Default to the installer package name
-    }
-
-    val installURL = when (installer) {
-        "com.android.vending" -> "https://play.google.com/store/apps/details?id=app.mlauncher"
-        "org.fdroid.fdroid" -> "https://f-droid.org/packages/app.mlauncher"
-        null -> "https://github.com/DroidWorksStudio/mLauncher" // In case installer is null
-        else -> "https://play.google.com/store/apps/details?id=app.mlauncher" // Default to the Google Play Store
-    }
-
-    // Format the description with the app name and install source
-    return String.format(
-        "%s %s",
-        String.format(descriptionTemplate, appName),
-        String.format(descriptionTemplate2, installSource, installURL)
-    )
-}
-
 
 fun openAppInfo(context: Context, userHandle: UserHandle, packageName: String) {
     val launcher = context.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
@@ -208,14 +453,30 @@ fun initActionService(context: Context): ActionService? {
 
 
 fun showStatusBar(activity: Activity) {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
         activity.window.insetsController?.show(WindowInsets.Type.statusBars())
-    else
+
+        // Set correct status bar icon appearance based on current theme
+        val windowInsetsController =
+            WindowCompat.getInsetsController(activity.window, activity.window.decorView)
+        val prefs = com.github.gezimos.inkos.data.Prefs(activity)
+        val isDarkTheme = when (prefs.appTheme) {
+                Constants.Theme.Dark -> true
+                Constants.Theme.Light -> false
+                Constants.Theme.System -> {
+                val uiMode =
+                    activity.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK
+                uiMode == android.content.res.Configuration.UI_MODE_NIGHT_YES
+            }
+        }
+        windowInsetsController.isAppearanceLightStatusBars = !isDarkTheme
+    } else {
         @Suppress("DEPRECATION", "InlinedApi")
         activity.window.decorView.apply {
             systemUiVisibility =
                 View.SYSTEM_UI_FLAG_LAYOUT_STABLE or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
         }
+    }
 }
 
 fun hideStatusBar(activity: Activity) {
@@ -225,6 +486,46 @@ fun hideStatusBar(activity: Activity) {
         @Suppress("DEPRECATION")
         activity.window.decorView.apply {
             systemUiVisibility = View.SYSTEM_UI_FLAG_IMMERSIVE or View.SYSTEM_UI_FLAG_FULLSCREEN
+        }
+    }
+}
+
+fun showNavigationBar(activity: Activity) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        activity.window.insetsController?.show(WindowInsets.Type.navigationBars())
+
+        // Set correct navigation bar icon appearance based on current theme
+        val windowInsetsController =
+            WindowCompat.getInsetsController(activity.window, activity.window.decorView)
+        val prefs = com.github.gezimos.inkos.data.Prefs(activity)
+        val isDarkTheme = when (prefs.appTheme) {
+            Constants.Theme.Dark -> true
+            Constants.Theme.Light -> false
+            Constants.Theme.System -> {
+                val uiMode =
+                    activity.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK
+                uiMode == android.content.res.Configuration.UI_MODE_NIGHT_YES
+            }
+        }
+        windowInsetsController.isAppearanceLightNavigationBars = !isDarkTheme
+    } else {
+        @Suppress("DEPRECATION", "InlinedApi")
+        activity.window.decorView.apply {
+            systemUiVisibility =
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+        }
+    }
+}
+
+fun hideNavigationBar(activity: Activity) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
+        activity.window.insetsController?.hide(WindowInsets.Type.navigationBars())
+    else {
+        @Suppress("DEPRECATION")
+        activity.window.decorView.apply {
+            systemUiVisibility = View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
+                    View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+                    View.SYSTEM_UI_FLAG_FULLSCREEN
         }
     }
 }
@@ -295,14 +596,14 @@ fun loadFile(activity: Activity, backupType: Constants.BackupType) {
                         activity.getString(R.string.error_no_file_picker_title),
                         activity.getString(R.string.error_no_file_picker_message)
                     )
-                } catch (e: Exception) {
-                    // fallback: show toast
-                    android.widget.Toast.makeText(
-                        activity,
-                        activity.getString(R.string.error_no_file_picker_message),
-                        android.widget.Toast.LENGTH_LONG
-                    ).show()
-                }
+                        } catch (_: Exception) {
+                            // fallback: show toast
+                            android.widget.Toast.makeText(
+                                activity,
+                                activity.getString(R.string.error_no_file_picker_message),
+                                android.widget.Toast.LENGTH_LONG
+                            ).show()
+                        }
                 return
             }
             activity.startActivityForResult(intent, Constants.BACKUP_READ, null)
@@ -332,7 +633,7 @@ fun loadFile(activity: Activity, backupType: Constants.BackupType) {
                         activity.getString(R.string.error_no_file_picker_title),
                         activity.getString(R.string.error_no_file_picker_message)
                     )
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                     android.widget.Toast.makeText(
                         activity,
                         activity.getString(R.string.error_no_file_picker_message),
@@ -369,23 +670,6 @@ fun setThemeMode(context: Context, isDark: Boolean, view: View) {
     view.setBackgroundResource(typedValue.resourceId)
 }
 
-fun parseBlacklistXML(context: Context): List<String> {
-    val packageNames = mutableListOf<String>()
-
-    // Obtain an XmlPullParser for the blacklist.xml file
-    context.resources.getXml(R.xml.blacklist).use { parser ->
-        while (parser.eventType != XmlPullParser.END_DOCUMENT) {
-            if (parser.eventType == XmlPullParser.START_TAG && parser.name == "app") {
-                val packageName = parser.getAttributeValue(null, "packageName")
-                packageNames.add(packageName)
-            }
-            parser.next()
-        }
-    }
-
-    return packageNames
-}
-
 fun getTrueSystemFont(): Typeface {
     val possibleSystemFonts = listOf(
         "/system/fonts/Roboto-Regular.ttf",      // Stock Android (Pixel, AOSP)
@@ -406,36 +690,3 @@ fun getTrueSystemFont(): Typeface {
     return Typeface.DEFAULT
 }
 
-fun formatLongToCalendar(longTimestamp: Long): String {
-    // Create a Calendar instance and set its time to the given timestamp (in milliseconds)
-    val calendar = Calendar.getInstance().apply {
-        timeInMillis = longTimestamp
-    }
-
-    // Format the calendar object to a readable string
-    val dateFormat = SimpleDateFormat(
-        "MMMM dd, yyyy, HH:mm:ss",
-        Locale.getDefault()
-    ) // You can modify the format
-    return dateFormat.format(calendar.time) // Return the formatted date string
-}
-
-fun formatMillisToHMS(millis: Long, showSeconds: Boolean): String {
-    val hours = millis / (1000 * 60 * 60)
-    val minutes = (millis % (1000 * 60 * 60)) / (1000 * 60)
-    val seconds = (millis % (1000 * 60)) / 1000
-
-    val formattedString = StringBuilder()
-    if (hours > 0) {
-        formattedString.append("$hours h ")
-    }
-    if (minutes > 0 || hours > 0) {
-        formattedString.append("$minutes m ")
-    }
-    // Only append seconds if showSeconds is true
-    if (showSeconds) {
-        formattedString.append("$seconds s")
-    }
-
-    return formattedString.toString().trim()
-}

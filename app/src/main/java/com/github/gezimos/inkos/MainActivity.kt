@@ -1,6 +1,5 @@
 package com.github.gezimos.inkos
 
-// import android.content.pm.PackageManager
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.ActivityInfo
@@ -8,16 +7,18 @@ import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.util.Log
 import android.view.KeyEvent
 import android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.app.NotificationManagerCompat
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.NavController
 import androidx.navigation.findNavController
+import androidx.activity.OnBackPressedCallback
+import androidx.core.graphics.drawable.toDrawable
 import com.github.gezimos.common.CrashHandler
 import com.github.gezimos.inkos.data.Constants
 import com.github.gezimos.inkos.data.Migration
@@ -32,7 +33,6 @@ import java.io.InputStreamReader
 
 class MainActivity : AppCompatActivity() {
 
-
     private lateinit var prefs: Prefs
     private lateinit var migration: Migration
     private lateinit var navController: NavController
@@ -40,20 +40,28 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private var isOnboarding = false
 
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        if (isOnboarding) {
-            // Block back during onboarding
-            return
+    // Eink helper instance
+    private var einkHelper: EinkHelper? = null
+
+    companion object {
+        private const val TAG = "MainActivity"
+    }
+
+    private val onBackPressedCallback = object : OnBackPressedCallback(true) {
+        override fun handleOnBackPressed() {
+            if (isOnboarding) {
+                return
+            }
+            if (navController.currentDestination?.id != R.id.mainFragment) {
+                isEnabled = false
+                onBackPressedDispatcher.onBackPressed()
+                isEnabled = true
+            }
         }
-        @Suppress("DEPRECATION")
-        if (navController.currentDestination?.id != R.id.mainFragment)
-            super.onBackPressed()
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (isOnboarding) {
-            // Block all key events during onboarding
             return true
         }
         return when (keyCode) {
@@ -65,9 +73,7 @@ class MainActivity : AppCompatActivity() {
                         true
                     }
 
-                    else -> {
-                        false
-                    }
+                    else -> false
                 }
             }
 
@@ -81,15 +87,13 @@ class MainActivity : AppCompatActivity() {
                 when (navController.currentDestination?.id) {
                     R.id.mainFragment -> {
                         val bundle = Bundle()
-                        bundle.putInt("letterKeyCode", keyCode) // Pass the letter key code
+                        bundle.putInt("letterKeyCode", keyCode)
                         this.findNavController(R.id.nav_host_fragment)
                             .navigate(R.id.action_mainFragment_to_appListFragment, bundle)
                         true
                     }
 
-                    else -> {
-                        false
-                    }
+                    else -> false
                 }
             }
 
@@ -99,60 +103,58 @@ class MainActivity : AppCompatActivity() {
             }
 
             KeyEvent.KEYCODE_HOME -> {
-                // Only send signal and navigate home, do not use shouldResetHomePage
                 com.github.gezimos.inkos.ui.HomeFragment.sendGoToFirstPageSignal()
                 backToHomeScreen()
                 true
             }
 
             KeyEvent.KEYCODE_VOLUME_UP, KeyEvent.KEYCODE_VOLUME_DOWN -> {
-                // Handle volume keys for page navigation if enabled and on home
-                if (navController.currentDestination?.id == R.id.mainFragment && prefs.useVolumeKeysForPages) {
-                    val fragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment)
-                    val homeFragment =
-                        fragment?.childFragmentManager?.fragments?.find { it is com.github.gezimos.inkos.ui.HomeFragment } as? com.github.gezimos.inkos.ui.HomeFragment
-                    if (homeFragment != null && com.github.gezimos.inkos.ui.HomeFragment.isHomeVisible) {
-                        if (homeFragment.handleVolumeKeyNavigation(keyCode)) return true
-                    }
-                }
+                // Let fragments handle volume keys directly through their own key listeners
                 return super.onKeyDown(keyCode, event)
             }
 
-            else -> {
-                super.onKeyDown(keyCode, event)
-            }
+            else -> super.onKeyDown(keyCode, event)
         }
     }
 
     override fun onNewIntent(intent: Intent) {
-        if (isOnboarding) {
-            // Ignore new intents during onboarding to prevent navController crash
-            return
-        }
+        if (isOnboarding) return
         super.onNewIntent(intent)
         if (intent.action == Intent.ACTION_MAIN) {
-            // Only bring home to front, do not reset page
             backToHomeScreen()
         }
     }
 
     private fun backToHomeScreen() {
-        if (!::navController.isInitialized) return // Prevent crash if navController not ready
-        // Pop all fragments and return to home
+        if (!::navController.isInitialized) return
         navController.popBackStack(R.id.mainFragment, false)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Register back pressed callback
+        onBackPressedDispatcher.addCallback(this, onBackPressedCallback)
+
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+
         prefs = Prefs(this)
         migration = Migration(this)
 
-        // Initialize com.github.gezimos.common.CrashHandler to catch uncaught exceptions
+        // Initialize EinkHelper only if enabled
+        if (prefs.einkHelperEnabled) {
+            einkHelper = EinkHelper()
+            lifecycle.addObserver(einkHelper!!)
+            einkHelper!!.initializeMeinkService()
+        }
+
         Thread.setDefaultUncaughtExceptionHandler(CrashHandler(applicationContext))
 
         if (prefs.firstOpen) {
             isOnboarding = true
-            // Show onboarding screen using ComposeView
             val composeView = androidx.compose.ui.platform.ComposeView(this)
             setContentView(composeView)
             composeView.setContent {
@@ -160,7 +162,10 @@ class MainActivity : AppCompatActivity() {
                     onFinish = {
                         prefs.firstOpen = false
                         isOnboarding = false
-                        recreate() // Restart activity to show main UI
+                        // Add delay to ensure theme changes are fully applied before recreate
+                        window.decorView.postDelayed({
+                            recreate()
+                        }, 150)
                     },
                     onRequestNotificationPermission = {
                         if (Build.VERSION.SDK_INT >= 33) {
@@ -193,54 +198,115 @@ class MainActivity : AppCompatActivity() {
             Constants.Theme.System -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
         }
         AppCompatDelegate.setDefaultNightMode(themeMode)
-        binding = ActivityMainBinding.inflate(layoutInflater)
-        val view = binding.root
-        setContentView(view)
+
+        val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
+        val isDarkTheme = when (prefs.appTheme) {
+            Constants.Theme.Dark -> true
+            Constants.Theme.Light -> false
+            Constants.Theme.System -> (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        }
+        windowInsetsController.isAppearanceLightNavigationBars = !isDarkTheme
+        windowInsetsController.isAppearanceLightStatusBars = !isDarkTheme
+
+        if (prefs.showNavigationBar) {
+            com.github.gezimos.inkos.helper.showNavigationBar(this)
+        } else {
+            com.github.gezimos.inkos.helper.hideNavigationBar(this)
+        }
+
         migration.migratePreferencesOnVersionUpdate(prefs)
 
-        // Set window background color dynamically from prefs
-        window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(prefs.backgroundColor))
+        window.setBackgroundDrawable(prefs.backgroundColor.toDrawable())
 
         navController = this.findNavController(R.id.nav_host_fragment)
         viewModel = ViewModelProvider(this)[MainViewModel::class.java]
-        // Remove firstOpen logic here, handled above
         viewModel.getAppList(includeHiddenApps = true)
         setupOrientation()
 
         window.addFlags(FLAG_LAYOUT_NO_LIMITS)
 
-        // Request notification access if not granted
         if (!isNotificationServiceEnabled()) {
             val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
             startActivity(intent)
-        }
-
-        // Add bottom padding if navigation bar/gestures are present
-        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { v, insets ->
-            val navBarInset = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
-            v.setPadding(
-                v.paddingLeft,
-                v.paddingTop,
-                v.paddingRight,
-                navBarInset
-            )
-            insets
         }
     }
 
     override fun onResume() {
         super.onResume()
-        // Post a delayed hide to ensure it runs after window focus changes
+
+        if (prefs.showNavigationBar) {
+            com.github.gezimos.inkos.helper.showNavigationBar(this)
+        } else {
+            com.github.gezimos.inkos.helper.hideNavigationBar(this)
+        }
+
         window.decorView.postDelayed({
-            // Request focus on decorView to steal it from any EditText
-            window.decorView.requestFocus()
-            val imm =
-                getSystemService(INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
-            imm?.hideSoftInputFromWindow(window.decorView.windowToken, 0)
-            currentFocus?.let { view ->
-                imm?.hideSoftInputFromWindow(view.windowToken, 0)
+            // Defensive: avoid touching window/UI when activity is finishing/destroyed/stopped
+            if (isFinishing || isDestroyed) return@postDelayed
+            try {
+                window.decorView.requestFocus()
+                val imm =
+                    getSystemService(INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
+                imm?.hideSoftInputFromWindow(window.decorView.windowToken, 0)
+                currentFocus?.let { view ->
+                    imm?.hideSoftInputFromWindow(view.windowToken, 0)
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Ignored exception during onResume UI operations", e)
+            }
+
+            // Re-apply MeInk mode when resuming
+            einkHelper?.let {
+                val currentMode = it.getCurrentMeinkMode()
+                if (currentMode != -1) {
+                    it.setMeinkMode(currentMode)
+                }
             }
         }, 100)
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        Log.d(TAG, "Configuration changed, reinitializing MeInk service")
+        einkHelper?.reinitializeMeinkService()
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+
+        if (hasFocus) {
+            val fragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment)
+            val homeFragment =
+                fragment?.childFragmentManager?.fragments?.find { it is com.github.gezimos.inkos.ui.HomeFragment } as? com.github.gezimos.inkos.ui.HomeFragment
+            if (homeFragment != null && com.github.gezimos.inkos.ui.HomeFragment.isHomeVisible) {
+                homeFragment.onWindowFocusGained()
+            }
+            // Re-apply MeInk mode when gaining focus
+            einkHelper?.let {
+                val currentMode = it.getCurrentMeinkMode()
+                if (currentMode != -1) {
+                    window.decorView.postDelayed({
+                        it.setMeinkMode(currentMode)
+                    }, 200)
+                }
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        einkHelper?.let {
+            lifecycle.removeObserver(it)
+            it.cleanup()
+        }
+    }
+
+    /**
+     * Public method to set MeInk mode from anywhere in the app
+     */
+    @Suppress("unused")
+    fun setMeinkMode(mode: Int) {
+        einkHelper?.setMeinkMode(mode)
     }
 
     private fun isNotificationServiceEnabled(): Boolean {
@@ -252,10 +318,8 @@ class MainActivity : AppCompatActivity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         when (requestCode) {
-
             Constants.REQUEST_SET_DEFAULT_HOME -> {
-                val isDefault = isinkosDefault(this) // Check again if the app is now default
-
+                val isDefault = isinkosDefault(this)
                 if (isDefault) {
                     viewModel.setDefaultLauncher(false)
                 } else {
@@ -265,10 +329,10 @@ class MainActivity : AppCompatActivity() {
 
             Constants.BACKUP_READ -> {
                 data?.data?.also { uri ->
-                    // Try to get file name from content resolver if lastPathSegment is not reliable
                     val fileName = uri.lastPathSegment ?: ""
                     val isJsonExtension = fileName.endsWith(".json", ignoreCase = true) ||
-                        applicationContext.contentResolver.getType(uri)?.contains("json") == true
+                            applicationContext.contentResolver.getType(uri)
+                                ?.contains("json") == true
                     if (!isJsonExtension) {
                         DialogManager(this, this).showErrorDialog(
                             this,
@@ -287,10 +351,9 @@ class MainActivity : AppCompatActivity() {
                             }
                         }
                         val string = stringBuilder.toString()
-                        // Try to parse as JSON
                         try {
-                            org.json.JSONObject(string) // Throws if not valid JSON
-                        } catch (e: Exception) {
+                            org.json.JSONObject(string)
+                        } catch (_: Exception) {
                             DialogManager(this, this).showErrorDialog(
                                 this,
                                 getString(R.string.error_invalid_file_title),
@@ -320,30 +383,10 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-
-    override fun onConfigurationChanged(newConfig: Configuration) {
-        super.onConfigurationChanged(newConfig)
-        recreate()
-    }
-
-
     @SuppressLint("SourceLockedOrientationActivity")
     private fun setupOrientation() {
         if (isTablet(this)) return
-        // In Android 8.0, windowIsTranslucent cannot be used with screenOrientation=portrait
         if (Build.VERSION.SDK_INT != Build.VERSION_CODES.O)
             requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-    }
-
-    override fun onWindowFocusChanged(hasFocus: Boolean) {
-        super.onWindowFocusChanged(hasFocus)
-        // Forward window focus changes to HomeFragment
-        if (hasFocus) {
-            val fragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment)
-            val homeFragment = fragment?.childFragmentManager?.fragments?.find { it is com.github.gezimos.inkos.ui.HomeFragment } as? com.github.gezimos.inkos.ui.HomeFragment
-            if (homeFragment != null && com.github.gezimos.inkos.ui.HomeFragment.isHomeVisible) {
-                homeFragment.onWindowFocusGained()
-            }
-        }
     }
 }

@@ -3,10 +3,13 @@ package com.github.gezimos.inkos.ui.settings
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,6 +35,7 @@ import androidx.compose.ui.unit.sp
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
+import com.github.gezimos.common.showShortToast
 import com.github.gezimos.inkos.MainViewModel
 import com.github.gezimos.inkos.R
 import com.github.gezimos.inkos.data.Constants
@@ -40,9 +44,11 @@ import com.github.gezimos.inkos.data.Constants.Theme.Light
 import com.github.gezimos.inkos.data.Constants.Theme.System
 import com.github.gezimos.inkos.data.Prefs
 import com.github.gezimos.inkos.helper.getHexForOpacity
+import com.github.gezimos.inkos.helper.hideNavigationBar
 import com.github.gezimos.inkos.helper.hideStatusBar
 import com.github.gezimos.inkos.helper.isSystemInDarkMode
 import com.github.gezimos.inkos.helper.setThemeMode
+import com.github.gezimos.inkos.helper.showNavigationBar
 import com.github.gezimos.inkos.helper.showStatusBar
 import com.github.gezimos.inkos.listener.DeviceAdmin
 import com.github.gezimos.inkos.style.SettingsTheme
@@ -63,6 +69,68 @@ class LookFeelFragment : Fragment() {
     private lateinit var deviceManager: DevicePolicyManager
     private lateinit var componentName: ComponentName
     private lateinit var dialogBuilder: DialogManager
+
+    // Callbacks for updating UI state
+    private var onHomeImageChanged: ((String?) -> Unit)? = null
+    private var onHomeImageOpacityChanged: ((Int) -> Unit)? = null
+
+    // Activity result launchers for image picking
+    private val homeBackgroundImagePicker = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        uri?.let {
+            // Check if image needs optimization before setting
+            try {
+                val contentResolver = requireContext().contentResolver
+                val dimensionOptions = android.graphics.BitmapFactory.Options().apply {
+                    inJustDecodeBounds = true
+                }
+
+                contentResolver.openInputStream(it)?.use { inputStream ->
+                    android.graphics.BitmapFactory.decodeStream(inputStream, null, dimensionOptions)
+                }
+
+                val originalWidth = dimensionOptions.outWidth
+                val originalHeight = dimensionOptions.outHeight
+
+                // Calculate screen size limits (2x resolution max)
+                val display = requireActivity().windowManager.defaultDisplay
+                val displayMetrics = android.util.DisplayMetrics()
+                display.getMetrics(displayMetrics)
+                val screenWidth = displayMetrics.widthPixels
+                val screenHeight = displayMetrics.heightPixels
+                val maxWidth = screenWidth * 2
+                val maxHeight = screenHeight * 2
+
+                // Show optimization notice if image will be downsampled
+                if (originalWidth > maxWidth || originalHeight > maxHeight) {
+                    showShortToast("Large image will be optimized for performance (${originalWidth}×${originalHeight} → ~${maxWidth}×${maxHeight})")
+                }
+
+            } catch (e: Exception) {
+                android.util.Log.e(
+                    "LookFeelFragment",
+                    "Error checking image dimensions: ${e.message}"
+                )
+            }
+
+            // Persist URI permission
+            try {
+                requireContext().contentResolver.takePersistableUriPermission(
+                    it, Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+                prefs.homeBackgroundImageUri = it.toString()
+                // Trigger MainViewModel LiveData update
+                viewModel.homeBackgroundImageUri.postValue(it.toString())
+                onHomeImageChanged?.invoke(it.toString())
+            } catch (e: Exception) {
+                android.util.Log.e(
+                    "LookFeelFragment",
+                    "Error persisting home background URI: ${e.message}"
+                )
+            }
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -168,39 +236,19 @@ class LookFeelFragment : Fragment() {
             )
         )
 
-        fun getCurrentPageIndex(
-            scrollY: Int,
-            viewportHeight: Int,
-            contentHeight: Int,
-            pageCount: Int
-        ): Int {
-            if (contentHeight <= viewportHeight) return 0
-            val overlap = (viewportHeight * 0.2).toInt()
-            val scrollStep = viewportHeight - overlap
-            val maxScroll = (contentHeight - viewportHeight).coerceAtLeast(1)
-            val clampedScrollY = scrollY.coerceIn(0, maxScroll)
-            val page = Math.round(clampedScrollY.toFloat() / scrollStep)
-            return page.coerceIn(0, pageCount - 1)
+        // Apply bottom padding to the root layout to prevent scroll view from going under navbar
+        rootLayout.post {
+            rootLayout.setPadding(0, 0, 0, bottomInsetPx)
+            rootLayout.clipToPadding = false
         }
 
-        fun updateHeaderAndPages(scrollY: Int = nestedScrollView.scrollY) {
-            val contentHeight = nestedScrollView.getChildAt(0)?.height ?: 1
-            val viewportHeight = nestedScrollView.height.takeIf { it > 0 } ?: 1
-            val overlap = (viewportHeight * 0.2).toInt()
-            val scrollStep = viewportHeight - overlap
-            val pages =
-                Math.ceil(((contentHeight - viewportHeight).toDouble() / scrollStep.toDouble()))
-                    .toInt() + 1
+        // Use EinkScrollBehavior callback to update header and page indicator
+        val scrollBehavior = com.github.gezimos.inkos.helper.utils.EinkScrollBehavior(context) { page, pages ->
             pageCount[0] = pages
-            currentPage[0] = getCurrentPageIndex(scrollY, viewportHeight, contentHeight, pages)
+            currentPage[0] = page
             headerView.setContent { HeaderContent() }
         }
-        nestedScrollView.viewTreeObserver.addOnGlobalLayoutListener {
-            updateHeaderAndPages()
-        }
-        nestedScrollView.setOnScrollChangeListener { _, _, scrollY, _, _ ->
-            updateHeaderAndPages(scrollY)
-        }
+        scrollBehavior.attachToScrollView(nestedScrollView)
         return rootLayout
     }
 
@@ -208,18 +256,37 @@ class LookFeelFragment : Fragment() {
     fun LookFeelSettingsAllInOne(fontSize: TextUnit = TextUnit.Unspecified, isDark: Boolean) {
         findNavController()
         val titleFontSize = if (fontSize.isSpecified) (fontSize.value * 1.5).sp else fontSize
-        var toggledShowStatusBar = remember { mutableStateOf(prefs.showStatusBar) }
-        var selectedTheme = remember { mutableStateOf(prefs.appTheme) }
-        var selectedBackgroundColor = remember { mutableStateOf(prefs.backgroundColor) }
-        var selectedAppColor = remember { mutableStateOf(prefs.appColor) }
-        var selectedClockColor = remember { mutableStateOf(prefs.clockColor) }
-        var selectedBatteryColor = remember { mutableStateOf(prefs.batteryColor) }
-        var einkRefreshEnabled = remember { mutableStateOf(prefs.einkRefreshEnabled) }
-        var vibrationForPaging = remember { mutableStateOf(prefs.useVibrationForPaging) }
+        val toggledShowStatusBar = remember { mutableStateOf(prefs.showStatusBar) }
+        val toggledShowNavigationBar = remember { mutableStateOf(prefs.showNavigationBar) }
+        val selectedTheme = remember { mutableStateOf(prefs.appTheme) }
+        val selectedBackgroundColor = remember { mutableStateOf(prefs.backgroundColor) }
+        val selectedAppColor = remember { mutableStateOf(prefs.appColor) }
+        val selectedClockColor = remember { mutableStateOf(prefs.clockColor) }
+        val selectedBatteryColor = remember { mutableStateOf(prefs.batteryColor) }
+        val selectedDateColor = remember { mutableStateOf(prefs.dateColor) }
+        val selectedQuoteColor = remember { mutableStateOf(prefs.quoteColor) }
+        val selectedAudioWidgetColor = remember { mutableStateOf<Int>(prefs.audioWidgetColor) }
+        val vibrationForPaging = remember { mutableStateOf(prefs.useVibrationForPaging) }
+        val homeBackgroundImageUri = remember { mutableStateOf(prefs.homeBackgroundImageUri) }
+        val homeBackgroundImageOpacity =
+            remember { mutableStateOf(prefs.homeBackgroundImageOpacity) }
+
+        // Set up callbacks for updating state
+        onHomeImageChanged = { uri -> homeBackgroundImageUri.value = uri }
+        onHomeImageOpacityChanged = { opacity -> homeBackgroundImageOpacity.value = opacity }
+
+        // Clean up callbacks when composable is disposed
+        androidx.compose.runtime.DisposableEffect(Unit) {
+            onDispose {
+                onHomeImageChanged = null
+                onHomeImageOpacityChanged = null
+            }
+        }
+
         Constants.updateMaxHomePages(requireContext())
         Column(modifier = Modifier.fillMaxSize()) {
             // Theme Mode
-            FullLineSeparator(isDark = isDark)
+            FullLineSeparator(isDark)
 
             // Visibility & Display
             SettingsTitle(
@@ -228,54 +295,60 @@ class LookFeelFragment : Fragment() {
             )
             FullLineSeparator(isDark)
             SettingsSelect(
-                title = stringResource(R.string.theme_mode),
-                option = selectedTheme.value.string(),
+                title = stringResource(id = R.string.theme_mode),
+                option = when (selectedTheme.value) {
+                    Constants.Theme.System -> "System"
+                    Constants.Theme.Light -> "Light"
+                    Constants.Theme.Dark -> "Dark"
+                    else -> "System"
+                },
                 fontSize = titleFontSize,
                 onClick = {
-                    dialogBuilder.showSingleChoiceDialog(
-                        context = requireContext(),
-                        options = Constants.Theme.entries.toTypedArray(),
-                        titleResId = R.string.theme_mode,
-                        onItemSelected = { newTheme ->
-                            selectedTheme.value = newTheme
-                            prefs.appTheme = newTheme
-                            val isDark = when (newTheme) {
-                                Light -> false
-                                Dark -> true
-                                System -> isSystemInDarkMode(requireContext())
-                            }
-                            prefs.backgroundColor =
-                                if (isDark) Color.Black.toArgb() else Color.White.toArgb()
-                            prefs.appColor =
-                                if (isDark) Color.White.toArgb() else Color.Black.toArgb()
-                            prefs.clockColor =
-                                if (isDark) Color.White.toArgb() else Color.Black.toArgb()
-                            prefs.batteryColor =
-                                if (isDark) Color.White.toArgb() else Color.Black.toArgb()
-                            setThemeMode(
-                                requireContext(),
-                                isDark,
-                                requireActivity().window.decorView
-                            )
-                            requireActivity().recreate()
-                        }
+                    selectedTheme.value = when (selectedTheme.value) {
+                        Constants.Theme.System -> Constants.Theme.Light
+                        Constants.Theme.Light -> Constants.Theme.Dark
+                        Constants.Theme.Dark -> Constants.Theme.System
+                        else -> Constants.Theme.System
+                    }
+                    prefs.appTheme = selectedTheme.value
+                    val isDark = when (selectedTheme.value) {
+                        Constants.Theme.Light -> false
+                        Constants.Theme.Dark -> true
+                        Constants.Theme.System -> isSystemInDarkMode(requireContext())
+                        else -> false
+                    }
+                    selectedBackgroundColor.value =
+                        if (isDark) Color.Black.toArgb() else Color.White.toArgb()
+                    selectedAppColor.value =
+                        if (isDark) Color.White.toArgb() else Color.Black.toArgb()
+                    selectedClockColor.value =
+                        if (isDark) Color.White.toArgb() else Color.Black.toArgb()
+                    selectedBatteryColor.value =
+                        if (isDark) Color.White.toArgb() else Color.Black.toArgb()
+                    selectedDateColor.value =
+                        if (isDark) Color.White.toArgb() else Color.Black.toArgb()
+                    selectedQuoteColor.value =
+                        if (isDark) Color.White.toArgb() else Color.Black.toArgb()
+                    selectedAudioWidgetColor.value =
+                        if (isDark) Color.White.toArgb() else Color.Black.toArgb()
+                    prefs.backgroundColor = selectedBackgroundColor.value
+                    prefs.appColor = selectedAppColor.value
+                    prefs.clockColor = selectedClockColor.value
+                    prefs.batteryColor = selectedBatteryColor.value
+                    prefs.dateColor = selectedDateColor.value
+                    prefs.quoteColor = selectedQuoteColor.value
+                    prefs.audioWidgetColor = selectedAudioWidgetColor.value
+                    setThemeMode(
+                        requireContext(),
+                        isDark,
+                        requireActivity().window.decorView
                     )
-                }
-            )
-            // --- Eink Refresh Switch inserted here ---
-            DashedSeparator(isDark)
-            SettingsSwitch(
-                text = "E-Ink Refresh",
-                fontSize = titleFontSize,
-                defaultState = einkRefreshEnabled.value,
-                onCheckedChange = {
-                    einkRefreshEnabled.value = it
-                    prefs.einkRefreshEnabled = it
+                    requireActivity().recreate()
                 }
             )
             DashedSeparator(isDark)
             SettingsSwitch(
-                text = "Vibration for Paging",
+                text = "Vibration Feedback",
                 fontSize = titleFontSize,
                 defaultState = vibrationForPaging.value,
                 onCheckedChange = {
@@ -296,125 +369,255 @@ class LookFeelFragment : Fragment() {
                     )
                 }
             )
-            // Element Colors
+            DashedSeparator(isDark)
+            SettingsSwitch(
+                text = stringResource(R.string.show_navigation_bar),
+                fontSize = titleFontSize,
+                defaultState = toggledShowNavigationBar.value,
+                onCheckedChange = {
+                    toggledShowNavigationBar.value = !prefs.showNavigationBar
+                    prefs.showNavigationBar = toggledShowNavigationBar.value
+                    if (toggledShowNavigationBar.value) showNavigationBar(requireActivity()) else hideNavigationBar(
+                        requireActivity()
+                    )
+                }
+            )
+
             FullLineSeparator(isDark)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                SettingsTitle(
-                    text = stringResource(R.string.element_colors),
+            // Background Images
+            SettingsTitle(
+                text = "Background Images",
+                fontSize = titleFontSize,
+            )
+            FullLineSeparator(isDark)
+
+            SettingsSelect(
+                title = "Home Image",
+                option = if (homeBackgroundImageUri.value != null) "Clear" else "Set",
+                fontSize = titleFontSize,
+                onClick = {
+                    if (homeBackgroundImageUri.value != null) {
+                        // Clear the image
+                        prefs.homeBackgroundImageUri = null
+                        homeBackgroundImageUri.value = null
+                        // Trigger MainViewModel LiveData update
+                        viewModel.homeBackgroundImageUri.postValue(null)
+                    } else {
+                        // Set a new image
+                        homeBackgroundImagePicker.launch(arrayOf("image/*"))
+                    }
+                }
+            )
+
+            if (homeBackgroundImageUri.value != null) {
+                DashedSeparator(isDark)
+                SettingsSelect(
+                    title = "Image Opacity",
+                    option = "${homeBackgroundImageOpacity.value}%",
                     fontSize = titleFontSize,
-                    modifier = Modifier.weight(1f)
-                )
-                Text(
-                    text = stringResource(R.string.reset),
-                    style = SettingsTheme.typography.button,
-                    fontSize = if (titleFontSize.isSpecified) (titleFontSize.value * 0.7).sp else 14.sp,
-                    modifier = Modifier
-                        .padding(end = SettingsTheme.color.horizontalPadding)
-                        .clickable {
-                            val isDarkMode = when (prefs.appTheme) {
-                                Dark -> true
-                                Light -> false
-                                System -> isSystemInDarkMode(requireContext())
+                    onClick = {
+                        dialogBuilder.showSliderDialog(
+                            context = requireContext(),
+                            title = "Image Opacity",
+                            minValue = 10,
+                            maxValue = 100,
+                            currentValue = homeBackgroundImageOpacity.value,
+                            onValueSelected = { newOpacity ->
+                                homeBackgroundImageOpacity.value = newOpacity
+                                prefs.homeBackgroundImageOpacity = newOpacity
+                                // Trigger MainViewModel LiveData update
+                                viewModel.homeBackgroundImageOpacity.postValue(newOpacity)
+                                onHomeImageOpacityChanged?.invoke(newOpacity)
                             }
-                            selectedBackgroundColor.value =
-                                if (isDarkMode) Color.Black.toArgb() else Color.White.toArgb()
-                            selectedAppColor.value =
-                                if (isDarkMode) Color.White.toArgb() else Color.Black.toArgb()
-                            selectedClockColor.value =
-                                if (isDarkMode) Color.White.toArgb() else Color.Black.toArgb()
-                            selectedBatteryColor.value =
-                                if (isDarkMode) Color.White.toArgb() else Color.Black.toArgb()
-                            prefs.backgroundColor = selectedBackgroundColor.value
-                            prefs.appColor = selectedAppColor.value
-                            prefs.clockColor = selectedClockColor.value
-                            prefs.batteryColor = selectedBatteryColor.value
-                        }
+                        )
+                    }
                 )
             }
-            FullLineSeparator(isDark)
-            val hexBackgroundColor =
-                String.format("#%06X", (0xFFFFFF and selectedBackgroundColor.value))
-            SettingsSelectWithColorPreview(
-                title = stringResource(R.string.background_color),
-                hexColor = hexBackgroundColor,
-                previewColor = Color(selectedBackgroundColor.value),
-                fontSize = titleFontSize,
-                onClick = {
-                    dialogBuilder.showColorPickerDialog(
-                        context = requireContext(),
-                        color = selectedBackgroundColor.value,
-                        titleResId = R.string.background_color,
-                        onItemSelected = { selectedColor ->
-                            selectedBackgroundColor.value = selectedColor
-                            prefs.backgroundColor = selectedColor
-                        })
-                }
-            )
-            DashedSeparator(isDark)
-            val hexAppColor = String.format("#%06X", (0xFFFFFF and selectedAppColor.value))
-            SettingsSelectWithColorPreview(
-                title = stringResource(R.string.app_color),
-                hexColor = hexAppColor,
-                previewColor = Color(selectedAppColor.value),
-                fontSize = titleFontSize,
-                onClick = {
-                    dialogBuilder.showColorPickerDialog(
-                        context = requireContext(),
-                        color = selectedAppColor.value,
-                        titleResId = R.string.app_color,
-                        onItemSelected = { selectedColor ->
-                            selectedAppColor.value = selectedColor
-                            prefs.appColor = selectedColor
-                        })
-                }
-            )
-
-            DashedSeparator(isDark)
-            val hexClockColor = String.format("#%06X", (0xFFFFFF and selectedClockColor.value))
-            SettingsSelectWithColorPreview(
-                title = stringResource(R.string.clock_color),
-                hexColor = hexClockColor,
-                previewColor = Color(selectedClockColor.value),
-                fontSize = titleFontSize,
-                onClick = {
-                    dialogBuilder.showColorPickerDialog(
-                        context = requireContext(),
-                        color = selectedClockColor.value,
-                        titleResId = R.string.clock_color,
-                        onItemSelected = { selectedColor ->
-                            selectedClockColor.value = selectedColor
-                            prefs.clockColor = selectedColor
-                        })
-                }
-            )
-            DashedSeparator(isDark)
-            val hexBatteryColor = String.format("#%06X", (0xFFFFFF and selectedBatteryColor.value))
-            SettingsSelectWithColorPreview(
-                title = stringResource(R.string.battery_color),
-                hexColor = hexBatteryColor,
-                previewColor = Color(selectedBatteryColor.value),
-                fontSize = titleFontSize,
-                onClick = {
-                    dialogBuilder.showColorPickerDialog(
-                        context = requireContext(),
-                        color = selectedBatteryColor.value,
-                        titleResId = R.string.battery_color,
-                        onItemSelected = { selectedColor ->
-                            selectedBatteryColor.value = selectedColor
-                            prefs.batteryColor = selectedColor
-                        })
-                }
-            )
-            FullLineSeparator(isDark)
 
         }
-    }
 
-    private fun goBackToLastFragment() {
-        findNavController().popBackStack()
+
+        // Element Colors
+        FullLineSeparator(isDark)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            SettingsTitle(
+                text = stringResource(R.string.element_colors),
+                fontSize = titleFontSize,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                text = stringResource(R.string.reset),
+                style = SettingsTheme.typography.button,
+                fontSize = if (titleFontSize.isSpecified) (titleFontSize.value * 0.7).sp else 14.sp,
+                modifier = Modifier
+                    .padding(end = SettingsTheme.color.horizontalPadding)
+                    .clickable {
+                        val isDarkMode = when (prefs.appTheme) {
+                            Dark -> true
+                            Light -> false
+                            System -> isSystemInDarkMode(requireContext())
+                        }
+                        selectedBackgroundColor.value =
+                            if (isDarkMode) Color.Black.toArgb() else Color.White.toArgb()
+                        selectedAppColor.value =
+                            if (isDarkMode) Color.White.toArgb() else Color.Black.toArgb()
+                        selectedClockColor.value =
+                            if (isDarkMode) Color.White.toArgb() else Color.Black.toArgb()
+                        selectedBatteryColor.value =
+                            if (isDarkMode) Color.White.toArgb() else Color.Black.toArgb()
+                        selectedDateColor.value =
+                            if (isDarkMode) Color.White.toArgb() else Color.Black.toArgb()
+                        selectedQuoteColor.value =
+                            if (isDarkMode) Color.White.toArgb() else Color.Black.toArgb()
+                        selectedAudioWidgetColor.value =
+                            if (isDarkMode) Color.White.toArgb() else Color.Black.toArgb()
+                        prefs.backgroundColor = selectedBackgroundColor.value
+                        prefs.appColor = selectedAppColor.value
+                        prefs.clockColor = selectedClockColor.value
+                        prefs.batteryColor = selectedBatteryColor.value
+                        prefs.dateColor = selectedDateColor.value
+                        prefs.quoteColor = selectedQuoteColor.value
+                        prefs.audioWidgetColor = selectedAudioWidgetColor.value
+                    }
+            )
+        }
+        FullLineSeparator(isDark)
+        val hexBackgroundColor =
+            String.format("#%06X", (0xFFFFFF and selectedBackgroundColor.value))
+        SettingsSelectWithColorPreview(
+            title = stringResource(R.string.background_color),
+            hexColor = hexBackgroundColor,
+            previewColor = Color(selectedBackgroundColor.value),
+            fontSize = titleFontSize,
+            onClick = {
+                dialogBuilder.showColorPickerDialog(
+                    context = requireContext(),
+                    color = selectedBackgroundColor.value,
+                    titleResId = R.string.background_color,
+                    onItemSelected = { selectedColor ->
+                        selectedBackgroundColor.value = selectedColor
+                        prefs.backgroundColor = selectedColor
+                    })
+            }
+        )
+        DashedSeparator(isDark)
+        val hexAppColor = String.format("#%06X", (0xFFFFFF and selectedAppColor.value))
+        SettingsSelectWithColorPreview(
+            title = stringResource(R.string.app_color),
+            hexColor = hexAppColor,
+            previewColor = Color(selectedAppColor.value),
+            fontSize = titleFontSize,
+            onClick = {
+                dialogBuilder.showColorPickerDialog(
+                    context = requireContext(),
+                    color = selectedAppColor.value,
+                    titleResId = R.string.app_color,
+                    onItemSelected = { selectedColor ->
+                        selectedAppColor.value = selectedColor
+                        prefs.appColor = selectedColor
+                    })
+            }
+        )
+
+        DashedSeparator(isDark)
+        val hexClockColor = String.format("#%06X", (0xFFFFFF and selectedClockColor.value))
+        SettingsSelectWithColorPreview(
+            title = stringResource(R.string.clock_color),
+            hexColor = hexClockColor,
+            previewColor = Color(selectedClockColor.value),
+            fontSize = titleFontSize,
+            onClick = {
+                dialogBuilder.showColorPickerDialog(
+                    context = requireContext(),
+                    color = selectedClockColor.value,
+                    titleResId = R.string.clock_color,
+                    onItemSelected = { selectedColor ->
+                        selectedClockColor.value = selectedColor
+                        prefs.clockColor = selectedColor
+                    })
+            }
+        )
+        DashedSeparator(isDark)
+        val hexBatteryColor = String.format("#%06X", (0xFFFFFF and selectedBatteryColor.value))
+        SettingsSelectWithColorPreview(
+            title = stringResource(R.string.battery_color),
+            hexColor = hexBatteryColor,
+            previewColor = Color(selectedBatteryColor.value),
+            fontSize = titleFontSize,
+            onClick = {
+                dialogBuilder.showColorPickerDialog(
+                    context = requireContext(),
+                    color = selectedBatteryColor.value,
+                    titleResId = R.string.battery_color,
+                    onItemSelected = { selectedColor ->
+                        selectedBatteryColor.value = selectedColor
+                        prefs.batteryColor = selectedColor
+                    })
+            }
+        )
+        DashedSeparator(isDark)
+        val hexDateColor = String.format("#%06X", (0xFFFFFF and selectedDateColor.value))
+        SettingsSelectWithColorPreview(
+            title = stringResource(R.string.date_color),
+            hexColor = hexDateColor,
+            previewColor = Color(selectedDateColor.value),
+            fontSize = titleFontSize,
+            onClick = {
+                dialogBuilder.showColorPickerDialog(
+                    context = requireContext(),
+                    color = selectedDateColor.value,
+                    titleResId = R.string.date_color,
+                    onItemSelected = { selectedColor ->
+                        selectedDateColor.value = selectedColor
+                        prefs.dateColor = selectedColor
+                    })
+            }
+        )
+        DashedSeparator(isDark)
+        val hexQuoteColor = String.format("#%06X", (0xFFFFFF and selectedQuoteColor.value))
+        SettingsSelectWithColorPreview(
+            title = stringResource(R.string.quote_color),
+            hexColor = hexQuoteColor,
+            previewColor = Color(selectedQuoteColor.value),
+            fontSize = titleFontSize,
+            onClick = {
+                dialogBuilder.showColorPickerDialog(
+                    context = requireContext(),
+                    color = selectedQuoteColor.value,
+                    titleResId = R.string.quote_color,
+                    onItemSelected = { selectedColor ->
+                        selectedQuoteColor.value = selectedColor
+                        prefs.quoteColor = selectedColor
+                    }
+                )
+            }
+        )            // Audio Widget Color
+        DashedSeparator(isDark)
+        val hexAudioWidgetColor =
+            String.format("#%06X", (0xFFFFFF and selectedAudioWidgetColor.value))
+        SettingsSelectWithColorPreview(
+            title = "Audio widget",
+            hexColor = hexAudioWidgetColor,
+            previewColor = Color(selectedAudioWidgetColor.value),
+            fontSize = titleFontSize,
+            onClick = {
+                dialogBuilder.showColorPickerDialog(
+                    context = requireContext(),
+                    color = selectedAudioWidgetColor.value,
+                    titleResId = R.string.quote_color, // Reuse existing string for now
+                    onItemSelected = { selectedColor ->
+                        selectedAudioWidgetColor.value = selectedColor
+                        prefs.audioWidgetColor = selectedColor
+                    }
+                )
+            }
+        )
+        FullLineSeparator(isDark)
+
+
     }
 
     private fun dismissDialogs() {

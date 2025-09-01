@@ -1,14 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="brightness">Brightness</string>
+    <string name="app_name_mode">App Name Type</string>
+    <string name="app_name_mode_normal">Normal</string>
+    <string name="app_name_mode_all_caps">UPPERCASE</string>
     <!-- Base Settings -->
     <string name="select_app">Select App</string>
 
     <!-- Strings used for settings menus -->
     <string name="settings_name">inkOS Settings</string>
 
-    <string name="settings_features_title">Features</string>
+    <string name="settings_home_title">Home</string>
 
     <string name="settings_look_feel_title">Look &amp; Feel</string>
-    <string name="use_volume_keys_for_pages">Vol. Keys Swipe</string>
+    <string name="use_volume_keys_for_pages">VolumeKey Navigation</string>
 
     <string name="settings_gestures_title">Gestures</string>
 
@@ -21,8 +26,6 @@
 
 
     <!-- Strings used for features settings -->
-    <string name="features_settings_title">Features</string>
-
     <string name="theme_mode">Theme mode</string>
     <string name="settings_text_size">Settings Text Size</string>
 
@@ -30,24 +33,39 @@
 
     <string name="lock_home_apps">Lock Home Apps</string>
     <string name="lock_settings">Lock Settings</string>
+    <string name="system_shortcuts">System Shortcuts</string>
+    <string name="home_apps">Home Apps</string>
     <string name="apps_on_home_screen">Number of Home Apps</string>
     <string name="pages_on_home_screen">Number of Pages</string>
     <string name="enable_home_pager">Enable Page Indicator</string>
+    <string name="home_page_reset">Home Page Reset</string>
+
 
     <string name="home_widgets">Home Widgets</string>
+    <string name="top_widgets">Top Widgets</string>
+    <string name="bottom_widgets">Bottom Widgets</string>
+    <string name="show_date">Date</string>
+    <string name="show_date_battery_combo">Date + Battery</string>
+    <string name="date_font">Date Font</string>
+    <string name="date_text_size">Date Text Size</string>
     <string name="longpress_app_info">Long Press for App Info</string>
-
     <string name="show_clock">Show Clock</string>
     <string name="show_battery">Show Battery</string>
+    <string name="show_quote">Show Quote</string>
+    <string name="show_audio_widget">Show Audio Widget</string>
+    <string name="quote_font">Quote Font</string>
+    <string name="quote_text_size">Quote Text Size</string>
+    <string name="quote_text">Quote Text</string>
+    <string name="quote_color">Quote</string>
     <string name="show_notification_badge">Asterisk Notification</string>
     <string name="show_notification_text">Label Notifications</string>
     <string name="enable_notifications">Notification Window</string>
-    <!-- <string name="enable_letters">Enable Letters</string> -->
     <string name="show_media_playing_indicator">Media Playing Asterisk</string>
     <string name="show_media_playing_name">Media Playing Name</string>
     <string name="show_sender_name">Sender Name</string>
     <string name="show_conversation_group_name">Group Name</string>
     <string name="show_message">Message</string>
+    <string name="clear_conversation_on_app_open">Clear When App Opens</string>
     <string name="notifications_window_title">Notifications Window</string>
     <string name="badge_character_limit">Character Limit</string>
     <string name="push_notifications">Push Notifications</string>
@@ -67,12 +85,18 @@
 
     <string name="layout_positioning">Layout &amp; Positioning</string>
 
-    <string name="app_padding_size">Padding Size</string>
+    <string name="app_size">App Size</string>
+    <string name="app_padding_size">Gap Between Apps</string>
+    <string name="top_widget_margin">Top Widget Margin</string>
+    <string name="bottom_widget_margin">Bottom Widget Margin</string>
+
     <string name="extend_home_apps_area">Extend Clickable Area</string>
 
     <string name="visibility_display">Visibility &amp; Display</string>
 
-    <string name="show_status_bar">Show Status bar</string>
+    <string name="show_status_bar">Show Status Bar</string>
+
+    <string name="show_navigation_bar">Show Gesture/Navbar</string>
 
     <string name="element_colors">Element Colors</string>
 
@@ -80,10 +104,11 @@
     <string name="app_color">Apps</string>
     <string name="clock_color">Clock</string>
     <string name="battery_color">Battery</string>
+    <string name="date_color">Date</string>
 
-    <string name="fonts_settings_title">Fonts</string>
+    <string name="small_caps_apps">lowercase</string>
 
-    <string name="settings_font_osdmono">Osd Mono</string>
+    <string name="fonts_settings_title">Typography</string>
     <string name="settings_font_hoog">Hoog</string>
 
 
@@ -95,9 +120,6 @@
     <string name="notification_home">Home Notifications</string>
 
     <string name="app_notification_font">Badge Noti. Font</string>
-    <!-- Remove old names to avoid confusion -->
-    <!-- <string name="app_name_notification_font">App name notification font</string> -->
-    <!-- <string name="app_name_notification_size">App name Notification size</string> -->
 
     <string name="battery_font">Battery Font</string>
     <string name="universal_custom_font">Universal Font</string>
@@ -107,11 +129,14 @@
     <!-- Strings used for gestures settings -->
     <string name="gestures_settings_title">Gestures</string>
 
-    <string name="tap_click_actions">Tap/Click Actions</string>
+    <string name="tap_click_actions">Tap/Click</string>
 
     <string name="double_tap">Double Tap</string>
     <string name="clock_click_app">Click on Clock</string>
     <string name="date_click_app">Click on Date</string>
+    <string name="quote_click_app">Click on Quote</string>
+    
+    <string name="edit_gestures_settings_toast">Edit actions &amp; Gestures in Settings/Gestures</string>
 
     <string name="swipe_movement">Swipe Movement</string>
 
@@ -123,6 +148,15 @@
     <string name="next_page">Go to Next Page</string>
     <string name="previous_page">Go to Previous Page</string>
     <string name="eink_refresh_switch">Eink Auto Rrefresh</string>
+    <string name="eink_auto_refresh">Auto E-ink Refresh</string>
+    <string name="eink_refresh">E-ink Refresh</string>
+    <string name="lock_screen">Lock Screen</string>
+    <string name="show_recents">Show Recents</string>
+    <string name="quick_settings">Quick Settings</string>
+    <string name="power_dialog">Power Dialog</string>
+    <string name="open_quick_settings">Open Quick Settings</string>
+    <string name="open_power_dialog">Open Power Dialog</string>
+    <string name="open_tools">Open Tools</string>
 
 
     <!-- Strings used for advanced settings -->
@@ -200,8 +234,29 @@
     <string name="open">Open</string>
     <string name="close">Close</string>
     <string name="open_clock">Open Clock</string>
+    <string name="app_drawer">App Drawer</string>
+    <string name="customizations">Customizations</string>
+    <string name="app_drawer_alingment">Alingment</string>
+    <string name="app_drawer_align_left">Left</string>
+    <string name="app_drawer_align_center">Center</string>
+    <string name="app_drawer_align_right">Right</string>
+    <string name="confirm_delete_font">Confirm Delete</string>
+
+    <!-- Short alignment labels requested by user -->
+    <string name="left">Left</string>
+    <string name="center">Center</string>
+    <string name="right">Right</string>
+
+    <!-- Media Player Strings -->
+    <string name="open_music_app">Open music app</string>
+    <string name="previous_track">Previous track</string>
+    <string name="play_or_pause">Play or pause</string>
+    <string name="next_track">Next track</string>
+    <string name="stop_playback">Stop playback</string>
 
     <!-- Permissions Strings -->
+    <string name="bluetooth_permission_required_title">BLUETOOTH PERMISSION REQUIRED:</string>
+    <string name="bluetooth_permission_required_body">This particular tool is only useful for Mudita Kompakt or other phones that do not have Bluetooth History. Missing permissions: %1$s. Please grant permissions to use Bluetooth features.</string>
 
     <!-- Private Spaces Strings -->
     <string name="alert_requires_android_v">This functionality requires Android 15 or later.</string>

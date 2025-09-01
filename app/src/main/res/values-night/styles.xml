@@ -44,8 +44,9 @@
     </style>
 
     <style name="WindowAnimationTransition">
-        <item name="android:windowEnterAnimation">@android:anim/fade_in</item>
-        <item name="android:windowExitAnimation">@android:anim/fade_out</item>
+        <!-- E-ink optimization: No animations -->
+        <item name="android:windowEnterAnimation">@null</item>
+        <item name="android:windowExitAnimation">@null</item>
     </style>
 
     <style name="AppSearchText" parent="Widget.AppCompat.SearchView">

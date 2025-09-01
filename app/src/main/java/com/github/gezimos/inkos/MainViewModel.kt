@@ -22,8 +22,11 @@ import com.github.gezimos.inkos.data.AppListItem
 import com.github.gezimos.inkos.data.Constants.AppDrawerFlag
 import com.github.gezimos.inkos.data.HomeAppUiState
 import com.github.gezimos.inkos.data.Prefs
+import com.github.gezimos.inkos.helper.AudioWidgetHelper
 import com.github.gezimos.inkos.helper.getAppsList
+import com.github.gezimos.inkos.helper.getHiddenApps
 import com.github.gezimos.inkos.helper.isinkosDefault
+import com.github.gezimos.inkos.helper.launchSyntheticOrSystemApp
 import com.github.gezimos.inkos.helper.setDefaultHomeScreen
 import com.github.gezimos.inkos.helper.utils.BiometricHelper
 import com.github.gezimos.inkos.services.NotificationManager
@@ -36,14 +39,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val prefs = Prefs(appContext)
 
     // setup variables with initial values
-    val firstOpen = MutableLiveData<Boolean>()
-
     val appList = MutableLiveData<List<AppListItem>?>()
     val hiddenApps = MutableLiveData<List<AppListItem>?>()
     val homeAppsOrder = MutableLiveData<List<AppListItem>>()  // Store actual app items
-    val launcherDefault = MutableLiveData<Boolean>()
 
     val showClock = MutableLiveData(prefs.showClock)
+    val showDate = MutableLiveData(prefs.showDate)
+    val showDateBatteryCombo = MutableLiveData(prefs.showDateBatteryCombo)
     val homeAppsNum = MutableLiveData(prefs.homeAppsNum)
     val homePagesNum = MutableLiveData(prefs.homePagesNum)
 
@@ -52,9 +54,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val backgroundColor = MutableLiveData(prefs.backgroundColor)
     val clockColor = MutableLiveData(prefs.clockColor)
     val batteryColor = MutableLiveData(prefs.batteryColor)
+    val dateColor = MutableLiveData(prefs.dateColor)
+    val quoteColor = MutableLiveData(prefs.quoteColor)
+    val audioWidgetColor = MutableLiveData<Int>(prefs.audioWidgetColor)
     val appsFont = MutableLiveData(prefs.appsFont)
     val clockFont = MutableLiveData(prefs.clockFont)
     val batteryFont = MutableLiveData(prefs.batteryFont)
+    val quoteFont = MutableLiveData(prefs.quoteFont)
     val notificationsFont = MutableLiveData(prefs.notificationsFont)
     val notificationFont = MutableLiveData(prefs.labelnotificationsFont)
     val statusFont = MutableLiveData(prefs.statusFont)
@@ -64,6 +70,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val appSize = MutableLiveData(prefs.appSize)
     val clockSize = MutableLiveData(prefs.clockSize)
     val batterySize = MutableLiveData(prefs.batterySize)
+    val quoteSize = MutableLiveData(prefs.quoteSize)
+    val quoteText = MutableLiveData(prefs.quoteText)
+    val showQuote = MutableLiveData(prefs.showQuote)
+    val showAudioWidget = MutableLiveData(prefs.showAudioWidgetEnabled)
+    val homeBackgroundImageOpacity = MutableLiveData(prefs.homeBackgroundImageOpacity)
+    val homeBackgroundImageUri = MutableLiveData(prefs.homeBackgroundImageUri)
 
     // --- Home screen UI state ---
     private val _homeAppsUiState = MutableLiveData<List<HomeAppUiState>>()
@@ -81,9 +93,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             "BACKGROUND_COLOR" -> backgroundColor.postValue(prefs.backgroundColor)
             "CLOCK_COLOR" -> clockColor.postValue(prefs.clockColor)
             "BATTERY_COLOR" -> batteryColor.postValue(prefs.batteryColor)
+            "DATE_COLOR" -> dateColor.postValue(prefs.dateColor)
+            "QUOTE_COLOR" -> quoteColor.postValue(prefs.quoteColor)
+            "AUDIO_WIDGET_COLOR" -> audioWidgetColor.postValue(prefs.audioWidgetColor)
             "APPS_FONT" -> appsFont.postValue(prefs.appsFont)
             "CLOCK_FONT" -> clockFont.postValue(prefs.clockFont)
             "BATTERY_FONT" -> batteryFont.postValue(prefs.batteryFont)
+            "QUOTE_FONT" -> quoteFont.postValue(prefs.quoteFont)
             "NOTIFICATIONS_FONT" -> notificationsFont.postValue(prefs.notificationsFont)
             "NOTIFICATION_FONT" -> notificationFont.postValue(prefs.labelnotificationsFont)
             "STATUS_FONT" -> statusFont.postValue(prefs.statusFont)
@@ -93,6 +109,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             "APP_SIZE_TEXT" -> appSize.postValue(prefs.appSize)
             "CLOCK_SIZE_TEXT" -> clockSize.postValue(prefs.clockSize)
             "BATTERY_SIZE_TEXT" -> batterySize.postValue(prefs.batterySize)
+            "QUOTE_TEXT_SIZE" -> quoteSize.postValue(prefs.quoteSize)
+            "QUOTE_TEXT" -> quoteText.postValue(prefs.quoteText)
+            "SHOW_QUOTE" -> showQuote.postValue(prefs.showQuote)
+            "SHOW_AUDIO_WIDGET" -> showAudioWidget.postValue(prefs.showAudioWidgetEnabled)
+            "SHOW_DATE" -> showDate.postValue(prefs.showDate)
+            "SHOW_DATE_BATTERY_COMBO" -> showDateBatteryCombo.postValue(prefs.showDateBatteryCombo)
+            "HOME_BACKGROUND_IMAGE_OPACITY" -> homeBackgroundImageOpacity.postValue(prefs.homeBackgroundImageOpacity)
+            "HOME_BACKGROUND_IMAGE_URI" -> homeBackgroundImageUri.postValue(prefs.homeBackgroundImageUri)
         }
     }
 
@@ -102,6 +126,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     override fun onCleared() {
         prefs.sharedPrefs.unregisterOnSharedPreferenceChangeListener(prefsListener)
+        // Unregister any other listeners or receivers here if added in future
         super.onCleared()
     }
 
@@ -126,7 +151,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 activityPackage = appModel.activityPackage // Pass unique identifier
             )
         }
-        _homeAppsUiState.postValue(homeApps)
+        // Only post if value changed
+        if (_homeAppsUiState.value != homeApps) {
+            _homeAppsUiState.postValue(homeApps)
+        }
+
+        // Also refresh audio widget state to ensure it appears after launcher restart
+        refreshAudioWidgetState(context)
+    }
+
+    // Refresh audio widget state from active notifications after launcher restart
+    private fun refreshAudioWidgetState(context: Context) {
+        try {
+            val audioWidgetHelper =
+                AudioWidgetHelper.getInstance(context)
+
+            // Simply reset dismissal state to allow widget to show when NotificationService reconnects
+            // The NotificationService onListenerConnected() will handle proper restoration with working MediaController
+            audioWidgetHelper.resetDismissalState()
+        } catch (e: Exception) {
+            // Ignore errors during widget refresh
+        }
     }
 
     fun selectedApp(fragment: Fragment, app: AppListItem, flag: AppDrawerFlag, n: Int = 0) {
@@ -142,10 +187,29 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 findNavController(fragment).popBackStack()
             }
 
-            AppDrawerFlag.SetSwipeLeft -> prefs.appSwipeLeft = app
-            AppDrawerFlag.SetSwipeRight -> prefs.appSwipeRight = app
+            AppDrawerFlag.SetSwipeLeft -> {
+                prefs.appSwipeLeft = app
+                prefs.swipeLeftAction = com.github.gezimos.inkos.data.Constants.Action.OpenApp
+            }
+
+            AppDrawerFlag.SetSwipeRight -> {
+                prefs.appSwipeRight = app
+                prefs.swipeRightAction = com.github.gezimos.inkos.data.Constants.Action.OpenApp
+            }
+
             AppDrawerFlag.SetDoubleTap -> prefs.appDoubleTap = app
             AppDrawerFlag.SetClickClock -> { /* no-op or implement if needed */
+            }
+
+            AppDrawerFlag.SetClickDate -> {
+                prefs.appClickDate = app
+                prefs.clickDateAction = com.github.gezimos.inkos.data.Constants.Action.OpenApp
+                findNavController(fragment).popBackStack()
+            }
+
+            AppDrawerFlag.SetQuoteWidget -> {
+                prefs.appQuoteWidget = app
+                findNavController(fragment).popBackStack()
             }
 
             AppDrawerFlag.SetSwipeUp, AppDrawerFlag.SetSwipeDown -> { /* no-op, removed */
@@ -153,23 +217,39 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun firstOpen(value: Boolean) {
-        firstOpen.postValue(value)
+    // Add a function to handle OpenAppDrawer action
+    fun handleGestureAction(
+        fragment: Fragment,
+        action: com.github.gezimos.inkos.data.Constants.Action
+    ) {
+        when (action) {
+            com.github.gezimos.inkos.data.Constants.Action.OpenAppDrawer -> {
+                // Navigate to app drawer
+                findNavController(fragment).navigate(R.id.appListFragment)
+            }
+            // ...existing code for other actions...
+            else -> { /* existing logic */
+            }
+        }
     }
-
 
     fun setShowClock(visibility: Boolean) {
         showClock.value = visibility
     }
 
     fun setDefaultLauncher(visibility: Boolean) {
-        launcherDefault.value = visibility
+        // launcherDefault.value = visibility // Removed unused LiveData
     }
 
     fun launchApp(appListItem: AppListItem, fragment: Fragment) {
-        biometricHelper = BiometricHelper(fragment)
-
         val packageName = appListItem.activityPackage
+
+        // Handle synthetic and system apps
+        if (launchSyntheticOrSystemApp(appContext, packageName, fragment)) {
+            return
+        }
+
+        biometricHelper = BiometricHelper(fragment)
         val currentLockedApps = prefs.lockedApps
 
         if (currentLockedApps.contains(packageName)) {
@@ -243,7 +323,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun getAppList(includeHiddenApps: Boolean = true) {
+    fun getAppList(includeHiddenApps: Boolean = true, flag: AppDrawerFlag? = null) {
         viewModelScope.launch {
             val apps = getAppsList(
                 appContext,
@@ -258,69 +338,54 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
 
-            // Filter out hidden apps if not including them
-            val filteredApps = if (!includeHiddenApps) {
-                val hiddenApps = prefs.hiddenApps
-                apps.filter { app ->
-                    !hiddenApps.contains("${app.activityPackage}|${app.user}")
-                }
-            } else {
-                apps
-            }
+            val hiddenAppsSet = prefs.hiddenApps
 
-            appList.value = filteredApps
+            // Always exclude hidden apps from the app drawer, regardless of flag
+            val filteredApps: MutableList<AppListItem> = apps.filter { app ->
+                !hiddenAppsSet.contains("${app.activityPackage}|${app.user}")
+            }.toMutableList()
+
+            // Add synthetic apps (App Drawer, Notifications, Empty Space) that are not hidden
+            val syntheticApps =
+                com.github.gezimos.inkos.helper.getSyntheticApps(prefs, flag, includeHiddenApps)
+            val nonShortcutSyntheticApps = syntheticApps.filterNot {
+                com.github.gezimos.inkos.helper.SystemShortcutHelper.isSystemShortcut(it.activityPackage)
+            }.filter { app ->
+                !hiddenAppsSet.contains("${app.activityPackage}|${app.user}")
+            }
+            filteredApps.addAll(nonShortcutSyntheticApps)
+
+            // Add selected system shortcuts that are not hidden
+            val selectedSystemShortcuts =
+                com.github.gezimos.inkos.helper.SystemShortcutHelper.getSelectedSystemShortcutsAsAppItems(
+                    prefs
+                )
+            val visibleSystemShortcuts = selectedSystemShortcuts.filter { app ->
+                !hiddenAppsSet.contains("${app.activityPackage}|${app.user}")
+            }
+            filteredApps.addAll(visibleSystemShortcuts)
+
+            // Only post if value changed
+            if (appList.value != filteredApps) {
+                appList.postValue(filteredApps)
+            }
         }
     }
 
     fun getHiddenApps() {
         viewModelScope.launch {
-            val hiddenSet = prefs.hiddenApps
-            val hiddenAppsList = mutableListOf<AppListItem>()
+            val hiddenAppsList = getHiddenApps(appContext, prefs, prefs.hiddenApps)
 
-            // Get all installed apps
-            val allApps =
-                getAppsList(appContext, includeRegularApps = true, includeHiddenApps = true)
-
-            // For each hidden app package+user combination
-            for (hiddenApp in hiddenSet) {
-                try {
-                    // Split the stored string into package name and user handle
-                    val parts = hiddenApp.split("|")
-                    val packageName = parts[0]
-
-                    // Find matching app
-                    val app = if (parts.size > 1) {
-                        allApps.find { app ->
-                            app.activityPackage == packageName &&
-                                    app.user.toString() == parts[1]
-                        }
-                    } else {
-                        allApps.find { app ->
-                            app.activityPackage == packageName
-                        }
-                    }
-
-                    // Load custom label if it exists
-                    app?.let {
-                        val customLabel = prefs.getAppAlias("app_alias_${it.activityPackage}")
-                        if (customLabel.isNotEmpty()) {
-                            it.customLabel = customLabel
-                        }
-                        hiddenAppsList.add(it)
-                    }
-                } catch (e: Exception) {
-                    Log.e("MainViewModel", "Error processing hidden app: $hiddenApp", e)
-                    continue
-                }
+            // Only post if value changed
+            if (hiddenApps.value != hiddenAppsList) {
+                hiddenApps.postValue(hiddenAppsList)
             }
-
-            hiddenApps.postValue(hiddenAppsList)
         }
     }
 
     fun isinkosDefault() {
         val isDefault = isinkosDefault(appContext)
-        launcherDefault.value = !isDefault
+        // launcherDefault.value = !isDefault // Removed unused LiveData
     }
 
     fun resetDefaultLauncherApp(context: Context) {
@@ -334,7 +399,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val app = currentOrder.removeAt(fromPosition)
         currentOrder.add(toPosition, app)
 
-        homeAppsOrder.postValue(currentOrder)
+        // Only post if value changed
+        if (homeAppsOrder.value != currentOrder) {
+            homeAppsOrder.postValue(currentOrder)
+        }
         saveAppOrder(currentOrder)  // Save new order in preferences
     }
 
@@ -364,14 +432,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         getAppList(includeHiddenApps)
     }
 
-    fun renameApp(packageName: String, newName: String) {
+    fun renameApp(packageName: String, newName: String, flag: AppDrawerFlag? = null) {
         if (newName.isEmpty()) {
             prefs.removeAppAlias(packageName)
         } else {
             prefs.setAppAlias(packageName, newName)
         }
-        // Refresh app list to update labels
-        getAppList(includeHiddenApps = false)
+        // Refresh app list to update labels with the current flag context
+        getAppList(includeHiddenApps = false, flag = flag)
         getHiddenApps()
     }
 
@@ -385,7 +453,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             newSet.add(appModel.activityPackage + "|" + appModel.user.toString())
         }
         prefs.hiddenApps = newSet
-        getAppList(includeHiddenApps = (flag == AppDrawerFlag.HiddenApps))
+        getAppList(includeHiddenApps = (flag == AppDrawerFlag.HiddenApps), flag = flag)
         getHiddenApps()
     }
 }

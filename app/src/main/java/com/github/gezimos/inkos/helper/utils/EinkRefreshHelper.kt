@@ -5,8 +5,8 @@ import android.os.Handler
 import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
-import com.github.gezimos.inkos.data.Prefs
 import com.github.gezimos.inkos.data.Constants
+import com.github.gezimos.inkos.data.Prefs
 import com.github.gezimos.inkos.helper.isSystemInDarkMode
 
 object EinkRefreshHelper {
@@ -22,31 +22,80 @@ object EinkRefreshHelper {
         context: Context,
         prefs: Prefs,
         rootView: ViewGroup?,
-        delayMs: Long = 120,
+        delayMs: Int = 100,
         useActivityRoot: Boolean = false
     ) {
         if (!prefs.einkRefreshEnabled) return
-        val isDark = when (prefs.appTheme) {
-            Constants.Theme.Light -> false
-            Constants.Theme.Dark -> true
-            Constants.Theme.System -> isSystemInDarkMode(context)
+
+        // Ensure UI operations are performed on the main thread
+        Handler(Looper.getMainLooper()).post {
+            val isDark = when (prefs.appTheme) {
+                Constants.Theme.Light -> false
+                Constants.Theme.Dark -> true
+                Constants.Theme.System -> isSystemInDarkMode(context)
+            }
+            val overlayColor =
+                if (isDark) android.graphics.Color.WHITE else android.graphics.Color.BLACK
+            val overlay = View(context)
+            overlay.setBackgroundColor(overlayColor)
+            overlay.layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            val parent = if (useActivityRoot) {
+                (context as? android.app.Activity)?.window?.decorView as? ViewGroup
+            } else {
+                rootView
+            }
+            parent?.addView(overlay)
+            overlay.bringToFront()
+            Handler(Looper.getMainLooper()).postDelayed({
+                parent?.removeView(overlay)
+            }, delayMs.toLong())
         }
-        val overlayColor = if (isDark) android.graphics.Color.WHITE else android.graphics.Color.BLACK
-        val overlay = View(context)
-        overlay.setBackgroundColor(overlayColor)
-        overlay.layoutParams = ViewGroup.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT
-        )
-        val parent = if (useActivityRoot) {
-            (context as? android.app.Activity)?.window?.decorView as? ViewGroup
-        } else {
-            rootView
+    }
+
+    /**
+     * Forces an E-Ink refresh by flashing an overlay, bypassing the einkRefreshEnabled preference.
+     * This is useful for gesture-triggered refreshes that should work independently of the global setting.
+     * @param context Context for theme and color resolution
+     * @param prefs Prefs instance for theme resolution
+     * @param rootView The ViewGroup to add the overlay to
+     * @param delayMs How long the overlay should be visible (ms)
+     * @param useActivityRoot If true, will try to add overlay to activity decorView (for fragments with Compose root)
+     */
+    fun refreshEinkForced(
+        context: Context,
+        prefs: Prefs,
+        rootView: ViewGroup?,
+        delayMs: Int = 100,
+        useActivityRoot: Boolean = false
+    ) {
+        // Ensure UI operations are performed on the main thread
+        Handler(Looper.getMainLooper()).post {
+            val isDark = when (prefs.appTheme) {
+                Constants.Theme.Light -> false
+                Constants.Theme.Dark -> true
+                Constants.Theme.System -> isSystemInDarkMode(context)
+            }
+            val overlayColor =
+                if (isDark) android.graphics.Color.WHITE else android.graphics.Color.BLACK
+            val overlay = View(context)
+            overlay.setBackgroundColor(overlayColor)
+            overlay.layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            val parent = if (useActivityRoot) {
+                (context as? android.app.Activity)?.window?.decorView as? ViewGroup
+            } else {
+                rootView
+            }
+            parent?.addView(overlay)
+            overlay.bringToFront()
+            Handler(Looper.getMainLooper()).postDelayed({
+                parent?.removeView(overlay)
+            }, delayMs.toLong())
         }
-        parent?.addView(overlay)
-        overlay.bringToFront()
-        Handler(Looper.getMainLooper()).postDelayed({
-            parent?.removeView(overlay)
-        }, delayMs)
     }
 }

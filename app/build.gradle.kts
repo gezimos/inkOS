@@ -16,7 +16,7 @@ android {
         minSdk = 26
         targetSdk = 36
         versionCode = 101001
-        versionName = "0.1"
+        versionName = "0.2"
     }
 
     buildTypes {
@@ -131,6 +131,10 @@ dependencies {
     implementation("com.google.accompanist:accompanist-pager:0.34.0")
     implementation("com.google.accompanist:accompanist-pager-indicators:0.34.0")
     implementation("androidx.compose.runtime:runtime-livedata:1.6.0") // <-- Add this line for observeAsState with LiveData
+
+    // Image loading libraries
+    implementation("com.github.bumptech.glide:glide:4.16.0") // Glide for View-based fragments
+    // implementation("io.coil-kt:coil-compose:2.5.0") // Coil removed: now using native image loading
 
     // Text similarity and JSON handling
     implementation(libs.commons.text)

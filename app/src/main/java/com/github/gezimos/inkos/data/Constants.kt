@@ -15,6 +15,10 @@ interface EnumOption {
 
 
 object Constants {
+    // E-ink refresh delay (ms)
+    const val DEFAULT_EINK_REFRESH_DELAY = 100
+    const val MIN_EINK_REFRESH_DELAY = 25
+    const val MAX_EINK_REFRESH_DELAY = 1500
 
     const val REQUEST_SET_DEFAULT_HOME = 777
 
@@ -50,23 +54,29 @@ object Constants {
     const val MIN_TEXT_PADDING = 0
     const val MAX_TEXT_PADDING = 80
 
-    // Restore for clock_date_size (not gap)
+    // Restore for date_size (not gap)
     const val MIN_CLOCK_SIZE = 12
     const val MAX_CLOCK_SIZE = 80
 
-    // Update SWIPE_DISTANCE_THRESHOLD dynamically based on screen dimensions
-    var SWIPE_DISTANCE_THRESHOLD = 0f
-
     // Update MAX_HOME_PAGES dynamically based on MAX_HOME_APPS
-    var MAX_HOME_PAGES = 10
+    const val DEFAULT_MAX_HOME_PAGES = 10
+    var MAX_HOME_PAGES = DEFAULT_MAX_HOME_PAGES
+
+    // Default widget margins
+    const val DEFAULT_TOP_WIDGET_MARGIN = 35
+    const val DEFAULT_BOTTOM_WIDGET_MARGIN = 50
+
+    // Max widget margins
+    const val MAX_TOP_WIDGET_MARGIN = 200
+    const val MAX_BOTTOM_WIDGET_MARGIN = 200
 
     fun updateMaxHomePages(context: Context) {
         val prefs = Prefs(context)
 
-        MAX_HOME_PAGES = if (prefs.homeAppsNum < MAX_HOME_PAGES) {
+        MAX_HOME_PAGES = if (prefs.homeAppsNum < DEFAULT_MAX_HOME_PAGES) {
             prefs.homeAppsNum
         } else {
-            MAX_HOME_PAGES
+            DEFAULT_MAX_HOME_PAGES
         }
 
     }
@@ -87,28 +97,41 @@ object Constants {
         SetSwipeRight,
         SetClickClock,
         SetDoubleTap,
+        SetClickDate,
+        SetQuoteWidget,
 
     }
 
     enum class Action : EnumOption {
-        OpenApp,
-        TogglePrivateSpace,
-        NextPage,
-        PreviousPage,
-        RestartApp,
-        OpenNotificationsScreen,
-        OpenNotificationsScreenAlt, // Renamed from OpenLettersScreen
-        Disabled;
+    Disabled,
+    OpenApp,
+    OpenAppDrawer,
+    OpenNotificationsScreen,
+    EinkRefresh,
+    Brightness, // New action for brightness control
+    LockScreen,
+    ShowRecents,
+    OpenQuickSettings,
+    OpenPowerDialog,
+    RestartApp,
+    ExitLauncher,
+    TogglePrivateSpace;
 
         fun getString(context: Context): String {
             return when (this) {
                 OpenApp -> context.getString(R.string.open_app)
                 TogglePrivateSpace -> context.getString(R.string.private_space)
-                NextPage -> context.getString(R.string.next_page)
-                PreviousPage -> context.getString(R.string.previous_page)
+                // NextPage/PreviousPage removed
                 RestartApp -> context.getString(R.string.restart_launcher)
                 OpenNotificationsScreen -> context.getString(R.string.notifications_screen_title)
-                OpenNotificationsScreenAlt -> context.getString(R.string.notifications_screen_title) // Use same string for alt
+                OpenAppDrawer -> context.getString(R.string.app_drawer)
+                EinkRefresh -> context.getString(R.string.eink_refresh)
+                ExitLauncher -> context.getString(R.string.settings_exit_inkos_title)
+                LockScreen -> context.getString(R.string.lock_screen)
+                ShowRecents -> context.getString(R.string.show_recents)
+                OpenQuickSettings -> context.getString(R.string.quick_settings)
+                OpenPowerDialog -> context.getString(R.string.power_dialog)
+                Brightness -> "Brightness" // Temporary string, add to strings.xml later
                 Disabled -> context.getString(R.string.disabled)
             }
         }
@@ -118,11 +141,17 @@ object Constants {
             return when (this) {
                 OpenApp -> stringResource(R.string.open_app)
                 TogglePrivateSpace -> stringResource(R.string.private_space)
-                NextPage -> stringResource(R.string.next_page)
-                PreviousPage -> stringResource(R.string.previous_page)
+                // NextPage/PreviousPage removed
                 RestartApp -> stringResource(R.string.restart_launcher)
                 OpenNotificationsScreen -> stringResource(R.string.notifications_screen_title)
-                OpenNotificationsScreenAlt -> stringResource(R.string.notifications_screen_title)
+                OpenAppDrawer -> stringResource(R.string.app_drawer)
+                EinkRefresh -> stringResource(R.string.eink_refresh)
+                ExitLauncher -> stringResource(R.string.settings_exit_inkos_title)
+                LockScreen -> stringResource(R.string.lock_screen)
+                ShowRecents -> stringResource(R.string.show_recents)
+                OpenQuickSettings -> stringResource(R.string.quick_settings)
+                OpenPowerDialog -> stringResource(R.string.power_dialog)
+                Brightness -> "Brightness" // Temporary string, add to strings.xml later
                 Disabled -> stringResource(R.string.disabled)
             }
         }
@@ -155,10 +184,11 @@ object Constants {
 
     enum class FontFamily : EnumOption {
         System,
-        Hoog,
+        SpaceGrotesk,
+        PlusJakarta,
         Merriweather,
-        Osdmono,
         Manrope,
+        Hoog,
         Custom; // Add Custom for user-uploaded font
 
         fun getFont(context: Context, customPath: String? = null): Typeface? {
@@ -181,21 +211,23 @@ object Constants {
                     } else getTrueSystemFont()
                 }
 
-                Hoog -> ResourcesCompat.getFont(context, R.font.hoog)
+                SpaceGrotesk -> ResourcesCompat.getFont(context, R.font.spacegrotesk)
+                PlusJakarta -> ResourcesCompat.getFont(context, R.font.plusjakartasansaitalic)
                 Merriweather -> ResourcesCompat.getFont(context, R.font.merriweather)
-                Osdmono -> ResourcesCompat.getFont(context, R.font.osdmono)
                 Manrope -> ResourcesCompat.getFont(context, R.font.manropemedium)
+                Hoog -> ResourcesCompat.getFont(context, R.font.hoog)
             }
         }
 
         fun getString(context: Context): String {
             return when (this) {
                 System -> context.getString(R.string.system_default)
-                Custom -> "Custom Font"
-                Hoog -> context.getString(R.string.settings_font_hoog)
+                SpaceGrotesk -> "Space Grotesk"
+                PlusJakarta -> "Plus Jakarta"
                 Merriweather -> context.getString(R.string.settings_font_merriweather)
-                Osdmono -> context.getString(R.string.settings_font_osdmono)
                 Manrope -> "Manrope Medium"
+                Hoog -> context.getString(R.string.settings_font_hoog)
+                Custom -> "Custom Font"
             }
         }
 
@@ -208,23 +240,18 @@ object Constants {
                     path.substringAfterLast('/').take(24) to path
                 }
             }
-
-            // Centralized: get the correct custom font path for each widget/context
-            fun getCustomFontPathForWidget(context: Context, widget: String): String? {
-                val prefs = Prefs(context)
-                return prefs.getCustomFontPath(widget)
-            }
         }
 
         @Composable
         override fun string(): String {
             return when (this) {
                 System -> stringResource(R.string.system_default)
-                Custom -> "Custom Font"
-                Hoog -> stringResource(R.string.settings_font_hoog)
+                SpaceGrotesk -> "Space Grotesk"
+                PlusJakarta -> "Plus Jakarta"
                 Merriweather -> stringResource(R.string.settings_font_merriweather)
-                Osdmono -> stringResource(R.string.settings_font_osdmono)
                 Manrope -> "Manrope Medium"
+                Hoog -> stringResource(R.string.settings_font_hoog)
+                Custom -> "Custom Font"
             }
         }
     }

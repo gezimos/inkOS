@@ -12,7 +12,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_marginHorizontal="22dp"
-        android:layout_marginVertical="24dp"
+        android:layout_marginTop="24dp"
         android:orientation="vertical"
         tools:ignore="UselessParent"
         tools:visibility="visible">
@@ -22,7 +22,7 @@
             style="@style/TextDefault"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginVertical="24dp"
+            android:layout_marginBottom="24dp"
             android:textSize="@dimen/date_size" />
 
         <!-- Home apps-->

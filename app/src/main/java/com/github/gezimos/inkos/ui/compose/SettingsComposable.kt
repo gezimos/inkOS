@@ -20,8 +20,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.Switch
-import androidx.compose.material.SwitchDefaults
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -179,7 +177,11 @@ object SettingsComposable {
                 .then(
                     if (isFocused) Modifier.background(focusColor) else Modifier
                 )
-                .clickable(onClick = onClick, interactionSource = interactionSource, indication = null)
+                .clickable(
+                    onClick = onClick,
+                    interactionSource = interactionSource,
+                    indication = null
+                )
                 .padding(horizontal = SettingsTheme.color.horizontalPadding)
                 .padding(vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -243,6 +245,68 @@ object SettingsComposable {
     }
 
     @Composable
+    fun SettingsItem(
+        text: String,
+        modifier: Modifier = Modifier,
+        fontSize: TextUnit = TextUnit.Unspecified,
+        fontColor: Color = SettingsTheme.typography.title.color
+    ) {
+        Text(
+            text = text,
+            style = SettingsTheme.typography.title,
+            fontSize = if (fontSize.isSpecified) fontSize else SettingsTheme.typography.title.fontSize,
+            color = fontColor,
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(horizontal = SettingsTheme.color.horizontalPadding)
+                .padding(vertical = 12.dp)
+        )
+    }
+
+    @Composable
+    fun CustomToggleSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+        val circleDiameter = 9.8.dp
+        val circleBorder = 2.5.dp
+        val lineWidth = 14.5.dp
+        val lineHeight = 2.22.dp
+
+        val switchColor = SettingsTheme.typography.title.color
+
+        Row(
+            modifier = Modifier
+                .clickable { onCheckedChange(!checked) }
+                .padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (!checked) {
+                Box(
+                    modifier = Modifier
+                        .size(circleDiameter)
+                        .border(circleBorder, switchColor, CircleShape)
+                )
+                Box(
+                    modifier = Modifier
+                        .width(lineWidth)
+                        .height(lineHeight)
+                        .background(switchColor)
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .width(lineWidth)
+                        .height(lineHeight)
+                        .background(switchColor)
+                )
+                Box(
+                    modifier = Modifier
+                        .size(circleDiameter)
+                        .background(switchColor, CircleShape)
+                )
+            }
+        }
+    }
+
+    @Composable
     fun SettingsSwitch(
         text: String,
         fontSize: TextUnit = TextUnit.Unspecified,
@@ -261,7 +325,12 @@ object SettingsComposable {
                 .then(
                     if (isFocused) Modifier.background(focusColor) else Modifier
                 )
-                .clickable(enabled = enabled, onClick = { onCheckedChange(!defaultState) }, interactionSource = interactionSource, indication = null)
+                .clickable(
+                    enabled = enabled,
+                    onClick = { onCheckedChange(!defaultState) },
+                    interactionSource = interactionSource,
+                    indication = null
+                )
                 .padding(horizontal = SettingsTheme.color.horizontalPadding),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
@@ -278,16 +347,9 @@ object SettingsComposable {
                     SettingsTheme.typography.title.color
                 } else Color.Gray
             )
-            Switch(
+            CustomToggleSwitch(
                 checked = defaultState,
-                onCheckedChange = { onCheckedChange(it) },
-                enabled = enabled,
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = SettingsTheme.color.settings,
-                    checkedTrackColor = SettingsTheme.color.settings.copy(alpha = 0.5f),
-                    uncheckedThumbColor = SettingsTheme.color.settings,
-                    uncheckedTrackColor = Color.Gray
-                )
+                onCheckedChange = { onCheckedChange(it) }
             )
         }
     }
@@ -311,7 +373,12 @@ object SettingsComposable {
                 .then(
                     if (isFocused) Modifier.background(focusColor) else Modifier
                 )
-                .clickable(enabled = enabled, onClick = onClick, interactionSource = interactionSource, indication = null)
+                .clickable(
+                    enabled = enabled,
+                    onClick = onClick,
+                    interactionSource = interactionSource,
+                    indication = null
+                )
                 .padding(vertical = 16.dp)
                 .padding(horizontal = SettingsTheme.color.horizontalPadding),
             verticalAlignment = Alignment.CenterVertically
@@ -352,7 +419,12 @@ object SettingsComposable {
                 .then(
                     if (isFocused) Modifier.background(focusColor) else Modifier
                 )
-                .clickable(enabled = enabled, onClick = onClick, interactionSource = interactionSource, indication = null)
+                .clickable(
+                    enabled = enabled,
+                    onClick = onClick,
+                    interactionSource = interactionSource,
+                    indication = null
+                )
                 .padding(vertical = 12.dp)
                 .padding(horizontal = SettingsTheme.color.horizontalPadding),
             verticalAlignment = Alignment.CenterVertically

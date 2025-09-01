@@ -22,14 +22,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.TextUnit
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.sp
 import androidx.core.os.bundleOf
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
-import com.github.gezimos.common.isGestureNavigationEnabled
 import com.github.gezimos.inkos.MainViewModel
 import com.github.gezimos.inkos.R
 import com.github.gezimos.inkos.data.Constants
@@ -98,13 +96,11 @@ class FeaturesFragment : Fragment() {
         // Add sticky header ComposeView
         val headerView = androidx.compose.ui.platform.ComposeView(context).apply {
             setContent {
-                val density = androidx.compose.ui.platform.LocalDensity.current
-                val bottomInsetDp = with(density) { bottomInsetPx.toDp() }
                 SettingsTheme(isDark) {
                     Column(Modifier.fillMaxWidth()) {
                         PageHeader(
                             iconRes = R.drawable.ic_back,
-                            title = stringResource(R.string.features_settings_title),
+                            title = stringResource(R.string.settings_home_title),
                             onClick = { findNavController().popBackStack() },
                             showStatusBar = prefs.showStatusBar,
                             pageIndicator = {
@@ -118,9 +114,6 @@ class FeaturesFragment : Fragment() {
                         )
                         SolidSeparator(isDark = isDark)
                         Spacer(modifier = Modifier.height(SettingsTheme.color.horizontalPadding))
-                        if (bottomInsetDp > 0.dp) {
-                            Spacer(modifier = Modifier.height(bottomInsetDp))
-                        }
                     }
                 }
             }
@@ -134,15 +127,10 @@ class FeaturesFragment : Fragment() {
             addView(
                 androidx.compose.ui.platform.ComposeView(context).apply {
                     setContent {
-                        val density = androidx.compose.ui.platform.LocalDensity.current
-                        val bottomInsetDp = with(density) { bottomInsetPx.toDp() }
                         SettingsTheme(isDark) {
                             Box(Modifier.fillMaxSize()) {
                                 Column {
                                     FeaturesSettingsAllInOne(settingsSize.sp, isDark)
-                                    if (bottomInsetDp > 0.dp) {
-                                        Spacer(modifier = Modifier.height(bottomInsetDp))
-                                    }
                                 }
                             }
                         }
@@ -164,38 +152,22 @@ class FeaturesFragment : Fragment() {
             )
         )
 
-        // --- Calculate pages and listen for scroll changes ---
-        fun getCurrentPageIndex(
-            scrollY: Int,
-            viewportHeight: Int,
-            contentHeight: Int,
-            pageCount: Int
-        ): Int {
-            if (contentHeight <= viewportHeight) return 0
-            val overlap = (viewportHeight * 0.2).toInt()
-            val scrollStep = viewportHeight - overlap
-            val maxScroll = (contentHeight - viewportHeight).coerceAtLeast(1)
-            val clampedScrollY = scrollY.coerceIn(0, maxScroll)
-            val page = Math.round(clampedScrollY.toFloat() / scrollStep)
-            return page.coerceIn(0, pageCount - 1)
+        // Apply bottom padding to the root layout to prevent scroll view from going under navbar
+        rootLayout.post {
+            rootLayout.setPadding(0, 0, 0, bottomInsetPx)
+            rootLayout.clipToPadding = false
         }
-        nestedScrollView.viewTreeObserver.addOnGlobalLayoutListener {
-            val contentHeight = nestedScrollView.getChildAt(0)?.height ?: 1
-            val viewportHeight = nestedScrollView.height.takeIf { it > 0 } ?: 1
-            val overlap = (viewportHeight * 0.2).toInt()
-            val scrollStep = viewportHeight - overlap
-            val pages =
-                Math.ceil(((contentHeight - viewportHeight).toDouble() / scrollStep.toDouble()))
-                    .toInt() + 1
+
+        // Use EinkScrollBehavior callback to update page indicator reliably (e-ink friendly)
+        val scrollBehavior = com.github.gezimos.inkos.helper.utils.EinkScrollBehavior(context) { page, pages ->
             pageCount[0] = pages
-            val scrollY = nestedScrollView.scrollY
-            currentPage[0] = getCurrentPageIndex(scrollY, viewportHeight, contentHeight, pages)
+            currentPage[0] = page
             headerView.setContent {
                 SettingsTheme(isDark) {
                     Column(Modifier.fillMaxWidth()) {
                         PageHeader(
                             iconRes = R.drawable.ic_back,
-                            title = stringResource(R.string.features_settings_title),
+                            title = stringResource(R.string.settings_home_title),
                             onClick = { findNavController().popBackStack() },
                             showStatusBar = prefs.showStatusBar,
                             pageIndicator = {
@@ -213,39 +185,7 @@ class FeaturesFragment : Fragment() {
                 }
             }
         }
-        nestedScrollView.setOnScrollChangeListener { _, _, scrollY, _, _ ->
-            val contentHeight = nestedScrollView.getChildAt(0)?.height ?: 1
-            val viewportHeight = nestedScrollView.height.takeIf { it > 0 } ?: 1
-            val overlap = (viewportHeight * 0.2).toInt()
-            val scrollStep = viewportHeight - overlap
-            val pages =
-                Math.ceil(((contentHeight - viewportHeight).toDouble() / scrollStep.toDouble()))
-                    .toInt() + 1
-            pageCount[0] = pages
-            currentPage[0] = getCurrentPageIndex(scrollY, viewportHeight, contentHeight, pages)
-            headerView.setContent {
-                SettingsTheme(isDark) {
-                    Column(Modifier.fillMaxWidth()) {
-                        PageHeader(
-                            iconRes = R.drawable.ic_back,
-                            title = stringResource(R.string.features_settings_title),
-                            onClick = { findNavController().popBackStack() },
-                            showStatusBar = prefs.showStatusBar,
-                            pageIndicator = {
-                                com.github.gezimos.inkos.ui.compose.SettingsComposable.PageIndicator(
-                                    currentPage = currentPage[0],
-                                    pageCount = pageCount[0],
-                                    titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else TextUnit.Unspecified
-                                )
-                            },
-                            titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else TextUnit.Unspecified
-                        )
-                        SolidSeparator(isDark = isDark)
-                        Spacer(modifier = Modifier.height(SettingsTheme.color.horizontalPadding))
-                    }
-                }
-            }
-        }
+        scrollBehavior.attachToScrollView(nestedScrollView)
         return rootLayout
     }
 
@@ -256,11 +196,27 @@ class FeaturesFragment : Fragment() {
         var selectedHomeAppsNum by remember { mutableIntStateOf(prefs.homeAppsNum) }
         var selectedHomePagesNum by remember { mutableIntStateOf(prefs.homePagesNum) }
         var toggledHomePager by remember { mutableStateOf(prefs.homePager) }
+        var toggledHomeReset by remember { mutableStateOf(prefs.homeReset) }
         var toggledShowClock by remember { mutableStateOf(prefs.showClock) }
-        var toggledShowBattery by remember { mutableStateOf(prefs.showBattery) }
+        var toggledShowDate by remember { mutableStateOf(prefs.showDate) }
+        var toggledShowDateBatteryCombo by remember { mutableStateOf(prefs.showDateBatteryCombo) }
+        var toggledShowQuote by remember { mutableStateOf(prefs.showQuote) }
+        var toggledShowAudioWidget by remember { mutableStateOf(prefs.showAudioWidgetEnabled) }
+        var quoteTextState by remember { mutableStateOf(prefs.quoteText) }
+        var appNameMode by remember {
+            mutableStateOf(
+                when {
+                    prefs.allCapsApps -> 2
+                    prefs.smallCapsApps -> 1
+                    else -> 0
+                }
+            )
+        }
         // Layout & Positioning section (moved from LookFeelFragment)
         var toggledExtendHomeAppsArea = remember { mutableStateOf(prefs.extendHomeAppsArea) }
         var selectedPaddingSize = remember { mutableStateOf(prefs.textPaddingSize) }
+        var selectedTopWidgetMargin = remember { mutableStateOf(prefs.topWidgetMargin) }
+        var selectedBottomWidgetMargin = remember { mutableStateOf(prefs.bottomWidgetMargin) }
         // Remove verticalScroll and isDark param, handled by parent ComposeView
         Column(modifier = Modifier.fillMaxWidth()) {
             FullLineSeparator(isDark)
@@ -289,6 +245,44 @@ class FeaturesFragment : Fragment() {
                 }
             )
             DashedSeparator(isDark)
+            SettingsSelect(
+                title = stringResource(R.string.top_widget_margin),
+                option = selectedTopWidgetMargin.value.toString(),
+                fontSize = titleFontSize,
+                onClick = {
+                    dialogBuilder.showSliderDialog(
+                        context = requireContext(),
+                        title = getString(R.string.top_widget_margin),
+                        minValue = 0,
+                        maxValue = Constants.MAX_TOP_WIDGET_MARGIN,
+                        currentValue = selectedTopWidgetMargin.value,
+                        onValueSelected = { newValue ->
+                            selectedTopWidgetMargin.value = newValue
+                            prefs.topWidgetMargin = newValue
+                        }
+                    )
+                }
+            )
+            DashedSeparator(isDark)
+            SettingsSelect(
+                title = stringResource(R.string.bottom_widget_margin),
+                option = selectedBottomWidgetMargin.value.toString(),
+                fontSize = titleFontSize,
+                onClick = {
+                    dialogBuilder.showSliderDialog(
+                        context = requireContext(),
+                        title = getString(R.string.bottom_widget_margin),
+                        minValue = 0,
+                        maxValue = Constants.MAX_BOTTOM_WIDGET_MARGIN,
+                        currentValue = selectedBottomWidgetMargin.value,
+                        onValueSelected = { newValue ->
+                            selectedBottomWidgetMargin.value = newValue
+                            prefs.bottomWidgetMargin = newValue
+                        }
+                    )
+                }
+            )
+            DashedSeparator(isDark)
             com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsHomeItem(
                 title = stringResource(R.string.reorder_apps),
                 onClick = {
@@ -299,21 +293,10 @@ class FeaturesFragment : Fragment() {
                 },
                 titleFontSize = titleFontSize
             )
-            DashedSeparator(isDark)
-            SettingsSwitch(
-                text = stringResource(R.string.extend_home_apps_area),
-                fontSize = titleFontSize,
-                defaultState = toggledExtendHomeAppsArea.value,
-                onCheckedChange = {
-                    toggledExtendHomeAppsArea.value = !prefs.extendHomeAppsArea
-                    prefs.extendHomeAppsArea = toggledExtendHomeAppsArea.value
-                }
-            )
             FullLineSeparator(isDark)
-            // --- End Layout & Positioning (moved) ---
             // Home Apps Section
             SettingsTitle(
-                text = stringResource(R.string.apps_on_home_screen),
+                text = stringResource(R.string.home_apps),
                 fontSize = titleFontSize,
             )
             FullLineSeparator(isDark)
@@ -332,10 +315,12 @@ class FeaturesFragment : Fragment() {
                             selectedHomeAppsNum = newHomeAppsNum
                             prefs.homeAppsNum = newHomeAppsNum
                             viewModel.homeAppsNum.value = newHomeAppsNum
-                            if (newHomeAppsNum in 1..<selectedHomePagesNum) {
-                                selectedHomePagesNum = newHomeAppsNum
-                                prefs.homePagesNum = newHomeAppsNum
-                                viewModel.homePagesNum.value = newHomeAppsNum
+                            // Recompute page limit after apps change
+                            Constants.updateMaxHomePages(requireContext())
+                            if (selectedHomePagesNum > Constants.MAX_HOME_PAGES) {
+                                selectedHomePagesNum = Constants.MAX_HOME_PAGES
+                                prefs.homePagesNum = selectedHomePagesNum
+                                viewModel.homePagesNum.value = selectedHomePagesNum
                             }
                         }
                     )
@@ -372,10 +357,20 @@ class FeaturesFragment : Fragment() {
                     prefs.homePager = toggledHomePager
                 }
             )
-            // Battery, Date, Time Section
+            DashedSeparator(isDark)
+            SettingsSwitch(
+                text = stringResource(R.string.home_page_reset),
+                fontSize = titleFontSize,
+                defaultState = toggledHomeReset,
+                onCheckedChange = {
+                    toggledHomeReset = !prefs.homeReset
+                    prefs.homeReset = toggledHomeReset
+                }
+            )
+            // Top Widgets Section
             FullLineSeparator(isDark = isDark)
             SettingsTitle(
-                text = stringResource(R.string.home_widgets),
+                text = stringResource(R.string.top_widgets),
                 fontSize = titleFontSize,
             )
             FullLineSeparator(isDark)
@@ -391,20 +386,96 @@ class FeaturesFragment : Fragment() {
             )
             DashedSeparator(isDark)
             SettingsSwitch(
-                text = stringResource(R.string.show_battery),
+                text = stringResource(R.string.show_date),
                 fontSize = titleFontSize,
-                defaultState = toggledShowBattery,
+                defaultState = toggledShowDate,
                 onCheckedChange = {
-                    toggledShowBattery = !prefs.showBattery
-                    prefs.showBattery = toggledShowBattery
+                    toggledShowDate = !prefs.showDate
+                    prefs.showDate = toggledShowDate
+                    // If date is turned off, also turn off date+battery combo
+                    if (!toggledShowDate && toggledShowDateBatteryCombo) {
+                        toggledShowDateBatteryCombo = false
+                        prefs.showDateBatteryCombo = false
+                    }
+                }
+            )
+            // Only show Date + Battery combo when Date is enabled
+            if (toggledShowDate) {
+                DashedSeparator(isDark)
+                SettingsSwitch(
+                    text = stringResource(R.string.show_date_battery_combo),
+                    fontSize = titleFontSize,
+                    defaultState = toggledShowDateBatteryCombo,
+                    onCheckedChange = {
+                        toggledShowDateBatteryCombo = !prefs.showDateBatteryCombo
+                        prefs.showDateBatteryCombo = toggledShowDateBatteryCombo
+                    }
+                )
+            }
+            // Bottom Widgets Section
+            FullLineSeparator(isDark = isDark)
+            SettingsTitle(
+                text = stringResource(R.string.bottom_widgets),
+                fontSize = titleFontSize,
+            )
+            FullLineSeparator(isDark)
+            SettingsSwitch(
+                text = stringResource(R.string.show_audio_widget),
+                fontSize = titleFontSize,
+                defaultState = toggledShowAudioWidget,
+                onCheckedChange = {
+                    toggledShowAudioWidget = !prefs.showAudioWidgetEnabled
+                    prefs.showAudioWidgetEnabled = toggledShowAudioWidget
+                }
+            )
+            DashedSeparator(isDark)
+            SettingsSwitch(
+                text = stringResource(R.string.show_quote),
+                fontSize = titleFontSize,
+                defaultState = toggledShowQuote,
+                onCheckedChange = {
+                    toggledShowQuote = !prefs.showQuote
+                    prefs.showQuote = toggledShowQuote
+                }
+            )
+            // Only show Quote text when Quote widget is enabled
+            if (toggledShowQuote) {
+                DashedSeparator(isDark)
+                SettingsSelect(
+                    title = stringResource(R.string.quote_text),
+                    option = if (quoteTextState.length > 12) "${quoteTextState.take(12)}..." else quoteTextState,
+                    fontSize = titleFontSize,
+                    onClick = {
+                        dialogBuilder.showInputDialog(
+                            context = requireContext(),
+                            title = getString(R.string.quote_text),
+                            initialValue = quoteTextState,
+                            onValueEntered = { newText ->
+                                prefs.quoteText = newText
+                                quoteTextState = newText
+                            }
+                        )
+                    }
+                )
+            }
+            FullLineSeparator(isDark)
+
+            // --- Others Section ---
+            SettingsTitle(
+                text = "Other Functions",
+                fontSize = titleFontSize,
+            )
+            FullLineSeparator(isDark)
+            SettingsSwitch(
+                text = stringResource(R.string.extend_home_apps_area),
+                fontSize = titleFontSize,
+                defaultState = toggledExtendHomeAppsArea.value,
+                onCheckedChange = {
+                    toggledExtendHomeAppsArea.value = !prefs.extendHomeAppsArea
+                    prefs.extendHomeAppsArea = toggledExtendHomeAppsArea.value
                 }
             )
             FullLineSeparator(isDark)
-            Spacer(modifier = Modifier.height(100.dp))
-            if (!isGestureNavigationEnabled(requireContext())) {
-                Spacer(modifier = Modifier.height(24.dp))
-
-            }
         }
     }
 
@@ -433,6 +504,7 @@ class FeaturesFragment : Fragment() {
             context?.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
         componentName = ComponentName(requireContext(), DeviceAdmin::class.java)
     }
+
 
     override fun onDestroyView() {
         super.onDestroyView()

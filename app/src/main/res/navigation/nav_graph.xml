@@ -5,6 +5,10 @@
     app:startDestination="@id/mainFragment">
 
     <fragment
+        android:id="@+id/bluetoothFragment"
+        android:name="com.github.gezimos.inkos.ui.BluetoothFragment"
+        android:label="BluetoothFragment" />
+    <fragment
         android:id="@+id/mainFragment"
         android:name="com.github.gezimos.inkos.ui.HomeFragment"
         android:label="mainFragment"
@@ -86,6 +90,10 @@
         <action
             android:id="@+id/action_settingsFragment_to_notificationSettingsFragment"
             app:destination="@id/notificationSettingsFragment" />
+
+        <action
+            android:id="@+id/action_settingsFragment_to_settingsDrawerFragment"
+            app:destination="@id/settingsDrawerFragment" />
     </fragment>
 
     <fragment
@@ -97,6 +105,12 @@
             android:id="@+id/action_settingsFeaturesFragment_to_appFavoriteFragment"
             app:destination="@id/appFavoriteFragment" />
     </fragment>
+
+    <fragment
+        android:id="@+id/settingsDrawerFragment"
+        android:name="com.github.gezimos.inkos.ui.settings.DrawerFragment"
+        android:label="DrawerFragment"
+        tools:layout="@layout/fragment_settings" />
 
     <fragment
         android:id="@+id/settingsLookFeelFragment"
@@ -134,5 +148,11 @@
         android:id="@+id/notificationSettingsFragment"
         android:name="com.github.gezimos.inkos.ui.settings.NotificationSettingsFragment"
         android:label="NotificationSettingsFragment"
+        tools:layout="@layout/fragment_settings" />
+
+    <fragment
+        android:id="@+id/extrasFragment"
+        android:name="com.github.gezimos.inkos.ui.settings.ExtrasFragment"
+        android:label="ExtrasFragment"
         tools:layout="@layout/fragment_settings" />
 </navigation>

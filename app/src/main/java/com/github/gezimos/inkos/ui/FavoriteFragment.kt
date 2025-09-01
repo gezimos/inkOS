@@ -9,6 +9,8 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.ItemTouchHelper
@@ -51,6 +53,20 @@ class FavoriteFragment : Fragment() {
         val backgroundColor = getHexForOpacity(prefs)
         binding.mainLayout.setBackgroundColor(backgroundColor)
 
+        // Set up window insets listener for navigation bar padding
+        var bottomInsetPx = 0
+        ViewCompat.setOnApplyWindowInsetsListener(binding.mainLayout) { v, insets ->
+            val navBarInset = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
+            bottomInsetPx = navBarInset
+            insets
+        }
+
+        // Apply bottom padding to prevent content from going under navigation bar
+        binding.mainLayout.post {
+            binding.mainLayout.setPadding(0, 0, 0, bottomInsetPx)
+            binding.mainLayout.clipToPadding = false
+        }
+
         viewModel = activity?.run {
             ViewModelProvider(this)[MainViewModel::class.java]
         } ?: throw Exception("Invalid Activity")
@@ -75,8 +91,13 @@ class FavoriteFragment : Fragment() {
                 recyclerView: RecyclerView,
                 viewHolder: RecyclerView.ViewHolder
             ): Int {
-                val dragFlags = ItemTouchHelper.UP or ItemTouchHelper.DOWN
-                return makeMovementFlags(dragFlags, 0)
+                // Only allow dragging app items, not separators
+                return if (viewHolder is FavoriteAdapter.AppViewHolder) {
+                    val dragFlags = ItemTouchHelper.UP or ItemTouchHelper.DOWN
+                    makeMovementFlags(dragFlags, 0)
+                } else {
+                    0 // No movement for separators
+                }
             }
 
             override fun onMove(
@@ -84,8 +105,13 @@ class FavoriteFragment : Fragment() {
                 source: RecyclerView.ViewHolder,
                 target: RecyclerView.ViewHolder
             ): Boolean {
-                val fromPosition = source.bindingAdapterPosition  // Use bindingAdapterPosition here
-                val toPosition = target.bindingAdapterPosition  // Use bindingAdapterPosition here
+                // Only allow moving between app items
+                if (source !is FavoriteAdapter.AppViewHolder || target !is FavoriteAdapter.AppViewHolder) {
+                    return false
+                }
+
+                val fromPosition = source.bindingAdapterPosition
+                val toPosition = target.bindingAdapterPosition
 
                 // Change the background color when the item is being dragged
                 source.itemView.setBackgroundColor(
@@ -114,11 +140,12 @@ class FavoriteFragment : Fragment() {
             ) {
                 super.onSelectedChanged(viewHolder, actionState)
 
-                viewHolder?.itemView?.setBackgroundColor(
-                    ContextCompat.getColor(viewHolder.itemView.context, R.color.hover_effect)
-                )
+                if (viewHolder is FavoriteAdapter.AppViewHolder) {
+                    viewHolder.itemView.setBackgroundColor(
+                        ContextCompat.getColor(viewHolder.itemView.context, R.color.hover_effect)
+                    )
+                }
             }
-
 
             override fun clearView(
                 recyclerView: RecyclerView,
@@ -126,12 +153,17 @@ class FavoriteFragment : Fragment() {
             ) {
                 // Reset the background color after dragging is finished
                 super.clearView(recyclerView, viewHolder)
-                viewHolder.itemView.setBackgroundColor(
-                    ContextCompat.getColor(
-                        viewHolder.itemView.context,
-                        R.color.transparent
+                if (viewHolder is FavoriteAdapter.AppViewHolder) {
+                    viewHolder.itemView.setBackgroundColor(
+                        ContextCompat.getColor(
+                            viewHolder.itemView.context,
+                            R.color.transparent
+                        )
                     )
-                )  // Set the background to transparent
+                }
+
+                // Finalize the move operation to rebuild display items with correct numbering
+                (recyclerView.adapter as FavoriteAdapter).finalizeMoveOperation()
             }
         }
 
@@ -162,7 +194,7 @@ class FavoriteFragment : Fragment() {
 
     private fun initObservers() {
         binding.pageName.apply {
-            text = getString(R.string.favorite_apps)
+            text = getString(R.string.reorder_apps)
             textSize = prefs.appSize * 1.1f
             setTextColor(prefs.appColor)
             // Set the font from prefs.appsFont

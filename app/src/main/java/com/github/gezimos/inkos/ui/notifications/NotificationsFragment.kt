@@ -46,10 +46,14 @@ import androidx.compose.ui.unit.sp
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.Fragment
+import android.view.KeyEvent
+import com.github.gezimos.common.showShortToast
 import androidx.lifecycle.Observer
 import androidx.navigation.fragment.findNavController
+// import coil.compose.AsyncImage (removed)
 import com.github.gezimos.inkos.data.Prefs
 import com.github.gezimos.inkos.services.NotificationManager
+import com.github.gezimos.inkos.helper.KeyMapperHelper
 import com.github.gezimos.inkos.style.SettingsTheme
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.FullLineSeparator
 import kotlinx.coroutines.launch
@@ -70,7 +74,9 @@ class NotificationsFragment : Fragment() {
             val isDark = when (prefs.appTheme) {
                 com.github.gezimos.inkos.data.Constants.Theme.Dark -> true
                 com.github.gezimos.inkos.data.Constants.Theme.Light -> false
-                com.github.gezimos.inkos.data.Constants.Theme.System -> com.github.gezimos.inkos.helper.isSystemInDarkMode(requireContext())
+                com.github.gezimos.inkos.data.Constants.Theme.System -> com.github.gezimos.inkos.helper.isSystemInDarkMode(
+                    requireContext()
+                )
             }
             val backgroundColor = Color(prefs.backgroundColor)
             SettingsTheme(isDark = isDark) {
@@ -84,120 +90,103 @@ class NotificationsFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         // Eink refresh: flash overlay if enabled
         com.github.gezimos.inkos.helper.utils.EinkRefreshHelper.refreshEink(
-            requireContext(), prefs, null, useActivityRoot = true
+            requireContext(), prefs, null, prefs.einkRefreshDelay, useActivityRoot = true
         )
         // Add DPAD up/down navigation for notifications
         view.isFocusable = true
         view.isFocusableInTouchMode = true
         view.requestFocus()
         view.setOnKeyListener { v, keyCode, event ->
-            if (event.action == android.view.KeyEvent.ACTION_DOWN) {
-                android.util.Log.d("NotificationsFragment", "Key event: $keyCode")
-                val composeView = v as? ComposeView
-                val pagerState = composeView?.getTag(0xdeadbeef.toInt()) as? androidx.compose.foundation.pager.PagerState
-                val coroutineScope = composeView?.getTag(0xcafebabe.toInt()) as? kotlinx.coroutines.CoroutineScope
-                // Store the last validNotifications in a tag for key actions
-                val validNotifications = (composeView?.getTag(0xabcdef01.toInt()) as? List<*>)
-                    ?.filterIsInstance<Pair<String, NotificationManager.ConversationNotification>>()
-                if (pagerState != null && coroutineScope != null && validNotifications != null) {
-                    when (keyCode) {
-                        android.view.KeyEvent.KEYCODE_DPAD_DOWN -> {
-                            coroutineScope.launch {
-                                if (pagerState.currentPage < pagerState.pageCount - 1) {
-                                    pagerState.scrollToPage(pagerState.currentPage + 1)
-                                    vibratePaging()
-                                } else if (pagerState.pageCount > 0) {
-                                    pagerState.scrollToPage(0)
-                                    vibratePaging()
-                                }
-                            }
-                            true
-                        }
-                        android.view.KeyEvent.KEYCODE_DPAD_UP -> {
-                            coroutineScope.launch {
-                                if (pagerState.currentPage > 0) {
-                                    pagerState.scrollToPage(pagerState.currentPage - 1)
-                                    vibratePaging()
-                                } else if (pagerState.pageCount > 0) {
-                                    pagerState.scrollToPage(pagerState.pageCount - 1)
-                                    vibratePaging()
-                                }
-                            }
-                            true
-                        }
-                        android.view.KeyEvent.KEYCODE_VOLUME_UP -> {
-                            if (prefs.useVolumeKeysForPages) {
-                                coroutineScope.launch {
-                                    if (pagerState.currentPage > 0) {
-                                        pagerState.scrollToPage(pagerState.currentPage - 1)
-                                        vibratePaging()
-                                    } else if (pagerState.pageCount > 0) {
-                                        pagerState.scrollToPage(pagerState.pageCount - 1)
-                                        vibratePaging()
-                                    }
-                                }
-                                true
-                            } else false
-                        }
-                        android.view.KeyEvent.KEYCODE_VOLUME_DOWN -> {
-                            if (prefs.useVolumeKeysForPages) {
-                                coroutineScope.launch {
-                                    if (pagerState.currentPage < pagerState.pageCount - 1) {
-                                        pagerState.scrollToPage(pagerState.currentPage + 1)
-                                        vibratePaging()
-                                    } else if (pagerState.pageCount > 0) {
-                                        pagerState.scrollToPage(0)
-                                        vibratePaging()
-                                    }
-                                }
-                                true
-                            } else false
-                        }
-                        android.view.KeyEvent.KEYCODE_DEL, 82 /* KEYCODE_MENU for QIN phones */ -> {
-                            // Dismiss notification
-                            val (pkg, notif) = validNotifications.getOrNull(pagerState.currentPage) ?: return@setOnKeyListener true
-                            NotificationManager.getInstance(requireContext())
-                                .removeConversationNotification(pkg, notif.conversationId)
-                            coroutineScope.launch {
-                                val nextPage = when {
-                                    pagerState.currentPage == validNotifications.lastIndex && pagerState.currentPage > 0 -> pagerState.currentPage - 1
-                                    pagerState.currentPage < validNotifications.lastIndex -> pagerState.currentPage
-                                    else -> 0
-                                }
-                                kotlinx.coroutines.delay(150)
-                                if (validNotifications.size > 1) {
-                                    pagerState.scrollToPage(nextPage)
-                                }
-                            }
-                            true
-                        }
-                        android.view.KeyEvent.KEYCODE_DPAD_CENTER, android.view.KeyEvent.KEYCODE_ENTER -> {
-                            // Open notification
-                            val (pkg, notif) = validNotifications.getOrNull(pagerState.currentPage) ?: return@setOnKeyListener true
-                            try {
-                                val context = requireContext()
-                                val launchIntent = context.packageManager.getLaunchIntentForPackage(pkg)
-                                if (launchIntent != null) {
-                                    context.startActivity(launchIntent)
-                                }
-                            } catch (_: Exception) {}
-                            NotificationManager.getInstance(requireContext())
-                                .removeConversationNotification(pkg, notif.conversationId)
-                            coroutineScope.launch {
-                                if (pagerState.currentPage == validNotifications.lastIndex && pagerState.currentPage > 0) {
-                                    pagerState.scrollToPage(pagerState.currentPage - 1)
-                                }
-                            }
-                            true
-                        }
-                        else -> false
+            // Show quick hint when user presses left/right dpad keys to explain actions
+            if (event.action == KeyEvent.ACTION_DOWN) {
+                when (keyCode) {
+                    KeyEvent.KEYCODE_DPAD_LEFT -> {
+                        showShortToast("Dismiss: Del, C, #1,")
+                        return@setOnKeyListener true
                     }
-                } else {
-                    android.util.Log.d("NotificationsFragment", "pagerState, coroutineScope, or validNotifications is null")
-                    false
+                    KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                        showShortToast("Open: Enter, Dpad Center, #3")
+                        return@setOnKeyListener true
+                    }
                 }
-            } else {
-                false
+            }
+
+            val mapped = KeyMapperHelper.mapNotificationsKey(prefs, keyCode, event)
+            if (mapped == KeyMapperHelper.NotificationKeyAction.None) return@setOnKeyListener false
+
+            val composeView = v as? ComposeView
+            val pagerState = composeView?.getTag(0xdeadbeef.toInt()) as? androidx.compose.foundation.pager.PagerState
+            val coroutineScope = composeView?.getTag(0xcafebabe.toInt()) as? kotlinx.coroutines.CoroutineScope
+            val validNotifications = (composeView?.getTag(0xabcdef01.toInt()) as? List<*>)
+                ?.filterIsInstance<Pair<String, NotificationManager.ConversationNotification>>()
+
+            if (pagerState == null || coroutineScope == null || validNotifications == null) {
+                android.util.Log.d("NotificationsFragment", "pagerState, coroutineScope, or validNotifications is null")
+                return@setOnKeyListener false
+            }
+
+            when (mapped) {
+                KeyMapperHelper.NotificationKeyAction.PageDown -> {
+                    coroutineScope.launch {
+                        if (pagerState.currentPage < pagerState.pageCount - 1) {
+                            pagerState.scrollToPage(pagerState.currentPage + 1)
+                            vibratePaging()
+                        } else if (pagerState.pageCount > 0) {
+                            pagerState.scrollToPage(0)
+                            vibratePaging()
+                        }
+                    }
+                    true
+                }
+                KeyMapperHelper.NotificationKeyAction.PageUp -> {
+                    coroutineScope.launch {
+                        if (pagerState.currentPage > 0) {
+                            pagerState.scrollToPage(pagerState.currentPage - 1)
+                            vibratePaging()
+                        } else if (pagerState.pageCount > 0) {
+                            pagerState.scrollToPage(pagerState.pageCount - 1)
+                            vibratePaging()
+                        }
+                    }
+                    true
+                }
+                KeyMapperHelper.NotificationKeyAction.Dismiss -> {
+                    // Dismiss current notification
+                    val (pkg, notif) = validNotifications.getOrNull(pagerState.currentPage) ?: return@setOnKeyListener true
+                    NotificationManager.getInstance(requireContext())
+                        .removeConversationNotification(pkg, notif.conversationId)
+                    coroutineScope.launch {
+                        val nextPage = when {
+                            pagerState.currentPage == validNotifications.lastIndex && pagerState.currentPage > 0 -> pagerState.currentPage - 1
+                            pagerState.currentPage < validNotifications.lastIndex -> pagerState.currentPage
+                            else -> 0
+                        }
+                        kotlinx.coroutines.delay(150)
+                        if (validNotifications.size > 1) {
+                            pagerState.scrollToPage(nextPage)
+                        }
+                    }
+                    true
+                }
+                KeyMapperHelper.NotificationKeyAction.Open -> {
+                    val (pkg, notif) = validNotifications.getOrNull(pagerState.currentPage) ?: return@setOnKeyListener true
+                    try {
+                        val context = requireContext()
+                        val launchIntent = context.packageManager.getLaunchIntentForPackage(pkg)
+                        if (launchIntent != null) context.startActivity(launchIntent)
+                    } catch (_: Exception) {
+                    }
+                    NotificationManager.getInstance(requireContext())
+                        .removeConversationNotification(pkg, notif.conversationId)
+                    coroutineScope.launch {
+                        if (pagerState.currentPage == validNotifications.lastIndex && pagerState.currentPage > 0) {
+                            pagerState.scrollToPage(pagerState.currentPage - 1)
+                        }
+                    }
+                    true
+                }
+                // Ignore OpenSettings for notifications; keep navigation within notifications only
+                else -> false
             }
         }
     }
@@ -205,22 +194,35 @@ class NotificationsFragment : Fragment() {
     @Composable
     fun NotificationsScreen(backgroundColor: Color, composeView: ComposeView) {
         val notificationsMap by rememberNotifications()
-        // Use notification-specific font and size settings
-        val notifFont = prefs.getFontForContext("notifications")
-            .getFont(requireContext(), prefs.getCustomFontPathForContext("notifications"))
-        val notifFontFamily = notifFont?.let { FontFamily(it) } ?: FontFamily.Default
-        val notifTextSize = prefs.notificationsTextSize.sp
-        val notifTitle = prefs.lettersTitle
-        val notifTitleFont = prefs.lettersTitleFont.getFont(
-            requireContext(),
-            prefs.getCustomFontPath("lettersTitle")
-        )
-        val notifTitleFontFamily = notifTitleFont?.let { FontFamily(it) } ?: FontFamily.Default
-        val notifTitleSize = prefs.lettersTitleSize.sp
-        val isDark = when (prefs.appTheme) {
-            com.github.gezimos.inkos.data.Constants.Theme.Dark -> true
-            com.github.gezimos.inkos.data.Constants.Theme.Light -> false
-            com.github.gezimos.inkos.data.Constants.Theme.System -> com.github.gezimos.inkos.helper.isSystemInDarkMode(requireContext())
+        
+        // Cache font loading to avoid repeated operations
+        val notifFontFamily = remember {
+            val notifFont = prefs.getFontForContext("notifications")
+                .getFont(requireContext(), prefs.getCustomFontPathForContext("notifications"))
+            notifFont?.let { FontFamily(it) } ?: FontFamily.Default
+        }
+        
+        val notifTextSize = remember { prefs.notificationsTextSize.sp }
+        val notifTitle = remember { prefs.lettersTitle }
+        
+        val notifTitleFontFamily = remember {
+            val notifTitleFont = prefs.lettersTitleFont.getFont(
+                requireContext(),
+                prefs.getCustomFontPath("lettersTitle")
+            )
+            notifTitleFont?.let { FontFamily(it) } ?: FontFamily.Default
+        }
+        
+        val notifTitleSize = remember { prefs.lettersTitleSize.sp }
+        
+        val isDark = remember {
+            when (prefs.appTheme) {
+                com.github.gezimos.inkos.data.Constants.Theme.Dark -> true
+                com.github.gezimos.inkos.data.Constants.Theme.Light -> false
+                com.github.gezimos.inkos.data.Constants.Theme.System -> com.github.gezimos.inkos.helper.isSystemInDarkMode(
+                    requireContext()
+                )
+            }
         }
 
         // Check if notifications are enabled
@@ -241,20 +243,16 @@ class NotificationsFragment : Fragment() {
         )
         val coroutineScope = rememberCoroutineScope()
 
-        // Attach pagerState and coroutineScope to the correct ComposeView instance
-        DisposableEffect(pagerState, coroutineScope, composeView) {
+        // Optimize: Single DisposableEffect for all ComposeView tags to reduce overhead
+        DisposableEffect(pagerState, coroutineScope, validNotifications, composeView) {
             composeView.setTag(0xdeadbeef.toInt(), pagerState)
             composeView.setTag(0xcafebabe.toInt(), coroutineScope)
+            composeView.setTag(0xabcdef01.toInt(), validNotifications)
             onDispose {
                 composeView.setTag(0xdeadbeef.toInt(), null)
                 composeView.setTag(0xcafebabe.toInt(), null)
+                composeView.setTag(0xabcdef01.toInt(), null)
             }
-        }
-
-        // Store validNotifications in ComposeView tag for key actions
-        DisposableEffect(validNotifications, composeView) {
-            composeView.setTag(0xabcdef01.toInt(), validNotifications)
-            onDispose { composeView.setTag(0xabcdef01.toInt(), null) }
         }
 
         // Custom swipe handling for instant page change
@@ -318,9 +316,9 @@ class NotificationsFragment : Fragment() {
             }
         }
 
-        // Remove all bottom padding
-        val contentBottomPadding = 0.dp
-        val actionBarBottomPadding = 0.dp
+        // Apply navigation bar padding to bottom content
+        val contentBottomPadding = navBarPadding
+        val actionBarBottomPadding = navBarPadding
         val contentTopPadding = statusBarPadding
 
         Box(
@@ -328,6 +326,7 @@ class NotificationsFragment : Fragment() {
                 .fillMaxSize()
                 .background(backgroundColor)
         ) {
+
             if (validNotifications.isEmpty()) {
                 Column(
                     modifier = Modifier
@@ -482,14 +481,22 @@ class NotificationsFragment : Fragment() {
         if (prefs.useVibrationForPaging) {
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    vibrator.vibrate(android.os.VibrationEffect.createOneShot(30, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+                    vibrator.vibrate(
+                        android.os.VibrationEffect.createOneShot(
+                            30,
+                            android.os.VibrationEffect.DEFAULT_AMPLITUDE
+                        )
+                    )
                 } else {
                     @Suppress("DEPRECATION")
                     vibrator.vibrate(30)
                 }
-            } catch (_: Exception) {}
+            } catch (_: Exception) {
+            }
         }
     }
+
+    // settings shortcut intentionally not supported from notifications
 
     @Composable
     private fun rememberNotifications(): State<Map<String, List<NotificationManager.ConversationNotification>>> {
@@ -523,47 +530,42 @@ class NotificationsFragment : Fragment() {
         isDark: Boolean
     ) {
         val context = requireContext()
-        // Improved title logic for group conversations:
-        val title = when {
-            !notif.conversationTitle.isNullOrBlank() && !notif.sender.isNullOrBlank() && notif.conversationTitle != notif.sender ->
-                notif.sender
-            !notif.conversationTitle.isNullOrBlank() -> notif.conversationTitle
-            !notif.sender.isNullOrBlank() -> notif.sender
-            else -> {
-                // Fallback to app label if no title or sender
-                val alias = Prefs(context).getAppAlias("app_alias_${packageName}")
-                if (alias.isNotEmpty()) {
-                    alias
-                } else {
-                    try {
-                        context.packageManager.getApplicationLabel(
-                            context.packageManager.getApplicationInfo(packageName, 0)
-                        ).toString()
-                    } catch (_: Exception) {
-                        packageName
-                    }
+        
+        // Cache expensive operations with remember
+        val appLabelInfo = remember(packageName) {
+            val prefs = Prefs(context)
+            val alias = prefs.getAppAlias("app_alias_${packageName}")
+            if (alias.isNotEmpty()) {
+                alias
+            } else {
+                try {
+                    context.packageManager.getApplicationLabel(
+                        context.packageManager.getApplicationInfo(packageName, 0)
+                    ).toString()
+                } catch (_: Exception) {
+                    packageName
                 }
             }
         }
-        val timeFormat = java.text.SimpleDateFormat("h:mm a", java.util.Locale.getDefault())
-        val timeString = timeFormat.format(notif.timestamp)
+        
+        // Improved title logic for group conversations
+        val title = remember(notif.conversationTitle, notif.sender) {
+            when {
+                !notif.conversationTitle.isNullOrBlank() && !notif.sender.isNullOrBlank() && notif.conversationTitle != notif.sender -> notif.sender
+                !notif.conversationTitle.isNullOrBlank() -> notif.conversationTitle
+                !notif.sender.isNullOrBlank() -> notif.sender
+                else -> appLabelInfo
+            }
+        }
+        
+        val timeString = remember(notif.timestamp) {
+            val timeFormat = java.text.SimpleDateFormat("h:mm a", java.util.Locale.getDefault())
+            timeFormat.format(notif.timestamp)
+        }
 
         // Only use the single message field, since ConversationNotification does not have a messages list
-        val message = notif.message ?: ""
-        if (message.isBlank()) return
-
-        // Get app label, using renamed alias if available (like AppDrawer)
-        val alias = Prefs(context).getAppAlias("app_alias_${packageName}")
-        val appLabel = if (alias.isNotEmpty()) {
-            alias
-        } else {
-            try {
-                context.packageManager.getApplicationLabel(
-                    context.packageManager.getApplicationInfo(packageName, 0)
-                ).toString()
-            } catch (_: Exception) {
-                packageName
-            }
+        val message = remember(notif.message) {
+            if (notif.message.isNullOrBlank()) "Notification received" else notif.message
         }
         FullLineSeparator(isDark = isDark)
 
@@ -596,7 +598,7 @@ class NotificationsFragment : Fragment() {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = appLabel,
+                    text = appLabelInfo,
                     style = SettingsTheme.typography.title,
                     fontSize = descriptionFontSize * 0.8f, // Reduced app alias size
                     fontWeight = FontWeight.Normal,

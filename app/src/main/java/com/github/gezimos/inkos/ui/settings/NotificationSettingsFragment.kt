@@ -5,14 +5,12 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -22,7 +20,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.ViewCompat
 import androidx.fragment.app.Fragment
@@ -99,8 +96,6 @@ class NotificationSettingsFragment : Fragment() {
         // Add sticky header ComposeView
         val headerView = androidx.compose.ui.platform.ComposeView(context).apply {
             setContent {
-                val density = androidx.compose.ui.platform.LocalDensity.current
-                val bottomInsetDp = with(density) { bottomInsetPx.toDp() }
                 SettingsTheme(isDark) {
                     Column(Modifier.fillMaxWidth()) {
                         SettingsComposable.PageHeader(
@@ -119,9 +114,6 @@ class NotificationSettingsFragment : Fragment() {
                         )
                         SettingsComposable.SolidSeparator(isDark = isDark)
                         Spacer(modifier = Modifier.height(SettingsTheme.color.horizontalPadding))
-                        if (bottomInsetDp > 0.dp) {
-                            Spacer(modifier = Modifier.height(bottomInsetDp))
-                        }
                     }
                 }
             }
@@ -135,15 +127,10 @@ class NotificationSettingsFragment : Fragment() {
             addView(
                 androidx.compose.ui.platform.ComposeView(context).apply {
                     setContent {
-                        val density = androidx.compose.ui.platform.LocalDensity.current
-                        val bottomInsetDp = with(density) { bottomInsetPx.toDp() }
                         SettingsTheme(isDark) {
                             Box(Modifier.fillMaxSize()) {
                                 Column {
                                     NotificationSettingsAllInOne(settingsSize.sp)
-                                    if (bottomInsetDp > 0.dp) {
-                                        Spacer(modifier = Modifier.height(bottomInsetDp))
-                                    }
                                 }
                             }
                         }
@@ -157,97 +144,49 @@ class NotificationSettingsFragment : Fragment() {
         }
         com.github.gezimos.inkos.helper.utils.EinkScrollBehavior(context)
             .attachToScrollView(nestedScrollView)
-        rootLayout.addView(
-            nestedScrollView,
-            ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
+
+        // Create layout params that account for navigation bar
+        val scrollViewLayoutParams = ViewGroup.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
         )
 
-        // --- Calculate pages and listen for scroll changes ---
-        fun getCurrentPageIndex(
-            scrollY: Int,
-            viewportHeight: Int,
-            contentHeight: Int,
-            pageCount: Int
-        ): Int {
-            if (contentHeight <= viewportHeight) return 0
-            val overlap = (viewportHeight * 0.2).toInt()
-            val scrollStep = viewportHeight - overlap
-            val maxScroll = (contentHeight - viewportHeight).coerceAtLeast(1)
-            val clampedScrollY = scrollY.coerceIn(0, maxScroll)
-            val page = Math.round(clampedScrollY.toFloat() / scrollStep)
-            return page.coerceIn(0, pageCount - 1)
-        }
-        nestedScrollView.viewTreeObserver.addOnGlobalLayoutListener {
-            val contentHeight = nestedScrollView.getChildAt(0)?.height ?: 1
-            val viewportHeight = nestedScrollView.height.takeIf { it > 0 } ?: 1
-            val overlap = (viewportHeight * 0.2).toInt()
-            val scrollStep = viewportHeight - overlap
-            val pages =
-                Math.ceil(((contentHeight - viewportHeight).toDouble() / scrollStep.toDouble()))
-                    .toInt() + 1
-            pageCount[0] = pages
-            val scrollY = nestedScrollView.scrollY
-            currentPage[0] = getCurrentPageIndex(scrollY, viewportHeight, contentHeight, pages)
-            headerView.setContent {
-                SettingsTheme(isDark) {
-                    Column(Modifier.fillMaxWidth()) {
-                        SettingsComposable.PageHeader(
-                            iconRes = R.drawable.ic_back,
-                            title = stringResource(R.string.notification_section),
-                            onClick = { findNavController().popBackStack() },
-                            showStatusBar = prefs.showStatusBar,
-                            pageIndicator = {
-                                SettingsComposable.PageIndicator(
-                                    currentPage = currentPage[0],
-                                    pageCount = pageCount[0],
-                                    titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else androidx.compose.ui.unit.TextUnit.Unspecified
-                                )
-                            },
-                            titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else androidx.compose.ui.unit.TextUnit.Unspecified
-                        )
-                        SettingsComposable.SolidSeparator(isDark = isDark)
-                        Spacer(modifier = Modifier.height(SettingsTheme.color.horizontalPadding))
-                    }
-                }
-            }
-        }
-        nestedScrollView.setOnScrollChangeListener { _, _, scrollY, _, _ ->
-            val contentHeight = nestedScrollView.getChildAt(0)?.height ?: 1
-            val viewportHeight = nestedScrollView.height.takeIf { it > 0 } ?: 1
-            val overlap = (viewportHeight * 0.2).toInt()
-            val scrollStep = viewportHeight - overlap
-            val pages =
-                Math.ceil(((contentHeight - viewportHeight).toDouble() / scrollStep.toDouble()))
-                    .toInt() + 1
-            pageCount[0] = pages
-            currentPage[0] = getCurrentPageIndex(scrollY, viewportHeight, contentHeight, pages)
-            headerView.setContent {
-                SettingsTheme(isDark) {
-                    Column(Modifier.fillMaxWidth()) {
-                        SettingsComposable.PageHeader(
-                            iconRes = R.drawable.ic_back,
-                            title = stringResource(R.string.notification_section),
-                            onClick = { findNavController().popBackStack() },
-                            showStatusBar = prefs.showStatusBar,
-                            pageIndicator = {
-                                SettingsComposable.PageIndicator(
-                                    currentPage = currentPage[0],
-                                    pageCount = pageCount[0],
-                                    titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else androidx.compose.ui.unit.TextUnit.Unspecified
-                                )
-                            },
-                            titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else androidx.compose.ui.unit.TextUnit.Unspecified
-                        )
-                        SettingsComposable.SolidSeparator(isDark = isDark)
-                        Spacer(modifier = Modifier.height(SettingsTheme.color.horizontalPadding))
+        rootLayout.addView(nestedScrollView, scrollViewLayoutParams)
 
+        // Apply bottom padding to the root layout to prevent scroll view from going under navbar
+        rootLayout.post {
+            rootLayout.setPadding(0, 0, 0, bottomInsetPx)
+            rootLayout.clipToPadding = false
+        }
+
+        // Use EinkScrollBehavior callback to update page indicator reliably
+        val scrollBehavior = com.github.gezimos.inkos.helper.utils.EinkScrollBehavior(context) { page, pages ->
+            pageCount[0] = pages
+            currentPage[0] = page
+            headerView.setContent {
+                SettingsTheme(isDark) {
+                    Column(Modifier.fillMaxWidth()) {
+                        SettingsComposable.PageHeader(
+                            iconRes = R.drawable.ic_back,
+                            title = stringResource(R.string.notification_section),
+                            onClick = { findNavController().popBackStack() },
+                            showStatusBar = prefs.showStatusBar,
+                            pageIndicator = {
+                                SettingsComposable.PageIndicator(
+                                    currentPage = currentPage[0],
+                                    pageCount = pageCount[0],
+                                    titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else androidx.compose.ui.unit.TextUnit.Unspecified
+                                )
+                            },
+                            titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else androidx.compose.ui.unit.TextUnit.Unspecified
+                        )
+                        SettingsComposable.SolidSeparator(isDark = isDark)
+                        Spacer(modifier = Modifier.height(SettingsTheme.color.horizontalPadding))
                     }
                 }
             }
         }
+        scrollBehavior.attachToScrollView(nestedScrollView)
         return rootLayout
     }
 
@@ -333,6 +272,7 @@ class NotificationSettingsFragment : Fragment() {
         var showMessage by rememberSaveable { mutableStateOf(prefs.showNotificationMessage) }
         var notificationsEnabled by rememberSaveable { mutableStateOf(prefs.notificationsEnabled) }
         var charLimit by rememberSaveable { mutableStateOf(prefs.homeAppCharLimit) }
+        var clearConversationOnAppOpen by rememberSaveable { mutableStateOf(prefs.clearConversationOnAppOpen) }
 
         // --- Add state for allowlists to trigger recomposition ---
         var badgeAllowlist by remember { mutableStateOf(prefs.allowedBadgeNotificationApps.toSet()) }
@@ -365,6 +305,7 @@ class NotificationSettingsFragment : Fragment() {
                 showGroupName = false
                 showMessage = false
                 notificationsEnabled = false
+                clearConversationOnAppOpen = false
             } else {
                 prefs.restoreNotificationSwitchesState()
                 showNotificationBadge = prefs.showNotificationBadge
@@ -375,6 +316,7 @@ class NotificationSettingsFragment : Fragment() {
                 showGroupName = prefs.showNotificationGroupName
                 showMessage = prefs.showNotificationMessage
                 notificationsEnabled = prefs.notificationsEnabled
+                clearConversationOnAppOpen = prefs.clearConversationOnAppOpen
             }
             prefs.pushNotificationsEnabled = newValue
             pushNotificationsEnabled = newValue
@@ -545,6 +487,18 @@ class NotificationSettingsFragment : Fragment() {
                 enabled = pushNotificationsEnabled
             )
             SettingsComposable.DashedSeparator(isDark = isDark)
+            // Clear conversation on app open
+            SettingsComposable.SettingsSwitch(
+                text = stringResource(R.string.clear_conversation_on_app_open),
+                fontSize = titleFontSize,
+                defaultState = clearConversationOnAppOpen,
+                enabled = pushNotificationsEnabled,
+                onCheckedChange = {
+                    clearConversationOnAppOpen = !clearConversationOnAppOpen
+                    prefs.clearConversationOnAppOpen = clearConversationOnAppOpen
+                }
+            )
+            SettingsComposable.DashedSeparator(isDark = isDark)
             SettingsComposable.SettingsSelect(
                 title = "Notification Allowlist",
                 option = allowlistState.size.toString(),
@@ -684,8 +638,14 @@ class NotificationSettingsFragment : Fragment() {
         // Observe once and show dialog when data is available
         appListLiveData.observe(viewLifecycleOwner) { appListItems ->
             if (appListItems == null) return@observe
-            // Map AppListItem to AppInfo
-            val allApps = appListItems.map {
+            // Exclude synthetic apps, but include hidden apps
+            val filteredApps = appListItems.filter {
+                val pkg = it.activityPackage ?: ""
+                pkg.isNotBlank() &&
+                        !pkg.startsWith("com.inkos.internal.") &&
+                        !pkg.startsWith("com.inkos.system.")
+            }
+            val allApps = filteredApps.map {
                 AppInfo(label = it.customLabel.takeIf { l -> !l.isNullOrEmpty() }
                     ?: it.activityLabel, packageName = it.activityPackage)
             }

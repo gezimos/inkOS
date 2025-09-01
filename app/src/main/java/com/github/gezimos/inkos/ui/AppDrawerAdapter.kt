@@ -8,7 +8,6 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.text.Editable
 import android.text.TextWatcher
-import android.util.Log
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
@@ -20,6 +19,7 @@ import android.widget.Filterable
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.graphics.Typeface
 import androidx.core.view.updatePadding
 import androidx.recyclerview.widget.RecyclerView
 import com.github.gezimos.common.isSystemApp
@@ -30,6 +30,7 @@ import com.github.gezimos.inkos.data.Constants.AppDrawerFlag
 import com.github.gezimos.inkos.data.Prefs
 import com.github.gezimos.inkos.databinding.AdapterAppDrawerBinding
 import com.github.gezimos.inkos.helper.dp2px
+import kotlinx.coroutines.Job
 
 class AppDrawerAdapter(
     val context: Context,
@@ -40,32 +41,54 @@ class AppDrawerAdapter(
     private val renameListener: (String, String) -> Unit,
     private val showHideListener: (AppDrawerFlag, AppListItem) -> Unit,
     private val infoListener: (AppListItem) -> Unit,
+    // Optional key navigation listener: (keyCode, adapterPosition) -> handled
+    private val keyNavListener: ((Int, Int) -> Boolean)? = null,
 ) : RecyclerView.Adapter<AppDrawerAdapter.ViewHolder>(), Filterable {
 
-    private lateinit var prefs: Prefs
-    private var appFilter = createAppFilter()
-    var appsList: MutableList<AppListItem> = mutableListOf()
-    var appFilteredList: MutableList<AppListItem> = mutableListOf()
-    private lateinit var binding: AdapterAppDrawerBinding
+    init {
+        // Enable stable ids to help RecyclerView/DiffUtil avoid unnecessary rebinds
+        setHasStableIds(true)
+    }
+
+    // Per-instance job/scope so cancelBackgroundWork() only affects this adapter
+    private val adapterJob = Job()
+
+    // Cache a single Prefs instance and commonly used derived values to avoid
+    // recreating Prefs and typefaces on every bind.
+    private val prefs: Prefs = Prefs(context)
+    private val appFilter = createAppFilter()
+    // Use app-drawer specific prefs (fall back to shared app values inside Prefs)
+    private val cachedTextSize: Float = prefs.appDrawerSize.toFloat()
+    private val cachedPadding: Int = prefs.appDrawerGap
+    private val cachedAppColor: Int = prefs.appColor
+    private val cachedAllCaps: Boolean = prefs.allCapsApps
+    private val cachedSmallCaps: Boolean = prefs.smallCapsApps
+    private val cachedTypeface: Typeface? = prefs.getFontForContext("apps")
+        .getFont(context, prefs.getCustomFontPathForContext("apps"))
+
+    // Pool frequently used drawables to avoid repeated inflate/drawable allocation
+    private val workProfileDrawable =
+        androidx.core.content.ContextCompat.getDrawable(context, R.drawable.work_profile)
+    var appsList: MutableList<AppListItem> = mutableListOf() // full list
+    var appFilteredList: MutableList<AppListItem> = mutableListOf() // current page
 
     private var lastQuery: String = ""
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        binding =
+        val binding =
             AdapterAppDrawerBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-        prefs = Prefs(parent.context)
-        val fontColor = prefs.appColor
-        binding.appTitle.setTextColor(fontColor)
-
-        binding.appTitle.textSize = prefs.appSize.toFloat()
-        val padding: Int = prefs.textPaddingSize
-        binding.appTitle.setPadding(0, padding, 0, padding)
+        // Apply cached visual settings
+        binding.appTitle.setTextColor(cachedAppColor)
+        binding.appTitle.textSize = cachedTextSize
+        binding.appTitle.setPadding(0, cachedPadding, 0, cachedPadding)
         return ViewHolder(binding)
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         if (appFilteredList.isEmpty()) return
-        val appModel = appFilteredList[holder.absoluteAdapterPosition]
+        val index =
+            holder.bindingAdapterPosition.takeIf { it != RecyclerView.NO_POSITION } ?: position
+        val appModel = appFilteredList.getOrNull(index) ?: return
         holder.bind(
             flag,
             drawerGravity,
@@ -76,63 +99,49 @@ class AppDrawerAdapter(
             renameListener,
             showHideListener
         )
+    }
 
-        holder.textView.apply {
-            // Always use customLabel if available, otherwise fall back to original label
-            text = if (appModel.customLabel.isNotEmpty()) appModel.customLabel else appModel.label
-            gravity = drawerGravity
-            textSize = Prefs(context).appSize.toFloat()
-            // Use universal font logic for app names
-            typeface = Prefs(context).getFontForContext("apps")
-                .getFont(context, Prefs(context).getCustomFontPathForContext("apps"))
-            setTextColor(Prefs(context).appColor)
-        }
-
-        holder.appHide.setOnClickListener {
-            appFilteredList.removeAt(holder.absoluteAdapterPosition)
-            appsList.remove(appModel)
-            notifyItemRemoved(holder.absoluteAdapterPosition)
-            showHideListener(flag, appModel)
-        }
-
-        holder.appLock.setOnClickListener {
-            val appName = appModel.activityPackage
-            // Access the current locked apps set
-            val currentLockedApps = prefs.lockedApps
-
-            if (currentLockedApps.contains(appName)) {
-                holder.appLock.setCompoundDrawablesWithIntrinsicBounds(
-                    0,
-                    R.drawable.padlock_off,
-                    0,
-                    0
-                )
-                holder.appLock.text = context.getString(R.string.lock)
-                // If appName is already in the set, remove it
-                currentLockedApps.remove(appName)
-            } else {
-                holder.appLock.setCompoundDrawablesWithIntrinsicBounds(0, R.drawable.padlock, 0, 0)
-                holder.appLock.text = context.getString(R.string.unlock)
-                // If appName is not in the set, add it
-                currentLockedApps.add(appName)
+    // Partial bind handler: when payload indicates only textual content changed,
+    // avoid running the full bind which does allocations and listeners.
+    override fun onBindViewHolder(holder: ViewHolder, position: Int, payloads: MutableList<Any>) {
+        if (payloads.isNotEmpty()) {
+            // If payload contains textual update marker, only update the visible text and work-profile icon
+            if (payloads.contains(PAYLOAD_TEXT)) {
+                val appModel = appFilteredList.getOrNull(position) ?: return
+                val displayText =
+                    if (appModel.customLabel.isNotEmpty()) appModel.customLabel else appModel.label
+                holder.textView.text = when {
+                    cachedAllCaps -> displayText.uppercase()
+                    cachedSmallCaps -> displayText.lowercase()
+                    else -> displayText
+                }
+                // update work profile icon presence quickly
+                try {
+                    if (appModel.user != android.os.Process.myUserHandle()) {
+                        val icon = workProfileDrawable?.constantState?.newDrawable()?.mutate()
+                        val px = dp2px(holder.itemView.resources, cachedTextSize.toInt())
+                        icon?.setBounds(0, 0, px, px)
+                        holder.textView.setCompoundDrawables(null, null, icon, null)
+                        holder.textView.compoundDrawablePadding = 20
+                    } else {
+                        holder.textView.setCompoundDrawables(null, null, null, null)
+                    }
+                } catch (_: Exception) {
+                    holder.textView.setCompoundDrawables(null, null, null, null)
+                }
+                return
             }
-
-            // Update the lockedApps value (save the updated set back to prefs)
-            prefs.lockedApps = currentLockedApps
-            Log.d("lockedApps", prefs.lockedApps.toString())
         }
-
-        holder.appSaveRename.setOnClickListener {
-            val name = holder.appRenameEdit.text.toString().trim()
-            appModel.customLabel = name
-            // Re-sort the list after renaming
-            sortAppList()
-            notifyDataSetChanged()
-            renameListener(appModel.activityPackage, appModel.customLabel)
-        }
+        // Fallback to full bind
+        super.onBindViewHolder(holder, position, payloads)
     }
 
     override fun getItemCount(): Int = appFilteredList.size
+
+    override fun getItemId(position: Int): Long {
+        return appFilteredList.getOrNull(position)?.activityPackage?.hashCode()?.toLong()
+            ?: position.toLong()
+    }
 
     override fun getFilter(): Filter = this.appFilter
 
@@ -150,7 +159,8 @@ class AppDrawerAdapter(
             override fun publishResults(constraint: CharSequence?, results: FilterResults?) {
                 if (results?.values is MutableList<*>) {
                     appFilteredList = results.values as MutableList<AppListItem>
-                    notifyDataSetChanged()
+                    // Use payload-based range update to only update text content on e-ink
+                    notifyItemRangeChanged(0, appFilteredList.size.coerceAtLeast(0), PAYLOAD_TEXT)
                 } else {
                     return
                 }
@@ -158,39 +168,66 @@ class AppDrawerAdapter(
         }
     }
 
-    @SuppressLint("NotifyDataSetChanged")
-    fun setAppList(appsList: MutableList<AppListItem>) {
-        this.appsList = appsList
-        this.appFilteredList = appsList
-        sortAppList()
-        notifyDataSetChanged()
+    /**
+     * Update visible page using DiffUtil on a background thread for smooth transitions.
+     */
+    // For e-ink displays we prefer instant page swaps (no animated diffs).
+    fun setPageAppsWithDiff(newPageApps: List<AppListItem>) {
+        replacePage(newPageApps.toMutableList())
+    }
+
+    // Call this to cancel any running background tasks when adapter is no longer used
+    fun cancelBackgroundWork() {
+        adapterJob.cancel()
     }
 
     private fun sortAppList() {
-        val comparator = compareBy<AppListItem> { it.customLabel.ifEmpty { it.label }.lowercase() }
+        val comparator = compareBy<AppListItem> { appItem ->
+            appItem.customLabel.ifEmpty { appItem.label }.lowercase()
+        }
         appsList.sortWith(comparator)
         appFilteredList.sortWith(comparator)
     }
 
-    fun launchFirstInList() {
-        if (appFilteredList.isNotEmpty())
-            clickListener(appFilteredList[0])
+    // Payload marker used to indicate only textual content changed
+    private val PAYLOAD_TEXT = "payload_text"
+
+    /**
+     * Replace the current visible page with a new list instantly. Uses range notifications
+     * with a text payload where possible to minimize rebind work on e-ink.
+     */
+    fun replacePage(newPage: MutableList<AppListItem>) {
+        val oldSize = appFilteredList.size
+        val newSize = newPage.size
+        // Update backing list
+        this.appFilteredList = newPage
+
+        // Notify common prefix as changed with payload so onBind can optimize
+        val common = kotlin.math.min(oldSize, newSize)
+        if (common > 0) notifyItemRangeChanged(0, common, PAYLOAD_TEXT)
+
+        // Handle inserts/removals without animations (insert/remove ranges)
+        if (newSize > oldSize) {
+            notifyItemRangeInserted(oldSize, newSize - oldSize)
+        } else if (newSize < oldSize) {
+            notifyItemRangeRemoved(newSize, oldSize - newSize)
+        }
     }
 
-    class ViewHolder(itemView: AdapterAppDrawerBinding) : RecyclerView.ViewHolder(itemView.root) {
-        val appHide: TextView = itemView.appHide
-        val appLock: TextView = itemView.appLock
-        val appRenameEdit: EditText = itemView.appRenameEdit
-        val appSaveRename: TextView = itemView.appSaveRename
-        val textView: TextView = itemView.appTitle
+    inner class ViewHolder(private val binding: AdapterAppDrawerBinding) :
+        RecyclerView.ViewHolder(binding.root) {
+        val appHide: TextView = binding.appHide
+        val appLock: TextView = binding.appLock
+        val appRenameEdit: EditText = binding.appRenameEdit
+        val appSaveRename: TextView = binding.appSaveRename
+        val textView: TextView = binding.appTitle
 
-        private val appHideLayout: LinearLayout = itemView.appHideLayout
-        private val appRenameLayout: LinearLayout = itemView.appRenameLayout
-        private val appRename: TextView = itemView.appRename
-        private val appTitleFrame: FrameLayout = itemView.appTitleFrame
-        private val appClose: TextView = itemView.appClose
-        private val appInfo: TextView = itemView.appInfo
-        private val appDelete: TextView = itemView.appDelete
+        private val appHideLayout: LinearLayout = binding.appHideLayout
+        private val appRenameLayout: LinearLayout = binding.appRenameLayout
+        private val appRename: TextView = binding.appRename
+        private val appClose: TextView = binding.appClose
+        private val appInfo: TextView = binding.appInfo
+        private val appDelete: TextView = binding.appDelete
 
         @SuppressLint("RtlHardcoded", "NewApi")
         fun bind(
@@ -202,180 +239,265 @@ class AppDrawerAdapter(
             appDeleteListener: (AppListItem) -> Unit,
             renameListener: (String, String) -> Unit,
             showHideListener: (AppDrawerFlag, AppListItem) -> Unit
-        ) =
-            with(itemView) {
-                val prefs = Prefs(context)
-                appHideLayout.visibility = View.GONE
-                appRenameLayout.visibility = View.GONE
+        ) {
+            // Reuse adapter-level prefs and cached visuals
+            val prefs = this@AppDrawerAdapter.prefs
+            appHideLayout.visibility = View.GONE
+            appRenameLayout.visibility = View.GONE
 
-                // set show/hide icon
-                if (flag == AppDrawerFlag.HiddenApps) {
-                    appHide.setCompoundDrawablesWithIntrinsicBounds(0, R.drawable.visibility, 0, 0)
-                    appHide.text = context.getString(R.string.show)
-                } else {
-                    appHide.setCompoundDrawablesWithIntrinsicBounds(
-                        0,
-                        R.drawable.visibility_off,
-                        0,
-                        0
-                    )
-                    appHide.text = context.getString(R.string.hide)
+            fun setContextMenuOpen(open: Boolean) {
+                try {
+                    appHideLayout.isFocusable = open
+                    appHideLayout.isFocusableInTouchMode = open
+                    appRenameLayout.isFocusable = open
+                    appRenameLayout.isFocusableInTouchMode = open
+                    textView.isFocusable = !open
+                    textView.isFocusableInTouchMode = !open
+                    textView.isClickable = !open
+                } catch (_: Exception) {
                 }
+            }
 
-                val appName = appListItem.activityPackage
-                // Access the current locked apps set
-                val currentLockedApps = prefs.lockedApps
+            val isAppDrawerSynthetic =
+                appListItem.activityPackage == "com.inkos.internal.app_drawer"
+            val isEmptySpaceSynthetic =
+                appListItem.activityPackage == "com.inkos.internal.empty_space"
+            val isNotificationsSynthetic =
+                appListItem.activityPackage == "com.inkos.internal.notifications"
+            val isSystemShortcut =
+                com.github.gezimos.inkos.helper.SystemShortcutHelper.isSystemShortcut(appListItem.activityPackage)
+            val isSyntheticApp =
+                isAppDrawerSynthetic || isEmptySpaceSynthetic || isNotificationsSynthetic || isSystemShortcut
 
-                if (currentLockedApps.contains(appName)) {
-                    appLock.setCompoundDrawablesWithIntrinsicBounds(0, R.drawable.padlock, 0, 0)
-                    appLock.text = context.getString(R.string.unlock)
-                } else {
-                    appLock.setCompoundDrawablesWithIntrinsicBounds(
-                        0,
-                        R.drawable.padlock_off,
-                        0,
-                        0
-                    )
-                    appLock.text = context.getString(R.string.lock)
+            // set show/hide icon
+            if (flag == AppDrawerFlag.HiddenApps) {
+                appHide.setCompoundDrawablesWithIntrinsicBounds(0, R.drawable.visibility, 0, 0)
+                appHide.text = binding.root.context.getString(R.string.show)
+            } else {
+                appHide.setCompoundDrawablesWithIntrinsicBounds(0, R.drawable.visibility_off, 0, 0)
+                appHide.text = binding.root.context.getString(R.string.hide)
+            }
+
+            val appName = appListItem.activityPackage
+            val currentLockedApps = prefs.lockedApps
+
+            if (isSyntheticApp) {
+                appLock.setCompoundDrawablesWithIntrinsicBounds(0, R.drawable.padlock_off, 0, 0)
+                appLock.text = binding.root.context.getString(R.string.lock)
+                appLock.alpha = 0.3f
+            } else if (currentLockedApps.contains(appName)) {
+                appLock.setCompoundDrawablesWithIntrinsicBounds(0, R.drawable.padlock, 0, 0)
+                appLock.text = binding.root.context.getString(R.string.unlock)
+                appLock.alpha = 1.0f
+            } else {
+                appLock.setCompoundDrawablesWithIntrinsicBounds(0, R.drawable.padlock_off, 0, 0)
+                appLock.text = binding.root.context.getString(R.string.lock)
+                appLock.alpha = 1.0f
+            }
+
+            appRename.setOnClickListener {
+                if (appListItem.activityPackage == "com.inkos.internal.empty_space") return@setOnClickListener
+                if (appListItem.activityPackage.isNotEmpty()) {
+                    appRenameEdit.setText(appListItem.customLabel.ifEmpty { appListItem.label })
+                    appRenameLayout.visibility = View.VISIBLE
+                    appHideLayout.visibility = View.GONE
+                    setContextMenuOpen(true)
+                    appRenameEdit.showKeyboard()
+                    appRenameEdit.setSelection(appRenameEdit.text.length)
                 }
+            }
 
-                appRename.apply {
-                    setOnClickListener {
-                        if (appListItem.activityPackage.isNotEmpty()) {
-                            appRenameEdit.setText(appListItem.customLabel.ifEmpty { appListItem.label })
-                            appRenameLayout.visibility = View.VISIBLE
-                            appHideLayout.visibility = View.GONE
-                            appRenameEdit.showKeyboard()
-                            appRenameEdit.setSelection(appRenameEdit.text.length)
-                        }
+            // Toggle app lock state when lock button is pressed
+            appLock.setOnClickListener {
+                if (isSyntheticApp) return@setOnClickListener
+                try {
+                    val current = mutableSetOf<String>().apply { addAll(prefs.lockedApps) }
+                    val pkg = appListItem.activityPackage
+                    if (current.contains(pkg)) {
+                        current.remove(pkg)
+                    } else {
+                        current.add(pkg)
                     }
+                    prefs.lockedApps = current
+                    // Refresh this item so drawable/text reflect new locked state
+                    (bindingAdapter as AppDrawerAdapter).notifyItemChanged(absoluteAdapterPosition)
+                } catch (_: Exception) {
                 }
+            }
 
-                appRenameEdit.apply {
-                    addTextChangedListener(object : TextWatcher {
-                        override fun afterTextChanged(s: Editable) {}
+            // Reuse TextWatcher stored in tag to avoid reallocating on every bind
+            val watcherTag = R.id.appRenameEdit
+            var watcher = appRenameEdit.getTag(watcherTag) as? TextWatcher
+            if (watcher == null) {
+                watcher = object : TextWatcher {
+                    override fun afterTextChanged(s: Editable) {}
+                    override fun beforeTextChanged(
+                        s: CharSequence,
+                        start: Int,
+                        count: Int,
+                        after: Int
+                    ) {
+                    }
 
-                        override fun beforeTextChanged(
-                            s: CharSequence, start: Int,
-                            count: Int, after: Int
-                        ) {
-                        }
-
-                        override fun onTextChanged(
-                            s: CharSequence, start: Int,
-                            before: Int, count: Int
-                        ) {
-                            if (appRenameEdit.text.isEmpty()) {
-                                appSaveRename.text = context.getString(R.string.reset)
-                            } else if (appRenameEdit.text.toString() == appListItem.customLabel) {
-                                appSaveRename.text = context.getString(R.string.cancel)
-                            } else {
-                                appSaveRename.text = context.getString(R.string.rename)
-                            }
-                        }
-                    })
-                    text = Editable.Factory.getInstance().newEditable(appListItem.label)
-                    setOnEditorActionListener { v, actionId, event ->
-                        if (actionId == EditorInfo.IME_ACTION_DONE || (event != null && event.keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN)) {
-                            val name = appRenameEdit.text.toString().trim()
-                            appListItem.customLabel = name
-                            (bindingAdapter as AppDrawerAdapter).notifyItemChanged(
-                                absoluteAdapterPosition
-                            )
-                            renameListener(appListItem.activityPackage, name)
-                            appRenameLayout.visibility = View.GONE
-                            true
+                    override fun onTextChanged(
+                        s: CharSequence,
+                        start: Int,
+                        before: Int,
+                        count: Int
+                    ) {
+                        if (appRenameEdit.text.isEmpty()) {
+                            appSaveRename.text = binding.root.context.getString(R.string.reset)
+                        } else if (appRenameEdit.text.toString() == appListItem.customLabel) {
+                            appSaveRename.text = binding.root.context.getString(R.string.cancel)
                         } else {
-                            false
+                            appSaveRename.text = binding.root.context.getString(R.string.rename)
                         }
                     }
                 }
+                appRenameEdit.addTextChangedListener(watcher)
+                appRenameEdit.setTag(watcherTag, watcher)
+            }
+            appRenameEdit.text = Editable.Factory.getInstance().newEditable(appListItem.label)
 
-                appSaveRename.setOnClickListener {
+            appRenameEdit.setOnEditorActionListener { _, actionId, event ->
+                if (actionId == EditorInfo.IME_ACTION_DONE || (event != null && event.keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN)) {
                     val name = appRenameEdit.text.toString().trim()
                     appListItem.customLabel = name
                     (bindingAdapter as AppDrawerAdapter).notifyItemChanged(absoluteAdapterPosition)
                     renameListener(appListItem.activityPackage, name)
                     appRenameLayout.visibility = View.GONE
+                    setContextMenuOpen(false)
+                    true
+                } else false
+            }
+
+            appSaveRename.setOnClickListener {
+                val name = appRenameEdit.text.toString().trim()
+                renameListener(appListItem.activityPackage, name)
+                if (name.isEmpty()) {
+                    appListItem.customLabel = ""
+                    textView.text = when {
+                        cachedAllCaps -> appListItem.activityLabel.uppercase()
+                        cachedSmallCaps -> appListItem.activityLabel.lowercase()
+                        else -> appListItem.activityLabel
+                    }
+                } else {
+                    appListItem.customLabel = name
+                    textView.text = when {
+                        cachedAllCaps -> name.uppercase()
+                        cachedSmallCaps -> name.lowercase()
+                        else -> name
+                    }
                 }
+                appRenameLayout.visibility = View.GONE
+                setContextMenuOpen(false)
+                (bindingAdapter as AppDrawerAdapter).sortAppList()
+                (bindingAdapter as AppDrawerAdapter).notifyItemRangeChanged(
+                    0,
+                    (bindingAdapter as AppDrawerAdapter).appFilteredList.size,
+                    PAYLOAD_TEXT
+                )
+            }
 
-                textView.apply {
-                    val customLabel =
-                        Prefs(context).getAppAlias("app_alias_${appListItem.activityPackage}")
-                    text = if (customLabel.isNotEmpty()) customLabel else appListItem.label
-                    gravity = appLabelGravity
-                    textSize = Prefs(context).appSize.toFloat()
-                    // Use universal font logic for app names
-                    typeface = Prefs(context).getFontForContext("apps")
-                        .getFont(context, Prefs(context).getCustomFontPathForContext("apps"))
-                    setTextColor(Prefs(context).appColor)
+            // Main title setup
+            val displayText =
+                if (appListItem.customLabel.isNotEmpty()) appListItem.customLabel else appListItem.label
+            textView.text = when {
+                cachedAllCaps -> displayText.uppercase()
+                cachedSmallCaps -> displayText.lowercase()
+                else -> displayText
+            }
+            // Respect alignment preference passed from fragment (appLabelGravity)
+            textView.gravity = appLabelGravity
+            textView.textSize = cachedTextSize
+            cachedTypeface?.let { textView.typeface = it }
+            textView.setTextColor(cachedAppColor)
+
+            // Work profile icon (pooled)
+            try {
+                if (appListItem.user != android.os.Process.myUserHandle()) {
+                    val icon = workProfileDrawable?.constantState?.newDrawable()?.mutate()
+                    val px = dp2px(binding.root.resources, cachedTextSize.toInt())
+                    icon?.setBounds(0, 0, px, px)
+                    textView.setCompoundDrawables(null, null, icon, null)
+                    textView.compoundDrawablePadding = 20
+                } else {
+                    textView.setCompoundDrawables(null, null, null, null)
                 }
-
-                // set text gravity
-                val params = textView.layoutParams as FrameLayout.LayoutParams
-                params.gravity = appLabelGravity
-                textView.layoutParams = params
-
+            } catch (_: Exception) {
                 textView.setCompoundDrawables(null, null, null, null)
+            }
 
-                val padding = dp2px(resources, 24)
-                textView.updatePadding(left = padding, right = padding)
+            val params = textView.layoutParams as FrameLayout.LayoutParams
+            params.gravity = appLabelGravity
+            textView.layoutParams = params
+            val padding = dp2px(binding.root.resources, 24)
+            // apply drawer-specific vertical gap as padding top/bottom
+            textView.updatePadding(left = padding, right = padding, top = cachedPadding, bottom = cachedPadding)
 
-                appHide.setOnClickListener {
-                    (bindingAdapter as AppDrawerAdapter).let { adapter ->
-                        // Remove from current visible list
-                        adapter.appFilteredList.removeAt(absoluteAdapterPosition)
-                        adapter.notifyItemRemoved(absoluteAdapterPosition)
-                        // Remove from full list as well
-                        adapter.appsList.remove(appListItem)
-                        showHideListener(flag, appListItem)
-                        appHideLayout.visibility = View.GONE
-
-                        // Reapply current filter to refresh the list
-                        adapter.filter.filter(adapter.lastQuery)
-                    }
-                }
-
-                appTitleFrame.apply {
-                    setOnClickListener {
-                        appClickListener(appListItem)
-                    }
-                    setOnLongClickListener {
-                        val openApp =
-                            flag == AppDrawerFlag.LaunchApp || flag == AppDrawerFlag.HiddenApps
-                        if (openApp) {
-                            try {
-                                appDelete.alpha =
-                                    if (context.isSystemApp(appListItem.activityPackage)) 0.3f else 1.0f
-                                appHideLayout.visibility = View.VISIBLE
-                                appRenameLayout.visibility =
-                                    View.GONE // Make sure rename layout is hidden
-                            } catch (e: Exception) {
-                                e.printStackTrace()
-                            }
-                        }
-                        true
-                    }
-                }
-
-                appInfo.apply {
-                    setOnClickListener {
-                        appInfoListener(appListItem)
-                    }
-                }
-
-                appDelete.apply {
-                    setOnClickListener {
-                        appDeleteListener(appListItem)
-                    }
-                }
-
-                appClose.apply {
-                    setOnClickListener {
-                        appHideLayout.visibility = View.GONE
-                        appRenameLayout.visibility = View.GONE
-                    }
+            appHide.setOnClickListener {
+                (bindingAdapter as AppDrawerAdapter).let { adapter ->
+                    adapter.appFilteredList.removeAt(absoluteAdapterPosition)
+                    adapter.notifyItemRemoved(absoluteAdapterPosition)
+                    adapter.appsList.remove(appListItem)
+                    showHideListener(flag, appListItem)
+                    appHideLayout.visibility = View.GONE
+                    adapter.filter.filter(adapter.lastQuery)
                 }
             }
+
+            textView.setOnClickListener { appClickListener(appListItem) }
+
+            textView.setOnLongClickListener {
+                val openApp = flag == AppDrawerFlag.LaunchApp || flag == AppDrawerFlag.HiddenApps
+                if (openApp) {
+                    try {
+                        appDelete.alpha =
+                            if (isSyntheticApp) 0.3f else if (binding.root.context.isSystemApp(
+                                    appListItem.activityPackage
+                                )
+                            ) 0.3f else 1.0f
+                        appInfo.alpha = if (isSyntheticApp) 0.3f else 1.0f
+                        appHideLayout.visibility = View.VISIBLE
+                        appRenameLayout.visibility = View.GONE
+                        setContextMenuOpen(true)
+                        try {
+                            if (appInfo.isFocusable) appInfo.requestFocus() else appClose.requestFocus()
+                        } catch (_: Exception) {
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+                true
+            }
+
+            textView.setOnKeyListener { _, keyCode, event ->
+                if (appHideLayout.visibility == View.VISIBLE || appRenameLayout.visibility == View.VISIBLE) return@setOnKeyListener true
+                if (event.action == KeyEvent.ACTION_DOWN) {
+                    if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN || keyCode == KeyEvent.KEYCODE_DPAD_UP) {
+                        return@setOnKeyListener keyNavListener?.invoke(
+                            keyCode,
+                            absoluteAdapterPosition
+                        ) ?: false
+                    }
+                }
+                false
+            }
+
+            appInfo.setOnClickListener {
+                if (!isSyntheticApp) appInfoListener(appListItem)
+            }
+
+            appDelete.setOnClickListener {
+                if (!isSyntheticApp) appDeleteListener(appListItem)
+            }
+
+            appClose.setOnClickListener {
+                appHideLayout.visibility = View.GONE
+                appRenameLayout.visibility = View.GONE
+                setContextMenuOpen(false)
+            }
+        }
     }
 }

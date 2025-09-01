@@ -5,12 +5,19 @@ import android.text.Spannable
 import android.text.SpannableString
 import android.text.SpannableStringBuilder
 import android.text.style.AbsoluteSizeSpan
-import android.text.style.SuperscriptSpan
 import android.widget.TextView
 import com.github.gezimos.inkos.data.Prefs
+import com.github.gezimos.inkos.helper.AudioWidgetHelper
 import com.github.gezimos.inkos.services.NotificationManager
 
 object NotificationBadgeUtil {
+    
+    fun clearSuppression(packageName: String) {
+        // Placeholder function for compatibility - suppression logic removed
+        // This is called when new notifications arrive but no longer needed
+        // since we handle badge clearing directly through proper notification state management
+    }
+
     fun updateNotificationForView(
         context: Context,
         prefs: Prefs,
@@ -19,79 +26,63 @@ object NotificationBadgeUtil {
     ) {
         val appModel = prefs.getHomeAppModel(textView.id)
         val packageName = appModel.activityPackage
-        val notificationInfo = notifications[packageName]
+    val notificationInfo = notifications[packageName]
+    // Removed verbose log: updateNotificationForView
         // Filtering is now handled in NotificationManager, so no need to filter here
         val customLabel = prefs.getAppAlias("app_alias_$packageName")
-        val displayName = if (customLabel.isNotEmpty()) customLabel else appModel.activityLabel
+        val rawDisplayName = if (customLabel.isNotEmpty()) customLabel else appModel.activityLabel
+        val displayName =
+            rawDisplayName.replace("\n", " ").replace("\r", " ").replace(Regex("\\s+"), " ").trim()
 
-        // Filter out unwanted Signal (or similar) system messages
-        val unwantedMessages =
-            listOf("background connection established", "background connection enabled")
-        val isUnwanted = notificationInfo != null && (
-                (notificationInfo.title?.trim()?.let {
-                    unwantedMessages.any { msg ->
-                        it.equals(
-                            msg,
-                            ignoreCase = true
-                        )
-                    }
-                } == true) ||
-                        (notificationInfo.text?.trim()?.let {
-                            unwantedMessages.any { msg ->
-                                it.equals(
-                                    msg,
-                                    ignoreCase = true
-                                )
-                            }
-                        } == true)
-                )
-
-        if (notificationInfo != null && prefs.showNotificationBadge && !isUnwanted) {
+    // Notification filtering (allowlist) is handled by NotificationManager
+    // Check if we have a valid notification to display
+    if (notificationInfo != null && prefs.showNotificationBadge) {
+            // Removed verbose log: Rendering badge for $packageName
             val spanBuilder = SpannableStringBuilder()
 
-            // Add app name with apps font - use universal font logic
+            // Apply small caps transformation if enabled
+            val finalDisplayName = when {
+                prefs.allCapsApps -> displayName.uppercase()
+                prefs.smallCapsApps -> displayName.lowercase()
+                else -> displayName
+            }
+
+            // Add a space before app name to compensate for asterisk alignment
             val appFont = prefs.getFontForContext("apps")
                 .getFont(context, prefs.getCustomFontPathForContext("apps"))
-            val appNameSpan = SpannableString(displayName)
+            val appNameSpan = SpannableString(" " + finalDisplayName)
             if (appFont != null) {
                 appNameSpan.setSpan(
                     CustomTypefaceSpan(appFont),
                     0,
-                    displayName.length,
+                    appNameSpan.length,
                     Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
                 )
             }
             spanBuilder.append(appNameSpan)
 
-            val title = notificationInfo.title
-            val text = notificationInfo.text
+            val title = notificationInfo.title?.replace("\n", " ")?.replace("\r", " ")
+                ?.replace(Regex("\\s+"), " ")?.trim()
+            val text = notificationInfo.text?.replace("\n", " ")?.replace("\r", " ")
+                ?.replace(Regex("\\s+"), " ")?.trim()
             val isMedia = notificationInfo.category == android.app.Notification.CATEGORY_TRANSPORT
-            val isMediaPlaying = isMedia && (!title.isNullOrBlank() || !text.isNullOrBlank())
+            val audioWidgetHelper =
+                AudioWidgetHelper.getInstance(context)
+            val mediaPlayerInfo = audioWidgetHelper.getCurrentMediaPlayer()
+            val isPlaying =
+                mediaPlayerInfo?.isPlaying == true && mediaPlayerInfo.packageName == packageName
 
             // Only show asterisk or music note if not media, or if media is actually playing
-            if (isMedia && isMediaPlaying && prefs.showMediaIndicator) {
-                // Music note as superscript (exponent)
-                val musicNote = SpannableString("\u266A")
-                musicNote.setSpan(
-                    SuperscriptSpan(),
-                    0,
-                    musicNote.length,
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
-                musicNote.setSpan(
-                    AbsoluteSizeSpan((textView.textSize * 0.8).toInt()),
-                    0,
-                    musicNote.length,
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
-                spanBuilder.append(musicNote)
+            if (isMedia && isPlaying && prefs.showMediaIndicator) {
+                // Use asterisk for media indicator, matching notification badge style
+                spanBuilder.append("*")
             } else if (!isMedia && notificationInfo.count > 0) {
                 // Asterisk as superscript (already styled)
-                spanBuilder.append(" *")
+                spanBuilder.append("*")
             }
 
             // Notification text logic
-            if (isMedia && isMediaPlaying && prefs.showMediaName) {
+            if (isMedia && isPlaying && prefs.showMediaName) {
                 // For media, show only the first part (title or artist), not the full name
                 spanBuilder.append("\n")
                 val charLimit = prefs.homeAppCharLimit
@@ -154,12 +145,19 @@ object NotificationBadgeUtil {
                 // If group is same as sender, don't show group
                 if (group == sender) group = ""
 
-                val message = if (showMessage) text ?: "" else ""
+                val message = if (showMessage) text?.replace("\n", " ")?.replace("\r", " ")
+                    ?.replace(Regex("\\s+"), " ")?.trim() ?: "" else ""
                 val notifText = buildString {
-                    if (showName && sender.isNotBlank()) append(sender)
+                    if (showName && sender.isNotBlank()) append(
+                        sender.replace("\n", " ").replace("\r", " ").replace(Regex("\\s+"), " ")
+                            .trim()
+                    )
                     if (showGroup && group.isNotBlank()) {
                         if (isNotEmpty()) append(": ")
-                        append(group)
+                        append(
+                            group.replace("\n", " ").replace("\r", " ").replace(Regex("\\s+"), " ")
+                                .trim()
+                        )
                     }
                     if (showMessage && message.isNotBlank()) {
                         if (isNotEmpty()) append(": ")
@@ -184,11 +182,51 @@ object NotificationBadgeUtil {
                     )
                 }
                 spanBuilder.append(notifSpan)
+            } else if (!isMedia && prefs.showNotificationText && title.isNullOrBlank() && text.isNullOrBlank()) {
+                // Fallback: no title or message, show app label as title and 'Notification received' as message
+                spanBuilder.append("\n")
+                val charLimit = prefs.homeAppCharLimit
+                val fallbackTitle = displayName
+                val fallbackMessage = "Notification received"
+                val notifText = buildString {
+                    if (prefs.showNotificationSenderName && fallbackTitle.isNotBlank()) append(
+                        fallbackTitle
+                    )
+                    if (prefs.showNotificationMessage) {
+                        if (isNotEmpty()) append(": ")
+                        append(fallbackMessage)
+                    }
+                }.take(charLimit)
+                val notifSpan = SpannableString(notifText)
+                notifSpan.setSpan(
+                    AbsoluteSizeSpan(prefs.labelnotificationsTextSize, true),
+                    0,
+                    notifText.length,
+                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+                val notificationFont = prefs.getFontForContext("notification")
+                    .getFont(context, prefs.getCustomFontPathForContext("notification"))
+                if (notificationFont != null) {
+                    notifSpan.setSpan(
+                        CustomTypefaceSpan(notificationFont),
+                        0,
+                        notifText.length,
+                        Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                    )
+                }
+                spanBuilder.append(notifSpan)
             }
 
             textView.text = spanBuilder
         } else {
-            textView.text = displayName
+            // Removed verbose log: No badge rendered for $packageName
+            // Apply small caps transformation if enabled
+            val finalDisplayName = when {
+                prefs.allCapsApps -> displayName.uppercase()
+                prefs.smallCapsApps -> displayName.lowercase()
+                else -> displayName
+            }
+            textView.text = finalDisplayName
             textView.typeface = prefs.getFontForContext("apps")
                 .getFont(context, prefs.getCustomFontPathForContext("apps"))
         }

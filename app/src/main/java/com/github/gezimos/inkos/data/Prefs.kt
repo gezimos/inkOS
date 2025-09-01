@@ -23,11 +23,16 @@ private const val LOCK_MODE = "LOCK_MODE"
 private const val HOME_APPS_NUM = "HOME_APPS_NUM"
 private const val HOME_PAGES_NUM = "HOME_PAGES_NUM"
 private const val HOME_PAGES_PAGER = "HOME_PAGES_PAGER"
+
+private const val HOME_PAGE_RESET = "HOME_PAGE_RESET"
 private const val HOME_CLICK_AREA = "HOME_CLICK_AREA"
 private const val STATUS_BAR = "STATUS_BAR"
-private const val SHOW_BATTERY = "SHOW_BATTERY"
+private const val NAVIGATION_BAR = "NAVIGATION_BAR"
+// SHOW_BATTERY constant removed
+private const val SHOW_AUDIO_WIDGET_ENABLE = "SHOW_AUDIO_WIDGET"
 private const val HOME_LOCKED = "HOME_LOCKED"
 private const val SETTINGS_LOCKED = "SETTINGS_LOCKED"
+private const val SYSTEM_SHORTCUTS_ENABLED = "SYSTEM_SHORTCUTS_ENABLED"
 private const val SHOW_CLOCK = "SHOW_CLOCK"
 private const val SWIPE_RIGHT_ACTION = "SWIPE_RIGHT_ACTION"
 private const val SWIPE_LEFT_ACTION = "SWIPE_LEFT_ACTION"
@@ -58,15 +63,103 @@ private const val BACKGROUND_COLOR = "BACKGROUND_COLOR"
 private const val APP_COLOR = "APP_COLOR"
 private const val CLOCK_COLOR = "CLOCK_COLOR"
 private const val BATTERY_COLOR = "BATTERY_COLOR"
+private const val DATE_COLOR = "DATE_COLOR"
+private const val QUOTE_COLOR = "QUOTE_COLOR"
+private const val AUDIO_WIDGET_COLOR = "AUDIO_WIDGET_COLOR"
 
 private const val APPS_FONT = "APPS_FONT"
 private const val CLOCK_FONT = "CLOCK_FONT"
 private const val STATUS_FONT = "STATUS_FONT"  // For Calendar, Alarm, Battery
 private const val NOTIFICATION_FONT = "NOTIFICATION_FONT"
+private const val QUOTE_FONT = "QUOTE_FONT"
 
+private const val SMALL_CAPS_APPS = "SMALL_CAPS_APPS"
+private const val ALL_CAPS_APPS = "ALL_CAPS_APPS"
 private const val EINK_REFRESH_ENABLED = "EINK_REFRESH_ENABLED"
+private const val HOME_BACKGROUND_IMAGE_URI = "HOME_BACKGROUND_IMAGE_URI"
+private const val HOME_BACKGROUND_IMAGE_OPACITY = "HOME_BACKGROUND_IMAGE_OPACITY"
+private const val QUOTE_TEXT = "QUOTE_TEXT"
+private const val QUOTE_TEXT_SIZE = "QUOTE_TEXT_SIZE"
+private const val SHOW_QUOTE = "SHOW_QUOTE"
+
+// App Drawer specific preferences
+private const val APP_DRAWER_SIZE = "APP_DRAWER_SIZE"
+private const val APP_DRAWER_GAP = "APP_DRAWER_GAP"
+private const val APP_DRAWER_ALIGNMENT = "APP_DRAWER_ALIGNMENT"
+private const val APP_DRAWER_PAGER = "APP_DRAWER_PAGER"
 
 class Prefs(val context: Context) {
+    private val BRIGHTNESS_LEVEL = "BRIGHTNESS_LEVEL"
+
+    /**
+     * Stores and retrieves the brightness level (0-255).
+     */
+    var brightnessLevel: Int
+        get() = prefs.getInt(BRIGHTNESS_LEVEL, 128) // Default to mid brightness
+        set(value) = prefs.edit { putInt(BRIGHTNESS_LEVEL, value.coerceIn(0, 255)) }
+    var appQuoteWidget: AppListItem
+        get() = loadApp("QUOTE_WIDGET")
+        set(appModel) = storeApp("QUOTE_WIDGET", appModel)
+    private val EINK_REFRESH_DELAY = "EINK_REFRESH_DELAY"
+    private val SELECTED_SYSTEM_SHORTCUTS = "SELECTED_SYSTEM_SHORTCUTS"
+
+    // Store selected system shortcuts (package IDs)
+    var selectedSystemShortcuts: MutableSet<String>
+        get() = prefs.getStringSet(SELECTED_SYSTEM_SHORTCUTS, mutableSetOf()) ?: mutableSetOf()
+        set(value) = prefs.edit { putStringSet(SELECTED_SYSTEM_SHORTCUTS, value) }
+
+    var einkRefreshDelay: Int
+        get() = prefs.getInt(
+            EINK_REFRESH_DELAY,
+            com.github.gezimos.inkos.data.Constants.DEFAULT_EINK_REFRESH_DELAY
+        )
+        set(value) = prefs.edit { putInt(EINK_REFRESH_DELAY, value) }
+    var appClickDate: AppListItem
+        get() = loadApp("CLICK_DATE")
+        set(appModel) = storeApp("CLICK_DATE", appModel)
+    private val CLICK_DATE_ACTION = "CLICK_DATE_ACTION"
+    var clickDateAction: Constants.Action
+        get() = try {
+            Constants.Action.valueOf(
+                prefs.getString(CLICK_DATE_ACTION, Constants.Action.Disabled.name)
+                    ?: Constants.Action.Disabled.name
+            )
+        } catch (_: Exception) {
+            Constants.Action.Disabled
+        }
+        set(value) = prefs.edit { putString(CLICK_DATE_ACTION, value.name) }
+    var dateFont: Constants.FontFamily
+        get() = try {
+            Constants.FontFamily.valueOf(
+                prefs.getString("date_font", Constants.FontFamily.System.name).toString()
+            )
+        } catch (_: Exception) {
+            Constants.FontFamily.System
+        }
+        set(value) = prefs.edit { putString("date_font", value.name) }
+
+    var dateSize: Int
+        get() = prefs.getInt("date_text_size", 15)
+        set(value) = prefs.edit { putInt("date_text_size", value) }
+    var showDate: Boolean
+        get() = prefs.getBoolean("SHOW_DATE", false)
+        set(value) = prefs.edit { putBoolean("SHOW_DATE", value) }
+
+    var showDateBatteryCombo: Boolean
+        get() = prefs.getBoolean("SHOW_DATE_BATTERY_COMBO", false)
+        set(value) = prefs.edit { putBoolean("SHOW_DATE_BATTERY_COMBO", value) }
+
+    var showQuote: Boolean
+        get() = prefs.getBoolean(SHOW_QUOTE, false)
+        set(value) = prefs.edit { putBoolean(SHOW_QUOTE, value) }
+
+    var quoteText: String
+        get() = prefs.getString(QUOTE_TEXT, "Stay inspired") ?: "Stay inspired"
+        set(value) = prefs.edit { putString(QUOTE_TEXT, value) }
+
+    var quoteSize: Int
+        get() = prefs.getInt(QUOTE_TEXT_SIZE, 18)
+        set(value) = prefs.edit { putInt(QUOTE_TEXT_SIZE, value) }
 
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_FILENAME, 0)
 
@@ -124,9 +217,12 @@ class Prefs(val context: Context) {
                 statusFont = font
                 labelnotificationsFont = font
                 batteryFont = font
+                fontFamily = font
                 lettersFont = font
                 lettersTitleFont = font
                 notificationsFont = font
+                dateFont = font
+                quoteFont = font
             }
         }
 
@@ -142,6 +238,7 @@ class Prefs(val context: Context) {
             prefs.edit {
                 putString("universal_font", value.name)
             }
+            fontFamily = value
             if (universalFontEnabled) {
                 // When universal font is enabled and changed, update all relevant preferences
                 appsFont = value
@@ -149,24 +246,38 @@ class Prefs(val context: Context) {
                 statusFont = value
                 labelnotificationsFont = value
                 batteryFont = value
+                fontFamily = value
                 lettersFont = value
                 lettersTitleFont = value
                 notificationsFont = value
+                dateFont = value
+                quoteFont = value
             }
         }
+
+    var font: String
+        get() = prefs.getString("FONT", "Roboto") ?: "Roboto"
+        set(value) = prefs.edit { putString("FONT", value) }
 
     var fontFamily: Constants.FontFamily
         get() = try {
             Constants.FontFamily.valueOf(
-                prefs.getString(
-                    LAUNCHER_FONT,
-                    Constants.FontFamily.System.name
-                ).toString()
+                prefs.getString(LAUNCHER_FONT, Constants.FontFamily.System.name)!!
             )
         } catch (_: Exception) {
             Constants.FontFamily.System
         }
         set(value) = prefs.edit { putString(LAUNCHER_FONT, value.name) }
+
+    var quoteFont: Constants.FontFamily
+        get() = try {
+            Constants.FontFamily.valueOf(
+                prefs.getString(QUOTE_FONT, Constants.FontFamily.System.name)!!
+            )
+        } catch (_: Exception) {
+            Constants.FontFamily.System
+        }
+        set(value) = prefs.edit { putString(QUOTE_FONT, value.name) }
 
     var customFontPath: String?
         get() = prefs.getString("custom_font_path", null)
@@ -210,9 +321,38 @@ class Prefs(val context: Context) {
         get() = prefs.getBoolean(EINK_REFRESH_ENABLED, false)
         set(value) = prefs.edit { putBoolean(EINK_REFRESH_ENABLED, value) }
 
+    var smallCapsApps: Boolean
+        get() = prefs.getBoolean(SMALL_CAPS_APPS, false)
+        set(value) = prefs.edit { putBoolean(SMALL_CAPS_APPS, value) }
+
+    var allCapsApps: Boolean
+        get() = prefs.getBoolean(ALL_CAPS_APPS, false)
+        set(value) = prefs.edit { putBoolean(ALL_CAPS_APPS, value) }
+
+    var homeBackgroundImageUri: String?
+        get() = prefs.getString(HOME_BACKGROUND_IMAGE_URI, null)
+        set(value) = prefs.edit { putString(HOME_BACKGROUND_IMAGE_URI, value) }
+
+    var homeBackgroundImageOpacity: Int
+        get() = prefs.getInt(HOME_BACKGROUND_IMAGE_OPACITY, 100)
+        set(value) = prefs.edit { putInt(HOME_BACKGROUND_IMAGE_OPACITY, value) }
+
     // --- Push Notifications Master Switch ---
     private val _pushNotificationsEnabledFlow = MutableStateFlow(pushNotificationsEnabled)
     val pushNotificationsEnabledFlow: StateFlow<Boolean> get() = _pushNotificationsEnabledFlow
+
+    // Counter-based flow to request a Home refresh (increment to signal a new request)
+    private val _forceRefreshHomeCounter = MutableStateFlow(0)
+    val forceRefreshHomeFlow: StateFlow<Int> get() = _forceRefreshHomeCounter
+
+    // Increment the counter to signal a home refresh request
+    fun triggerForceRefreshHome() {
+        try {
+            _forceRefreshHomeCounter.value = _forceRefreshHomeCounter.value + 1
+        } catch (_: Exception) {
+            // ignore
+        }
+    }
 
     var pushNotificationsEnabled: Boolean
         get() = prefs.getBoolean("push_notifications_enabled", false)
@@ -234,7 +374,8 @@ class Prefs(val context: Context) {
             "showMediaIndicator" to showMediaIndicator,
             "showMediaName" to showMediaName,
             "notificationsEnabled" to notificationsEnabled,
-            "showNotificationSenderFullName" to showNotificationSenderFullName
+            "showNotificationSenderFullName" to showNotificationSenderFullName,
+            "clearConversationOnAppOpen" to clearConversationOnAppOpen
         )
         prefs.edit { putString(NOTIFICATION_SWITCHES_STATE_KEY, gson.toJson(state)) }
     }
@@ -252,6 +393,7 @@ class Prefs(val context: Context) {
         state["showMediaName"]?.let { showMediaName = it }
         state["notificationsEnabled"]?.let { notificationsEnabled = it }
         state["showNotificationSenderFullName"]?.let { showNotificationSenderFullName = it }
+        state["clearConversationOnAppOpen"]?.let { clearConversationOnAppOpen = it }
     }
 
     fun disableAllNotificationSwitches() {
@@ -264,6 +406,7 @@ class Prefs(val context: Context) {
         showMediaName = false
         notificationsEnabled = false
         showNotificationSenderFullName = false
+        clearConversationOnAppOpen = false
     }
 
     fun saveToString(): String {
@@ -278,19 +421,31 @@ class Prefs(val context: Context) {
             val pm = context.packageManager
             for ((key, value) in all) {
                 // Explicitly handle allowlists as sets of strings, and filter out non-existent apps
-                if (key == "allowed_notification_apps" || key == "allowed_badge_notification_apps") {
+                if (key == "allowed_notification_apps" || key == "allowed_badge_notification_apps" ||
+                    key == HIDDEN_APPS || key == LOCKED_APPS
+                ) {
                     val set = when (value) {
                         is Collection<*> -> value.filterIsInstance<String>().toMutableSet()
                         is String -> mutableSetOf(value)
                         else -> mutableSetOf<String>()
                     }
-                    // Filter out packages that are not installed
-                    val filteredSet = set.filter { pkg ->
-                        try {
-                            pm.getPackageInfo(pkg, 0)
+                    // For hidden/locked apps, filter by package name only (ignore user handle)
+                    // Keep internal synthetic apps (com.inkos.internal.*) and system shortcuts
+                    // even if they are not installable packages on the system.
+                    val filteredSet = set.filter { pkgUser ->
+                        val pkg = pkgUser.split("|")[0]
+                        // preserve internal synthetic apps and system shortcuts
+                        if (pkg.startsWith("com.inkos.internal.") ||
+                            com.github.gezimos.inkos.helper.SystemShortcutHelper.isSystemShortcut(pkg)
+                        ) {
                             true
-                        } catch (e: Exception) {
-                            false
+                        } else {
+                            try {
+                                pm.getPackageInfo(pkg, 0)
+                                true
+                            } catch (e: Exception) {
+                                false
+                            }
                         }
                     }.toMutableSet()
                     putStringSet(key, filteredSet)
@@ -340,6 +495,10 @@ class Prefs(val context: Context) {
         get() = prefs.getBoolean(FIRST_OPEN, true)
         set(value) = prefs.edit { putBoolean(FIRST_OPEN, value) }
 
+    var einkHelperEnabled: Boolean
+        get() = prefs.getBoolean("eink_helper_enabled", false)
+        set(value) = prefs.edit { putBoolean("eink_helper_enabled", value) }
+
     var firstSettingsOpen: Boolean
         get() = prefs.getBoolean(FIRST_SETTINGS_OPEN, true)
         set(value) = prefs.edit { putBoolean(FIRST_SETTINGS_OPEN, value) }
@@ -352,8 +511,16 @@ class Prefs(val context: Context) {
         get() = prefs.getBoolean(HOME_PAGES_PAGER, true)
         set(value) = prefs.edit { putBoolean(HOME_PAGES_PAGER, value) }
 
+    var appDrawerPager: Boolean
+        get() = prefs.getBoolean(APP_DRAWER_PAGER, true)
+        set(value) = prefs.edit { putBoolean(APP_DRAWER_PAGER, value) }
+
+    var homeReset: Boolean
+        get() = prefs.getBoolean(HOME_PAGE_RESET, true)
+        set(value) = prefs.edit { putBoolean(HOME_PAGE_RESET, value) }
+
     var homeAppsNum: Int
-        get() = prefs.getInt(HOME_APPS_NUM, 15)
+        get() = prefs.getInt(HOME_APPS_NUM, 12)
         set(value) = prefs.edit { putInt(HOME_APPS_NUM, value) }
 
     var homePagesNum: Int
@@ -376,6 +543,18 @@ class Prefs(val context: Context) {
         get() = prefs.getInt(BATTERY_COLOR, getColor(context, getColorInt("txt")))
         set(value) = prefs.edit { putInt(BATTERY_COLOR, value) }
 
+    var dateColor: Int
+        get() = prefs.getInt(DATE_COLOR, getColor(context, getColorInt("txt")))
+        set(value) = prefs.edit { putInt(DATE_COLOR, value) }
+
+    var quoteColor: Int
+        get() = prefs.getInt(QUOTE_COLOR, getColor(context, getColorInt("txt")))
+        set(value) = prefs.edit { putInt(QUOTE_COLOR, value) }
+
+    var audioWidgetColor: Int
+        get() = prefs.getInt(AUDIO_WIDGET_COLOR, getColor(context, getColorInt("txt")))
+        set(value) = prefs.edit { putInt(AUDIO_WIDGET_COLOR, value) }
+
     var extendHomeAppsArea: Boolean
         get() = prefs.getBoolean(HOME_CLICK_AREA, false)
         set(value) = prefs.edit { putBoolean(HOME_CLICK_AREA, value) }
@@ -384,13 +563,17 @@ class Prefs(val context: Context) {
         get() = prefs.getBoolean(STATUS_BAR, false)
         set(value) = prefs.edit { putBoolean(STATUS_BAR, value) }
 
+    var showNavigationBar: Boolean
+        get() = prefs.getBoolean(NAVIGATION_BAR, false)
+        set(value) = prefs.edit { putBoolean(NAVIGATION_BAR, value) }
+
     var showClock: Boolean
         get() = prefs.getBoolean(SHOW_CLOCK, false)
         set(value) = prefs.edit { putBoolean(SHOW_CLOCK, value) }
 
-    var showBattery: Boolean
-        get() = prefs.getBoolean(SHOW_BATTERY, false)
-        set(value) = prefs.edit { putBoolean(SHOW_BATTERY, value) }
+    var showAudioWidgetEnabled: Boolean
+        get() = prefs.getBoolean(SHOW_AUDIO_WIDGET_ENABLE, false)
+        set(value) = prefs.edit { putBoolean(SHOW_AUDIO_WIDGET_ENABLE, value) }
 
     var showNotificationBadge: Boolean
         get() = prefs.getBoolean(SHOW_NOTIFICATION_BADGE, true)
@@ -425,6 +608,10 @@ class Prefs(val context: Context) {
         get() = prefs.getBoolean("show_media_name", true)
         set(value) = prefs.edit { putBoolean("show_media_name", value) }
 
+    var clearConversationOnAppOpen: Boolean
+        get() = prefs.getBoolean("clear_conversation_on_app_open", false)
+        set(value) = prefs.edit { putBoolean("clear_conversation_on_app_open", value) }
+
     var homeLocked: Boolean
         get() = prefs.getBoolean(HOME_LOCKED, false)
         set(value) = prefs.edit { putBoolean(HOME_LOCKED, value) }
@@ -433,17 +620,21 @@ class Prefs(val context: Context) {
         get() = prefs.getBoolean(SETTINGS_LOCKED, false)
         set(value) = prefs.edit { putBoolean(SETTINGS_LOCKED, value) }
 
+    var systemShortcutsEnabled: Boolean
+        get() = prefs.getBoolean(SYSTEM_SHORTCUTS_ENABLED, false)
+        set(value) = prefs.edit { putBoolean(SYSTEM_SHORTCUTS_ENABLED, value) }
+
     var swipeLeftAction: Constants.Action
         get() {
             return try {
                 Constants.Action.valueOf(
                     prefs.getString(
                         SWIPE_LEFT_ACTION,
-                        Constants.Action.OpenNotificationsScreen.name // changed default
+                        Constants.Action.OpenNotificationsScreen.name // default: Notifications
                     ).toString()
                 )
             } catch (_: Exception) {
-                Constants.Action.OpenNotificationsScreen // changed default
+                Constants.Action.OpenNotificationsScreen
             }
         }
         set(value) = prefs.edit { putString(SWIPE_LEFT_ACTION, value.name) }
@@ -454,11 +645,11 @@ class Prefs(val context: Context) {
                 Constants.Action.valueOf(
                     prefs.getString(
                         SWIPE_RIGHT_ACTION,
-                        Constants.Action.OpenApp.name
+                        Constants.Action.OpenAppDrawer.name // default: Open App Drawer
                     ).toString()
                 )
             } catch (_: Exception) {
-                Constants.Action.OpenApp
+                Constants.Action.OpenAppDrawer
             }
         }
         set(value) = prefs.edit { putString(SWIPE_RIGHT_ACTION, value.name) }
@@ -469,11 +660,11 @@ class Prefs(val context: Context) {
                 Constants.Action.valueOf(
                     prefs.getString(
                         CLICK_CLOCK_ACTION,
-                        Constants.Action.OpenApp.name
+                        Constants.Action.Disabled.name
                     ).toString()
                 )
             } catch (_: Exception) {
-                Constants.Action.OpenApp
+                Constants.Action.Disabled
             }
         }
         set(value) = prefs.edit { putString(CLICK_CLOCK_ACTION, value.name) }
@@ -484,14 +675,26 @@ class Prefs(val context: Context) {
                 Constants.Action.valueOf(
                     prefs.getString(
                         DOUBLE_TAP_ACTION,
-                        Constants.Action.RestartApp.name
+                        Constants.Action.EinkRefresh.name // default: E-ink refresh
                     ).toString()
                 )
             } catch (_: Exception) {
-                Constants.Action.RestartApp
+                Constants.Action.EinkRefresh
             }
         }
         set(value) = prefs.edit { putString(DOUBLE_TAP_ACTION, value.name) }
+
+    private val QUOTE_ACTION = "QUOTE_ACTION"
+    var quoteAction: Constants.Action
+        get() = try {
+            Constants.Action.valueOf(
+                prefs.getString(QUOTE_ACTION, Constants.Action.Disabled.name)
+                    ?: Constants.Action.Disabled.name
+            )
+        } catch (_: Exception) {
+            Constants.Action.Disabled
+        }
+        set(value) = prefs.edit { putString(QUOTE_ACTION, value.name) }
 
     var appTheme: Constants.Theme
         get() {
@@ -669,7 +872,7 @@ class Prefs(val context: Context) {
     var appSize: Int
         get() {
             return try {
-                prefs.getInt(APP_SIZE_TEXT, 32)
+                prefs.getInt(APP_SIZE_TEXT,27)
             } catch (_: Exception) {
                 18
             }
@@ -679,7 +882,7 @@ class Prefs(val context: Context) {
     var clockSize: Int
         get() {
             return try {
-                prefs.getInt(CLOCK_SIZE_TEXT, 64)
+                prefs.getInt(CLOCK_SIZE_TEXT, 48)
             } catch (_: Exception) {
                 64
             }
@@ -707,25 +910,40 @@ class Prefs(val context: Context) {
         set(value) = prefs.edit { putInt(TEXT_SIZE_SETTINGS, value) }
 
     var textPaddingSize: Int
-        get() {
-            return try {
-                prefs.getInt(TEXT_PADDING_SIZE, 12)
-            } catch (_: Exception) {
-                12
-            }
+        get() = try {
+            prefs.getInt(TEXT_PADDING_SIZE, 15)
+        } catch (_: Exception) {
+            12
         }
         set(value) = prefs.edit { putInt(TEXT_PADDING_SIZE, value) }
 
-    // Number of characters to show in Home App Name Notifications
-    // Remove unused property
-    // var homeNotificationCharLimit: Int
-    //     get() = prefs.getInt("home_notification_char_limit", 30)
-    //     set(value) = prefs.edit { putInt("home_notification_char_limit", value) }
+    // --- App Drawer specific settings ---
+    // Size for app drawer labels (defaults to existing appSize)
+    var appDrawerSize: Int
+        get() = prefs.getInt(APP_DRAWER_SIZE, appSize)
+        set(value) = prefs.edit { putInt(APP_DRAWER_SIZE, value.coerceIn(Constants.MIN_APP_SIZE, Constants.MAX_APP_SIZE)) }
 
-    // Character limit for Home App labels
+    // Gap / padding between app labels in the drawer (defaults to textPaddingSize)
+    var appDrawerGap: Int
+        get() = prefs.getInt(APP_DRAWER_GAP, textPaddingSize)
+        set(value) = prefs.edit { putInt(APP_DRAWER_GAP, value.coerceIn(Constants.MIN_TEXT_PADDING, Constants.MAX_TEXT_PADDING)) }
+
+    // Alignment for app drawer labels: 0 = START, 1 = CENTER, 2 = END. Default uses start (0).
+    var appDrawerAlignment: Int
+        get() = prefs.getInt(APP_DRAWER_ALIGNMENT, 0)
+        set(value) = prefs.edit { putInt(APP_DRAWER_ALIGNMENT, value.coerceIn(0, 2)) }
+
     var homeAppCharLimit: Int
         get() = prefs.getInt("home_app_char_limit", 20) // default to 20
         set(value) = prefs.edit { putInt("home_app_char_limit", value) }
+
+    var topWidgetMargin: Int
+        get() = prefs.getInt("top_widget_margin", Constants.DEFAULT_TOP_WIDGET_MARGIN)
+        set(value) = prefs.edit { putInt("top_widget_margin", value) }
+
+    var bottomWidgetMargin: Int
+        get() = prefs.getInt("bottom_widget_margin", Constants.DEFAULT_BOTTOM_WIDGET_MARGIN)
+        set(value) = prefs.edit { putInt("bottom_widget_margin", value) }
 
     private fun getColorInt(type: String): Int {
         when (appTheme) {
@@ -772,9 +990,11 @@ class Prefs(val context: Context) {
             "status" -> statusFont
             "notification" -> labelnotificationsFont
             "battery" -> batteryFont
+            "quote" -> quoteFont
             "letters" -> lettersFont
             "lettersTitle" -> lettersTitleFont
             "notifications" -> notificationsFont
+            "date" -> dateFont
             else -> Constants.FontFamily.System
         }
     }
@@ -809,12 +1029,33 @@ class Prefs(val context: Context) {
 
     // --- Vibration for paging ---
     var useVibrationForPaging: Boolean
-        get() = prefs.getBoolean("use_vibration_for_paging", false)
+        get() = prefs.getBoolean("use_vibration_for_paging", true)
         set(value) = prefs.edit { putBoolean("use_vibration_for_paging", value) }
 
     var onboardingPage: Int
         get() = prefs.getInt(ONBOARDING_PAGE, 0)
         set(value) = prefs.edit { putInt(ONBOARDING_PAGE, value) }
+
+    fun setGestureApp(flag: Constants.AppDrawerFlag, app: AppListItem) {
+        when (flag) {
+            Constants.AppDrawerFlag.SetSwipeLeft -> {
+                appSwipeLeft = app
+                swipeLeftAction = Constants.Action.OpenApp
+            }
+
+            Constants.AppDrawerFlag.SetSwipeRight -> {
+                appSwipeRight = app
+                swipeRightAction = Constants.Action.OpenAppDrawer
+            }
+
+            Constants.AppDrawerFlag.SetClickClock -> {
+                appClickClock = app
+                clickClockAction = Constants.Action.OpenApp
+            }
+
+            else -> {}
+        }
+    }
 
     companion object {
         private const val BATTERY_FONT = "battery_font"

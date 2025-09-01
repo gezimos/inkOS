@@ -1,5 +1,7 @@
 package com.github.gezimos.inkos.ui.compose
 
+import android.app.Activity
+import android.content.ContextWrapper
 import android.content.Intent
 import android.provider.Settings
 import androidx.compose.foundation.Image
@@ -18,11 +20,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -31,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -49,15 +55,24 @@ object OnboardingScreen {
         onFinish: () -> Unit = {},
         onRequestNotificationPermission: (() -> Unit)? = null
     ) {
-        val context = LocalContext.current
-        val prefs = remember { Prefs(context) }
-        var pushNotificationsEnabled by remember { mutableStateOf(prefs.pushNotificationsEnabled) }
-        var showClock by remember { mutableStateOf(prefs.showClock) }
-        var showBattery by remember { mutableStateOf(prefs.showBattery) }
-        var showStatusBar by remember { mutableStateOf(prefs.showStatusBar) }
+    val context = LocalContext.current
+    val prefs = remember { Prefs(context) }
+    var pushNotificationsEnabled by remember { mutableStateOf(prefs.pushNotificationsEnabled) }
+    var showAudioWidgetEnabled by remember { mutableStateOf(prefs.showAudioWidgetEnabled) }
+    var showClock by remember { mutableStateOf(prefs.showClock) }
+    var showDate by remember { mutableStateOf(prefs.showDate) }
+    var showDateBatteryCombo by remember { mutableStateOf(prefs.showDateBatteryCombo) }
+    var showStatusBar by remember { mutableStateOf(prefs.showStatusBar) }
+    var showQuote by remember { mutableStateOf(prefs.showQuote) }
+    // Keep theme selection state lifted so Finish handler can access it
+    var themeMode by remember { mutableStateOf(prefs.appTheme) }
+
+    // Add a trigger for font changes to force recomposition
+    var fontChangeKey by remember { mutableIntStateOf(0) }
+    var quickUniversalFont by remember { mutableStateOf(prefs.universalFont) }
 
         // State for onboarding page
-        var page by remember { mutableStateOf(prefs.onboardingPage) }
+        var page by remember { mutableIntStateOf(prefs.onboardingPage) }
         val totalPages = 3
         val settingsSize = (prefs.settingsSize - 3)
         val titleFontSize = (settingsSize * 1.5).sp
@@ -67,25 +82,38 @@ object OnboardingScreen {
             prefs.onboardingPage = page
         }
 
-        // Determine background color using the same logic as HomeFragment/Prefs
-        val isDark = when (prefs.appTheme) {
+        // Helper to resolve an Activity from a possibly-wrapped Context
+        fun resolveActivity(ctx: android.content.Context): Activity? {
+            var c: android.content.Context = ctx
+            while (c is ContextWrapper) {
+                if (c is Activity) return c
+                c = c.baseContext
+            }
+            return null
+        }
+
+        // Determine background color using the current themeMode state (not prefs.appTheme)
+        val isDark = when (themeMode) {
             Constants.Theme.Light -> false
             Constants.Theme.Dark -> true
             Constants.Theme.System -> com.github.gezimos.inkos.helper.isSystemInDarkMode(
                 context
             )
         }
-        val backgroundColor = when (prefs.appTheme) {
+        val backgroundColor = when (themeMode) {
             Constants.Theme.System ->
                 if (com.github.gezimos.inkos.helper.isSystemInDarkMode(context)) Color.Black else Color.White
 
             Constants.Theme.Dark -> Color.Black
             Constants.Theme.Light -> Color.White
         }
-        val topPadding = if (prefs.showStatusBar) 48.dp else 48.dp
+        val topPadding = if (prefs.showStatusBar) 42.dp else 42.dp
         // Calculate bottom padding for nav bar/gestures
         val bottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-        SettingsTheme(isDark = isDark) {
+        
+        // Key to trigger recomposition when font changes - ensure SettingsTheme recreates with new font
+        key(fontChangeKey) {
+            SettingsTheme(isDark = isDark) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -101,29 +129,19 @@ object OnboardingScreen {
                     verticalArrangement = Arrangement.Top
                 ) {
                     Image(
-                        painter = painterResource(id = R.drawable.ic_ink),
+                        painter = painterResource(id = R.drawable.ic_inkos),
                         contentDescription = "InkOS Logo",
-                        colorFilter = ColorFilter.tint(SettingsTheme.typography.title.color ?: Color.Unspecified),
+                        colorFilter = ColorFilter.tint(SettingsTheme.typography.title.color),
                         modifier = Modifier
-                            .width(24.dp)
+                            .width(42.dp)
                             .padding(bottom = 8.dp)
                             .align(Alignment.CenterHorizontally)
                     )
                     Text(
                         text = "inkOS",
                         style = SettingsTheme.typography.title,
-                        fontSize = 32.sp,
+                        fontSize = 24.sp,
                         modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                    Text(
-                        text = "A text based launcher.",
-                        style = SettingsTheme.typography.body,
-                        fontSize = 18.sp,
-                        modifier = Modifier
-                            .padding(start = 36.dp, end = 36.dp)
-                            .fillMaxWidth()
-                            .align(Alignment.CenterHorizontally),
-                        textAlign = TextAlign.Center
                     )
                 }
                 // Vertically centered switches, 3 per page
@@ -140,72 +158,94 @@ object OnboardingScreen {
                     val focusRequesterPage1 = remember { FocusRequester() }
                     val focusRequesterPage2 = remember { FocusRequester() }
                     // Move focus to first item on page change
-                    var einkRefreshEnabled by remember { mutableStateOf(prefs.einkRefreshEnabled) }
-                    var vibrationFeedback by remember { mutableStateOf(prefs.useVibrationForPaging) }
+                    var einkHelperEnabled by remember { mutableStateOf(prefs.einkHelperEnabled) }
                     var volumeKeyNavigation by remember { mutableStateOf(prefs.useVolumeKeysForPages) }
-                    var lastToggledSwitch by remember { mutableStateOf<String?>(null) }
                     when (page) {
                         0 -> {
-                            // Page 1: Status Bar, Clock, Battery
-                            SettingsComposable.SettingsSwitch(
-                                text = "Show Status Bar",
-                                fontSize = titleFontSize,
-                                defaultState = showStatusBar,
-                                modifier = Modifier.focusRequester(focusRequesterPage0),
-                                onCheckedChange = {
-                                    showStatusBar = it
-                                    prefs.showStatusBar = it
-                                }
-                            )
+                            // Page 1: Theme Mode, Universal Font, Show Status Bar, Volume key navigation
+                            SettingsComposable.FullLineSeparator(isDark = false)
+                            Box(modifier = Modifier.focusRequester(focusRequesterPage0)) {
+                                SettingsComposable.SettingsSelect(
+                                    title = "Theme Mode",
+                                    option = themeMode.name,
+                                    fontSize = titleFontSize,
+                                    onClick = {
+                                        // Cycle through System -> Light -> Dark -> System
+                                        val next = when (themeMode) {
+                                            Constants.Theme.System -> Constants.Theme.Light
+                                            Constants.Theme.Light -> Constants.Theme.Dark
+                                            Constants.Theme.Dark -> Constants.Theme.System
+                                        }
+                                        themeMode = next
+                                        prefs.appTheme = next
+                                    }
+                                )
+                            }
                             LaunchedEffect(page) {
                                 focusRequesterPage0.requestFocus()
                             }
                             SettingsComposable.FullLineSeparator(isDark = false)
-                            SettingsComposable.SettingsSwitch(
-                                text = "Show Clock",
-                                fontSize = titleFontSize,
-                                defaultState = showClock,
-                                onCheckedChange = {
-                                    showClock = it
-                                    prefs.showClock = it
-                                }
-                            )
-                            SettingsComposable.FullLineSeparator(isDark = false)
-                            SettingsComposable.SettingsSwitch(
-                                text = "Show Battery",
-                                fontSize = titleFontSize,
-                                defaultState = showBattery,
-                                onCheckedChange = {
-                                    showBattery = it
-                                    prefs.showBattery = it
-                                }
-                            )
-                        }
-                        1 -> {
-                            // Page 2: Einkrefresh, Vibration feedback, Volume key navigation
-                            SettingsComposable.SettingsSwitch(
-                                text = "Eink Refresh",
-                                fontSize = titleFontSize,
-                                defaultState = einkRefreshEnabled,
-                                modifier = Modifier.focusRequester(focusRequesterPage1),
-                                onCheckedChange = {
-                                    einkRefreshEnabled = it
-                                    prefs.einkRefreshEnabled = it
-                                    if (it) lastToggledSwitch = "eink" else if (lastToggledSwitch == "eink") lastToggledSwitch = null
-                                }
-                            )
-                            LaunchedEffect(page) {
-                                focusRequesterPage1.requestFocus()
+                            // Custom font selector that shows font in its own typeface
+                            val interactionSource = remember { MutableInteractionSource() }
+                            val isFocused = interactionSource.collectIsFocusedAsState().value
+                            val focusColor = if (isDark) Color(0x33FFFFFF) else Color(0x22000000)
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .then(
+                                        if (isFocused) Modifier.background(focusColor) else Modifier
+                                    )
+                                    .clickable(
+                                        interactionSource = interactionSource,
+                                        indication = null
+                                    ) {
+                                        // Cycle through built-in font presets (exclude Custom)
+                                        val fontEntries = Constants.FontFamily.entries.filter { it != Constants.FontFamily.Custom }
+                                        val idx = fontEntries.indexOf(quickUniversalFont).let { if (it == -1) 0 else it }
+                                        val next = fontEntries[(idx + 1) % fontEntries.size]
+                                        quickUniversalFont = next
+                                        prefs.universalFont = next
+                                        // Also update the main fontFamily to trigger SettingsTheme refresh
+                                        prefs.fontFamily = next
+                                        // Trigger recomposition to see font change throughout the screen
+                                        fontChangeKey++
+                                    }
+                                    .padding(vertical = 16.dp)
+                                    .padding(horizontal = 24.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Universal Font",
+                                    style = SettingsTheme.typography.title,
+                                    fontSize = titleFontSize,
+                                    modifier = Modifier.weight(1f),
+                                    color = SettingsTheme.typography.title.color
+                                )
+
+                                Text(
+                                    text = quickUniversalFont.getString(context),
+                                    style = SettingsTheme.typography.title.copy(
+                                        fontFamily = quickUniversalFont.getFont(context)?.let { 
+                                            androidx.compose.ui.text.font.FontFamily(it) 
+                                        } ?: androidx.compose.ui.text.font.FontFamily.Default
+                                    ),
+                                    fontSize = titleFontSize,
+                                    color = SettingsTheme.typography.title.color
+                                )
                             }
                             SettingsComposable.FullLineSeparator(isDark = false)
                             SettingsComposable.SettingsSwitch(
-                                text = "Vibration Feedback",
+                                text = "Show Status Bar",
                                 fontSize = titleFontSize,
-                                defaultState = vibrationFeedback,
+                                defaultState = showStatusBar,
                                 onCheckedChange = {
-                                    vibrationFeedback = it
-                                    prefs.useVibrationForPaging = it
-                                    if (it) lastToggledSwitch = "vibration" else if (lastToggledSwitch == "vibration") lastToggledSwitch = null
+                                    showStatusBar = it
+                                    prefs.showStatusBar = it
+                                    // Resolve an Activity and show/hide the status bar
+                                    resolveActivity(context)?.let { activity ->
+                                        if (it) com.github.gezimos.inkos.helper.showStatusBar(activity)
+                                        else com.github.gezimos.inkos.helper.hideStatusBar(activity)
+                                    }
                                 }
                             )
                             SettingsComposable.FullLineSeparator(isDark = false)
@@ -216,12 +256,61 @@ object OnboardingScreen {
                                 onCheckedChange = {
                                     volumeKeyNavigation = it
                                     prefs.useVolumeKeysForPages = it
-                                    if (it) lastToggledSwitch = "volume" else if (lastToggledSwitch == "volume") lastToggledSwitch = null
                                 }
                             )
                         }
+
+                        1 -> {
+                            // Page 2: Clock, Date, Battery, Quote
+                            SettingsComposable.FullLineSeparator(isDark = false)
+                            SettingsComposable.SettingsSwitch(
+                                text = "Show Clock",
+                                fontSize = titleFontSize,
+                                defaultState = showClock,
+                                modifier = Modifier.focusRequester(focusRequesterPage1),
+                                onCheckedChange = {
+                                    showClock = it
+                                    prefs.showClock = it
+                                }
+                            )
+                            LaunchedEffect(page) {
+                                focusRequesterPage1.requestFocus()
+                            }
+                            SettingsComposable.FullLineSeparator(isDark = false)
+                            SettingsComposable.SettingsSwitch(
+                                text = "Show Date",
+                                fontSize = titleFontSize,
+                                defaultState = showDate,
+                                onCheckedChange = {
+                                    showDate = it
+                                    prefs.showDate = it
+                                }
+                            )
+                            SettingsComposable.FullLineSeparator(isDark = false)
+                            SettingsComposable.SettingsSwitch(
+                                text = "Show Battery",
+                                fontSize = titleFontSize,
+                                defaultState = showDateBatteryCombo,
+                                onCheckedChange = {
+                                    showDateBatteryCombo = it
+                                    prefs.showDateBatteryCombo = it
+                                }
+                            )
+                            SettingsComposable.FullLineSeparator(isDark = false)
+                            SettingsComposable.SettingsSwitch(
+                                text = "Show Quote",
+                                fontSize = titleFontSize,
+                                defaultState = showQuote,
+                                onCheckedChange = {
+                                    showQuote = it
+                                    prefs.showQuote = it
+                                }
+                            )
+                        }
+
                         2 -> {
-                            // Page 3: Notifications first, then theme mode
+                            // Page 3: Notifications first, then E-ink Quality Mode
+                            SettingsComposable.FullLineSeparator(isDark = false)
                             SettingsComposable.SettingsSwitch(
                                 text = "Enable Notifications",
                                 fontSize = titleFontSize,
@@ -231,32 +320,35 @@ object OnboardingScreen {
                                     pushNotificationsEnabled = it
                                     prefs.pushNotificationsEnabled = it
                                     if (it) {
-                                        val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+                                        val intent =
+                                            Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
                                         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                         context.startActivity(intent)
                                         onRequestNotificationPermission?.invoke()
                                     }
                                 }
                             )
+                            SettingsComposable.FullLineSeparator(isDark = false)
+                            SettingsComposable.SettingsSwitch(
+                                text = "Enable Audio Widget",
+                                fontSize = titleFontSize,
+                                defaultState = showAudioWidgetEnabled,
+                                onCheckedChange = {
+                                    showAudioWidgetEnabled = it
+                                    prefs.showAudioWidgetEnabled = it
+                                }
+                            )
                             LaunchedEffect(page) {
                                 focusRequesterPage2.requestFocus()
                             }
                             SettingsComposable.FullLineSeparator(isDark = false)
-                            // Theme Mode selector (cycles through System, Light, Dark)
-                            var themeMode by remember { mutableStateOf(prefs.appTheme) }
-                            SettingsComposable.SettingsSelect(
-                                title = "Theme Mode",
-                                option = themeMode.name,
+                            SettingsComposable.SettingsSwitch(
+                                text = "E-ink Quality Mode",
                                 fontSize = titleFontSize,
-                                onClick = {
-                                    // Cycle through System -> Light -> Dark -> System
-                                    val next = when (themeMode) {
-                                        Constants.Theme.System -> Constants.Theme.Light
-                                        Constants.Theme.Light -> Constants.Theme.Dark
-                                        Constants.Theme.Dark -> Constants.Theme.System
-                                    }
-                                    themeMode = next
-                                    prefs.appTheme = next
+                                defaultState = einkHelperEnabled,
+                                onCheckedChange = {
+                                    einkHelperEnabled = it
+                                    prefs.einkHelperEnabled = it
                                 }
                             )
                             SettingsComposable.FullLineSeparator(isDark = false)
@@ -272,20 +364,15 @@ object OnboardingScreen {
                         }
                     }
                     SettingsComposable.FullLineSeparator(isDark = false)
-                    // Dynamic tip based on enabled switches
-                    val tipText = when {
-                        page == 0 && showBattery -> "Shows the battery % at the bottom."
-                        page == 0 && showClock -> "Clock widget appears above apps."
-                        page == 0 && showStatusBar -> "This will show the status bar."
-                        page == 1 && lastToggledSwitch == "eink" && einkRefreshEnabled -> "To clear ghosting in Mudita Kompakt"
-                        page == 1 && lastToggledSwitch == "vibration" && vibrationFeedback -> "Vibration feedback on swipes"
-                        page == 1 && lastToggledSwitch == "volume" && volumeKeyNavigation -> "Use vol. keys to change pages/values."
-                        page == 1 && einkRefreshEnabled -> "Screen refresh to clear ghosting"
-                        page == 1 && vibrationFeedback -> "Vibration feedback on swipes"
-                        page == 1 && volumeKeyNavigation -> "Use vol. keys to change pages/values."
+                    // One static tip per page (avoid dynamic behavior)
+                    // Provide a fallback/default tip string used when page index is unexpected
+                    val defaultTip = "Tip: Use number keys to quickly open apps; long-press for options"
+                    val tipText = when (page) {
+                        0 -> "Tip: Longpress in home for Settings"
+                        1 -> "Tip: Hold 9 in home for Settings"
+                        2 -> "Tip: Manage E-ink in Settings/Extra"
                         else -> null
                     }
-                    val defaultTip = if (page == 2) "Tip: Longpress 9 in home for settings" else "Tip: Longpress in home for settings"
                     if (tipText != null) {
                         Text(
                             text = tipText,
@@ -353,10 +440,25 @@ object OnboardingScreen {
                             .heightIn(min = 56.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        SettingsComposable.PageIndicator(
-                            currentPage = page,
-                            pageCount = totalPages
-                        )
+                        // Custom page indicator that responds to theme changes
+                        val activeRes = R.drawable.ic_current_page
+                        val inactiveRes = R.drawable.ic_new_page
+                        val tintColor = if (isDark) Color.White else Color.Black
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            for (i in 0 until totalPages) {
+                                Image(
+                                    painter = painterResource(id = if (i == page) activeRes else inactiveRes),
+                                    contentDescription = null,
+                                    colorFilter = ColorFilter.tint(tintColor),
+                                    modifier = Modifier
+                                        .padding(horizontal = 2.dp)
+                                        .size(if (i == page) 12.dp else 10.dp)
+                                )
+                            }
+                        }
                     }
                     // Next/Finish button
                     val nextInteractionSource = remember { MutableInteractionSource() }
@@ -370,7 +472,45 @@ object OnboardingScreen {
                                 interactionSource = nextInteractionSource,
                                 indication = null
                             ) {
-                                if (page < totalPages - 1) page++ else onFinish()
+                                if (page < totalPages - 1) {
+                                    page++
+                                } else {
+                                    // Apply selected theme and corresponding default colors (mirror LookFeelFragment)
+                                    // Activity resolution not required here
+
+                                    val isDark = when (themeMode) {
+                                        Constants.Theme.Light -> false
+                                        Constants.Theme.Dark -> true
+                                        Constants.Theme.System -> com.github.gezimos.inkos.helper.isSystemInDarkMode(context)
+                                    }
+
+                                    // Persist theme and colors
+                                    prefs.appTheme = themeMode
+                                    prefs.backgroundColor = if (isDark) Color.Black.toArgb() else Color.White.toArgb()
+                                    prefs.appColor = if (isDark) Color.White.toArgb() else Color.Black.toArgb()
+                                    prefs.clockColor = if (isDark) Color.White.toArgb() else Color.Black.toArgb()
+                                    prefs.batteryColor = if (isDark) Color.White.toArgb() else Color.Black.toArgb()
+                                    prefs.dateColor = if (isDark) Color.White.toArgb() else Color.Black.toArgb()
+                                    prefs.quoteColor = if (isDark) Color.White.toArgb() else Color.Black.toArgb()
+                                    prefs.audioWidgetColor = if (isDark) Color.White.toArgb() else Color.Black.toArgb()
+
+                                    // Apply theme mode immediately to ensure proper shadow application
+                                    val newThemeMode = when (themeMode) {
+                                        Constants.Theme.Light -> androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_NO
+                                        Constants.Theme.Dark -> androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_YES
+                                        Constants.Theme.System -> androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+                                    }
+                                    androidx.appcompat.app.AppCompatDelegate.setDefaultNightMode(newThemeMode)
+
+                                    // Signal HomeFragment to refresh its UI (colors, fonts, viewmodel state)
+                                    try {
+                                        prefs.triggerForceRefreshHome()
+                                    } catch (_: Exception) {
+                                        // ignore
+                                    }
+                                    
+                                    onFinish()
+                                }
                             },
                         contentAlignment = Alignment.CenterEnd
                     ) {
@@ -385,4 +525,5 @@ object OnboardingScreen {
             }
         }
     }
+}
 }

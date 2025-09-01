@@ -30,7 +30,6 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
 import com.github.gezimos.common.isBiometricEnabled
-import com.github.gezimos.common.isGestureNavigationEnabled
 import com.github.gezimos.inkos.BuildConfig
 import com.github.gezimos.inkos.MainViewModel
 import com.github.gezimos.inkos.R
@@ -168,33 +167,19 @@ class AdvancedFragment : Fragment() {
             )
         )
 
-        // --- Calculate pages and listen for scroll changes ---
-        fun getCurrentPageIndex(
-            scrollY: Int,
-            viewportHeight: Int,
-            contentHeight: Int,
-            pageCount: Int
-        ): Int {
-            if (contentHeight <= viewportHeight) return 0
-            val overlap = (viewportHeight * 0.2).toInt()
-            val scrollStep = viewportHeight - overlap
-            val maxScroll = (contentHeight - viewportHeight).coerceAtLeast(1)
-            val clampedScrollY = scrollY.coerceIn(0, maxScroll)
-            val page = Math.round(clampedScrollY.toFloat() / scrollStep)
-            return page.coerceIn(0, pageCount - 1)
+        // Apply bottom padding to the root layout to prevent scroll view from going under navbar
+        rootLayout.post {
+            rootLayout.setPadding(0, 0, 0, bottomInsetPx)
+            rootLayout.clipToPadding = false
         }
-        nestedScrollView.viewTreeObserver.addOnGlobalLayoutListener {
-            val contentHeight = nestedScrollView.getChildAt(0)?.height ?: 1
-            val viewportHeight = nestedScrollView.height.takeIf { it > 0 } ?: 1
-            val overlap = (viewportHeight * 0.2).toInt()
-            val scrollStep = viewportHeight - overlap
-            val pages =
-                Math.ceil(((contentHeight - viewportHeight).toDouble() / scrollStep.toDouble()))
-                    .toInt() + 1
+
+        // Use EinkScrollBehavior callback to update page indicator reliably
+        val scrollBehavior = com.github.gezimos.inkos.helper.utils.EinkScrollBehavior(context) { page, pages ->
             pageCount[0] = pages
-            val scrollY = nestedScrollView.scrollY
-            currentPage[0] = getCurrentPageIndex(scrollY, viewportHeight, contentHeight, pages)
+            currentPage[0] = page
             headerView.setContent {
+                val density = LocalDensity.current
+                val bottomInsetDp = with(density) { bottomInsetPx.toDp() }
                 SettingsTheme(isDark) {
                     Column(Modifier.fillMaxWidth()) {
                         PageHeader(
@@ -213,43 +198,12 @@ class AdvancedFragment : Fragment() {
                         )
                         SolidSeparator(isDark = isDark)
                         Spacer(modifier = Modifier.height(SettingsTheme.color.horizontalPadding))
+                        if (bottomInsetDp > 0.dp) Spacer(modifier = Modifier.height(bottomInsetDp))
                     }
                 }
             }
         }
-        nestedScrollView.setOnScrollChangeListener { _, _, scrollY, _, _ ->
-            val contentHeight = nestedScrollView.getChildAt(0)?.height ?: 1
-            val viewportHeight = nestedScrollView.height.takeIf { it > 0 } ?: 1
-            val overlap = (viewportHeight * 0.2).toInt()
-            val scrollStep = viewportHeight - overlap
-            val pages =
-                Math.ceil(((contentHeight - viewportHeight).toDouble() / scrollStep.toDouble()))
-                    .toInt() + 1
-            pageCount[0] = pages
-            currentPage[0] = getCurrentPageIndex(scrollY, viewportHeight, contentHeight, pages)
-            headerView.setContent {
-                SettingsTheme(isDark) {
-                    Column(Modifier.fillMaxWidth()) {
-                        PageHeader(
-                            iconRes = R.drawable.ic_back,
-                            title = stringResource(R.string.advanced_settings_title),
-                            onClick = { findNavController().popBackStack() },
-                            showStatusBar = prefs.showStatusBar,
-                            pageIndicator = {
-                                com.github.gezimos.inkos.ui.compose.SettingsComposable.PageIndicator(
-                                    currentPage = currentPage[0],
-                                    pageCount = pageCount[0],
-                                    titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else TextUnit.Unspecified
-                                )
-                            },
-                            titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else TextUnit.Unspecified
-                        )
-                        SolidSeparator(isDark = isDark)
-                        Spacer(modifier = Modifier.height(SettingsTheme.color.horizontalPadding))
-                    }
-                }
-            }
-        }
+        scrollBehavior.attachToScrollView(nestedScrollView)
         return rootLayout
     }
 
@@ -259,7 +213,7 @@ class AdvancedFragment : Fragment() {
         val isDark = isSystemInDarkMode(requireContext())
         val titleFontSize = if (fontSize.isSpecified) (fontSize.value * 1.5).sp else fontSize
         val iconSize = if (fontSize.isSpecified) tuToDp((fontSize * 0.8)) else tuToDp(fontSize)
-        val changeLauncherText = if (isinkosDefault(requireContext())) {
+        val changeLauncherText = if (!isinkosDefault(requireContext())) {
             R.string.advanced_settings_set_as_default_launcher
         } else {
             R.string.advanced_settings_change_default_launcher
@@ -272,21 +226,6 @@ class AdvancedFragment : Fragment() {
             var toggledSettingsLocked by remember { mutableStateOf(prefs.settingsLocked) }
             var toggledLongPressAppInfo by remember { mutableStateOf(prefs.longPressAppInfoEnabled) }
             FullLineSeparator(isDark = isDark)
-            // --- Insert Hidden Apps here ---
-            SettingsHomeItem(
-                title = stringResource(R.string.settings_hidden_apps_title),
-                titleFontSize = titleFontSize,
-                iconSize = iconSize,
-                onClick = {
-                    // Copied from SettingsFragment
-                    viewModel.getHiddenApps()
-                    navController.navigate(
-                        R.id.action_settingsAdvancedFragment_to_appListFragment,
-                        androidx.core.os.bundleOf("flag" to com.github.gezimos.inkos.data.Constants.AppDrawerFlag.HiddenApps.toString())
-                    )
-                }
-            )
-            DashedSeparator(isDark = isDark)
             SettingsSwitch(
                 text = stringResource(R.string.lock_home_apps),
                 fontSize = titleFontSize,
@@ -324,10 +263,11 @@ class AdvancedFragment : Fragment() {
                 )
             }
             DashedSeparator(isDark = isDark)
+            DashedSeparator(isDark = isDark)
             // App Info item with version text (opens app info dialog on click)
             SettingsSelect(
                 title = stringResource(R.string.app_version),
-                option = "v0.1",
+                option = "v0.2",
                 fontSize = titleFontSize,
                 enabled = true,
                 onClick = {
@@ -349,7 +289,8 @@ class AdvancedFragment : Fragment() {
             )
             DashedSeparator(isDark)
             SettingsHomeItem(
-                title = stringResource(changeLauncherText),
+                title = stringResource(changeLauncherText) +
+                        if (!isinkosDefault(requireContext())) "*" else "",
                 titleFontSize = titleFontSize,
                 iconSize = iconSize,
                 onClick = {
@@ -368,12 +309,13 @@ class AdvancedFragment : Fragment() {
                     AppReloader.restartApp(requireContext())
                 }
             )
-
-
-            if (!isGestureNavigationEnabled(requireContext())) {
-                Spacer(modifier = Modifier.height(12.dp))
-
-            }
+            DashedSeparator(isDark)
+            SettingsHomeItem(
+                title = stringResource(R.string.settings_exit_inkos_title),
+                titleFontSize = titleFontSize,
+                iconSize = iconSize,
+                onClick = { exitLauncher() }
+            )
         }
     }
 
@@ -389,6 +331,14 @@ class AdvancedFragment : Fragment() {
     private fun dismissDialogs() {
         dialogBuilder.backupRestoreDialog?.dismiss()
         // dialogBuilder.saveLoadThemeDialog?.dismiss() // Remove theme dialog dismiss
+    }
+
+    private fun exitLauncher() {
+        val intent = android.content.Intent(android.content.Intent.ACTION_MAIN).apply {
+            addCategory(android.content.Intent.CATEGORY_HOME)
+            flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+        startActivity(android.content.Intent.createChooser(intent, "Choose your launcher"))
     }
 
     @Deprecated("Deprecated in Java")

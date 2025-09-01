@@ -13,7 +13,7 @@
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:windowFullscreen">false</item>
         <item name="android:windowLightStatusBar">true</item>
-        <item name="android:windowLightNavigationBar" tools:targetApi="o_mr1">true</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="o_mr1">false</item>
         <item name="android:windowContentOverlay">@null</item>
         <item name="android:windowAnimationStyle">@style/WindowAnimationTransition</item>
         <item name="android:colorBackgroundCacheHint">@null</item>
@@ -44,8 +44,9 @@
     </style>
 
     <style name="WindowAnimationTransition">
-        <item name="android:windowEnterAnimation">@android:anim/fade_in</item>
-        <item name="android:windowExitAnimation">@android:anim/fade_out</item>
+        <!-- E-ink optimization: No animations -->
+        <item name="android:windowEnterAnimation">@null</item>
+        <item name="android:windowExitAnimation">@null</item>
     </style>
 
     <style name="AppSearchText" parent="Widget.AppCompat.SearchView">

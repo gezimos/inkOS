@@ -8,11 +8,14 @@ import com.google.gson.reflect.TypeToken
 import java.io.File
 
 class NotificationManager private constructor(private val context: Context) {
+    // (simplified) No per-package SMS cache; keep only active notification info map
+
     data class NotificationInfo(
         val count: Int,
         val title: String?,
         val text: String?,
-        val category: String?
+        val category: String?,
+        val timestamp: Long
     )
 
     data class ConversationNotification(
@@ -23,6 +26,10 @@ class NotificationManager private constructor(private val context: Context) {
         val timestamp: Long,
         val category: String? = null
     )
+
+    // Cache for summary detection to avoid repeated string processing
+    private val summaryCache = mutableMapOf<String, Boolean>()
+
 
     private val notificationInfo = mutableMapOf<String, NotificationInfo>()
     private val _notificationInfoLiveData = MutableLiveData<Map<String, NotificationInfo>>()
@@ -35,6 +42,7 @@ class NotificationManager private constructor(private val context: Context) {
         MutableLiveData<Map<String, List<ConversationNotification>>>()
     val conversationNotificationsLiveData: LiveData<Map<String, List<ConversationNotification>>> =
         _conversationNotificationsLiveData
+
 
     private val NOTIF_SAVE_FILE = "mlauncher_notifications.json"
 
@@ -65,15 +73,26 @@ class NotificationManager private constructor(private val context: Context) {
         } else {
             notificationInfo[packageName] = info
         }
-        // Only filter by badge allowlist
+        // Removed debug log
+        // Only filter by badge allowlist and force LiveData update
         val prefs = com.github.gezimos.inkos.data.Prefs(context)
         val allowed = prefs.allowedBadgeNotificationApps
         val filtered = if (allowed.isEmpty()) {
-            notificationInfo.toMap()
+            // Create a completely new map to force LiveData update
+            HashMap(notificationInfo)
         } else {
-            notificationInfo.filter { (pkg, _) -> pkg in allowed }
+            // Create a new filtered map
+            HashMap(notificationInfo.filter { (pkg, _) -> pkg in allowed })
         }
         _notificationInfoLiveData.postValue(filtered)
+    }
+
+    fun clearMediaNotification(packageName: String) {
+        // Specifically clear media notifications - useful when media stops playing
+        val currentInfo = notificationInfo[packageName]
+        if (currentInfo?.category == android.app.Notification.CATEGORY_TRANSPORT) {
+            updateBadgeNotification(packageName, null)
+        }
     }
 
     fun getConversationNotifications(): Map<String, List<ConversationNotification>> {
@@ -141,90 +160,263 @@ class NotificationManager private constructor(private val context: Context) {
         prefs: com.github.gezimos.inkos.data.Prefs,
         activeNotifications: Array<android.service.notification.StatusBarNotification>
     ): NotificationInfo? {
-        val packageNotifications = activeNotifications.filter { it.packageName == sbn.packageName }
-        if (packageNotifications.isNotEmpty()) {
-            val latestNotification = packageNotifications.maxByOrNull { it.postTime }
-            val extras = latestNotification?.notification?.extras
+        // Get all notifications for this package
+        val samePackage = activeNotifications.filter { it.packageName == sbn.packageName }
+        
+        // Filter out summary notifications to avoid showing "X messages from Y contacts"
+        val nonSummaryNotifications = samePackage.filter { !isNotificationSummary(it) }
+        
+        // Choose the most recent non-summary notification, fallback to any notification if needed
+        val notificationToShow = when {
+            nonSummaryNotifications.isNotEmpty() -> nonSummaryNotifications.maxByOrNull { it.postTime }
+            samePackage.isNotEmpty() -> samePackage.maxByOrNull { it.postTime }
+            else -> null
+        } ?: sbn
 
-            val showSender = prefs.showNotificationSenderName
-            val showGroup = prefs.showNotificationGroupName
-            val showMessage = prefs.showNotificationMessage
+        val extras = notificationToShow.notification.extras
+        val showSender = prefs.showNotificationSenderName
+        val showGroup = prefs.showNotificationGroupName
+        val showMessage = prefs.showNotificationMessage
 
-            // Sender name logic: use full sender name if enabled
-            val sender: String? = if (showSender) {
-                extras?.getCharSequence("android.title")?.toString()?.trim()
-            } else null
+        val sender: String? = if (showSender) {
+            extras?.getCharSequence("android.title")?.toString()?.trim()?.replace("\n", " ")
+                ?.replace("\r", " ")?.replace(Regex("\\s+"), " ")
+        } else null
+        val group = if (showGroup) {
+            extras?.getCharSequence("android.conversationTitle")?.toString()?.trim()
+                ?.replace("\n", " ")?.replace("\r", " ")?.replace(Regex("\\s+"), " ")
+        } else null
+        val text = if (showMessage) {
+            val rawText = when {
+                extras?.getCharSequence("android.bigText") != null -> extras.getCharSequence("android.bigText")
+                    ?.toString()
 
-            // Group name (conversation title)
-            val group = if (showGroup) {
-                extras?.getCharSequence("android.conversationTitle")?.toString()?.trim()
-            } else null
+                extras?.getCharSequence("android.text") != null -> extras.getCharSequence("android.text")
+                    ?.toString()
 
-            // Message text
-            val text = if (showMessage) {
-                when {
-                    extras?.getCharSequence("android.bigText") != null ->
-                        extras.getCharSequence("android.bigText")?.toString()?.take(30)
-
-                    extras?.getCharSequence("android.text") != null ->
-                        extras.getCharSequence("android.text")?.toString()?.take(30)
-
-                    extras?.getCharSequenceArray("android.textLines") != null -> {
-                        val lines = extras.getCharSequenceArray("android.textLines")
-                        lines?.lastOrNull()?.toString()?.take(30)
-                    }
-
-                    else -> null
+                extras?.getCharSequenceArray("android.textLines") != null -> {
+                    val lines = extras.getCharSequenceArray("android.textLines")
+                    lines?.lastOrNull()?.toString()
                 }
-            } else null
 
-            var category = latestNotification?.notification?.category
-            var showMedia = true
-            if (category == android.app.Notification.CATEGORY_TRANSPORT) {
-                showMedia = false
-                val token =
-                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                        extras?.getParcelable(
-                            "android.mediaSession",
-                            android.media.session.MediaSession.Token::class.java
-                        )
-                    } else {
-                        @Suppress("DEPRECATION")
-                        extras?.getParcelable<android.media.session.MediaSession.Token>("android.mediaSession")
-                    }
-                if (token != null) {
-                    try {
-                        val controller = android.media.session.MediaController(context, token)
-                        val playbackState = controller.playbackState
-                        if (playbackState != null && playbackState.state == android.media.session.PlaybackState.STATE_PLAYING) {
-                            showMedia = true
-                        }
-                    } catch (_: Exception) {
-                    }
+                else -> null
+            }
+            rawText?.replace("\n", " ")?.replace("\r", " ")?.trim()?.replace(Regex("\\s+"), " ")
+                ?.take(30)
+        } else null
+
+        var category = notificationToShow.notification.category
+        var notifTitle = buildString {
+            if (!sender.isNullOrBlank()) append(sender)
+            if (!group.isNullOrBlank()) {
+                if (isNotEmpty()) append(": ")
+                append(group)
+            }
+        }.ifBlank { null }
+        var notifText = text
+        if ((notifTitle == null || notifTitle.isBlank()) && (notifText == null || notifText.isBlank())) {
+            val pm = context.packageManager
+            val appLabel = try {
+                pm.getApplicationLabel(pm.getApplicationInfo(sbn.packageName, 0)).toString()
+            } catch (_: Exception) {
+                sbn.packageName
+            }
+            notifTitle = appLabel
+            notifText = "Notification received"
+        }
+
+        return NotificationInfo(
+            count = samePackage.size.coerceAtLeast(1),
+            title = notifTitle,
+            text = notifText,
+            category = category,
+            timestamp = notificationToShow.postTime
+        )
+    }
+
+    /**
+     * Fixed: Builds notification info only from remaining active notifications for a package.
+     * Used when a notification is removed to check if there are other notifications to display.
+     * Returns null if no active notifications exist, ensuring badges are properly cleared.
+     */
+    fun buildNotificationInfoForRemaining(
+        packageName: String,
+        prefs: com.github.gezimos.inkos.data.Prefs,
+        activeNotifications: Array<android.service.notification.StatusBarNotification>
+    ): NotificationInfo? {
+        // Find active notifications for this package only
+        val samePackage = activeNotifications.filter { it.packageName == packageName }
+        
+        // If no active notifications remain for this package, return null
+        if (samePackage.isEmpty()) {
+            return null
+        }
+        
+        // Filter out summary notifications to avoid showing "X messages from Y contacts"
+        val nonSummaryNotifications = samePackage.filter { !isNotificationSummary(it) }
+        
+        // Choose the most recent non-summary notification, fallback to any notification if needed
+        val notificationToShow = when {
+            nonSummaryNotifications.isNotEmpty() -> nonSummaryNotifications.maxByOrNull { it.postTime }
+            samePackage.isNotEmpty() -> samePackage.maxByOrNull { it.postTime }
+            else -> null
+        } ?: return null
+        
+        val extras = notificationToShow.notification.extras
+        val showSender = prefs.showNotificationSenderName
+        val showGroup = prefs.showNotificationGroupName
+        val showMessage = prefs.showNotificationMessage
+
+        val sender: String? = if (showSender) {
+            extras?.getCharSequence("android.title")?.toString()?.trim()?.replace("\n", " ")
+                ?.replace("\r", " ")?.replace(Regex("\\s+"), " ")
+        } else null
+        val group = if (showGroup) {
+            extras?.getCharSequence("android.conversationTitle")?.toString()?.trim()
+                ?.replace("\n", " ")?.replace("\r", " ")?.replace(Regex("\\s+"), " ")
+        } else null
+        val text = if (showMessage) {
+            val rawText = when {
+                extras?.getCharSequence("android.bigText") != null -> extras.getCharSequence("android.bigText")
+                    ?.toString()
+
+                extras?.getCharSequence("android.text") != null -> extras.getCharSequence("android.text")
+                    ?.toString()
+
+                extras?.getCharSequenceArray("android.textLines") != null -> {
+                    val lines = extras.getCharSequenceArray("android.textLines")
+                    lines?.lastOrNull()?.toString()
                 }
-                if (!showMedia) {
-                    return null
+
+                else -> null
+            }
+            rawText?.replace("\n", " ")?.replace("\r", " ")?.trim()?.replace(Regex("\\s+"), " ")
+                ?.take(30)
+        } else null
+
+        var category = notificationToShow.notification.category
+        var notifTitle = buildString {
+            if (!sender.isNullOrBlank()) append(sender)
+            if (!group.isNullOrBlank()) {
+                if (isNotEmpty()) append(": ")
+                append(group)
+            }
+        }.ifBlank { null }
+        var notifText = text
+        if ((notifTitle == null || notifTitle.isBlank()) && (notifText == null || notifText.isBlank())) {
+            val pm = context.packageManager
+            val appLabel = try {
+                pm.getApplicationLabel(pm.getApplicationInfo(packageName, 0)).toString()
+            } catch (_: Exception) {
+                packageName
+            }
+            notifTitle = appLabel
+            notifText = "Notification received"
+        }
+
+        return NotificationInfo(
+            count = samePackage.size.coerceAtLeast(1),
+            title = notifTitle,
+            text = notifText,
+            category = category,
+            timestamp = notificationToShow.postTime
+        )
+    }
+
+    /**
+     * Detects if a notification is a summary notification that should be filtered out.
+     * Summary notifications show generic text like "X messages from Y contacts" instead of actual content.
+     * Uses caching to improve performance.
+     */
+    internal fun isNotificationSummary(sbn: android.service.notification.StatusBarNotification): Boolean {
+        // Create cache key from notification key and post time to handle updates
+        val cacheKey = "${sbn.key}_${sbn.postTime}"
+        
+        // Check cache first for performance
+        summaryCache[cacheKey]?.let { return it }
+        
+        // Check if notification is marked as group summary (fast check first)
+        if (sbn.notification.flags and android.app.Notification.FLAG_GROUP_SUMMARY != 0) {
+            summaryCache[cacheKey] = true
+            return true
+        }
+        
+        val extras = sbn.notification.extras
+        val title = extras?.getCharSequence("android.title")?.toString() ?: ""
+        val text = extras?.getCharSequence("android.text")?.toString() ?: ""
+        val bigText = extras?.getCharSequence("android.bigText")?.toString() ?: ""
+        
+        // Fast check: if all content is empty, it's likely not a summary
+        if (title.isBlank() && text.isBlank() && bigText.isBlank()) {
+            summaryCache[cacheKey] = false
+            return false
+        }
+        
+        // Only convert to lowercase once and combine
+        val allText = "$title $text $bigText".lowercase()
+        
+        // Comprehensive pattern checking for messaging app summaries
+        val isSummaryPattern = when {
+            // WhatsApp patterns
+            allText.contains("messages from") -> true
+            allText.contains("new messages") -> true
+            allText.contains("messages in") -> true
+            allText.contains("unread messages") -> true
+            
+            // Signal patterns
+            allText.contains("most recent from") -> true
+            allText.contains("most recent:") -> true
+            
+            // Telegram patterns
+            allText.contains("messages") && allText.contains("chats") -> true
+            allText.contains("unread") && allText.contains("chats") -> true
+            
+            // Viber patterns
+            allText.contains("missed messages") -> true
+            allText.contains("new messages from") -> true
+            
+            // Generic messaging patterns
+            allText.contains("message from") && allText.contains("others") -> true
+            allText.contains("and") && allText.contains("others") -> true
+            allText.contains("+ more") -> true
+            allText.contains("other messages") -> true
+            
+            else -> {
+                // Check additional patterns that might indicate summaries
+                val additionalPatterns = listOf(
+                    "new message", "message from", "messages received", "conversation",
+                    "group chat", "messages waiting", "pending messages",
+                    "recent message", "latest message", "missed call", "missed calls"
+                )
+                additionalPatterns.any { pattern -> 
+                    allText.contains(pattern) && (
+                        allText.contains("from") || 
+                        allText.contains("in") || 
+                        allText.contains("received") ||
+                        allText.contains("and") ||
+                        allText.contains("others") ||
+                        allText.matches(Regex(".*\\d+.*")) // Contains numbers (like "3 messages")
+                    )
                 }
             }
-
-            // Compose title and text based on toggles
-            val notifTitle = buildString {
-                if (!sender.isNullOrBlank()) append(sender)
-                if (!group.isNullOrBlank()) {
-                    if (isNotEmpty()) append(": ")
-                    append(group)
-                }
-            }.ifBlank { null }
-
-            val notifText = text
-
-            return NotificationInfo(
-                count = packageNotifications.size,
-                title = notifTitle,
-                text = if ((showMedia || category != android.app.Notification.CATEGORY_TRANSPORT) && showMessage) notifText else null,
-                category = if (showMedia) category else null
-            )
         }
-        return null
+        
+        // Cache the result and return
+        summaryCache[cacheKey] = isSummaryPattern
+        
+        // Debug logging to help identify new summary patterns (commented out for performance)
+        // if (isSummaryPattern) {
+        //     android.util.Log.d("NotificationManager", "Filtered summary from ${sbn.packageName}: '$allText'")
+        // }
+        
+        // Clean up cache periodically to prevent memory leaks (keep last 100 entries)
+        if (summaryCache.size > 100) {
+            val keysToRemove = summaryCache.keys.take(summaryCache.size - 50)
+            keysToRemove.forEach { summaryCache.remove(it) }
+        }
+        
+        return isSummaryPattern
     }
+
+
 }
