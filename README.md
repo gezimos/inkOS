@@ -121,8 +121,10 @@ fully open source and customizable by anyone.
 
 ## Credits
 
-- [https://github.com/DroidWorksStudio/mLauncher](https://github.com/DroidWorksStudio/mLauncher)
-- [https://github.com/tanujnotes/Olauncher](https://github.com/tanujnotes/Olauncher)
-- [https://github.com/OlauncherCF/OlauncherCF](https://github.com/OlauncherCF/OlauncherCF)
+- [mLauncher](https://github.com/DroidWorksStudio/mLauncher)
+- [Olauncher](https://github.com/tanujnotes/Olauncher)
+- [OlauncherCF](https://github.com/OlauncherCF/OlauncherCF)
 
 ## Donation
+
+[<img src="others/bmc-button.png" alt="Buy me a coffee" height="60">](https://buymeacoffee.com/gezimos)
