@@ -11,11 +11,155 @@ import android.widget.ImageView
 import com.github.gezimos.inkos.data.Prefs
 import com.github.gezimos.common.showShortToast
 import com.github.gezimos.inkos.MainViewModel
+import java.io.File
 
 object BackgroundImageHelper {
     private var lastFailedUri: String? = null
     private var failureCount = 0
     private const val MAX_RETRIES = 3
+    private const val CACHED_BACKGROUND_FILENAME = "cached_background.jpg"
+    
+    /**
+     * Caches the background image to internal storage when first selected.
+     * Returns the cached file path, or null if caching failed.
+     */
+    private fun cacheBackgroundImage(context: Context, uri: Uri): String? {
+        try {
+            val inputStream = context.contentResolver.openInputStream(uri) ?: return null
+            val cacheDir = File(context.filesDir, "background_cache")
+            if (!cacheDir.exists()) {
+                cacheDir.mkdirs()
+            }
+            
+            val cachedFile = File(cacheDir, CACHED_BACKGROUND_FILENAME)
+            
+            inputStream.use { input ->
+                cachedFile.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            }
+            
+            Log.d("BackgroundImageHelper", "Background image cached to: ${cachedFile.absolutePath}")
+            return cachedFile.absolutePath
+        } catch (e: Exception) {
+            Log.e("BackgroundImageHelper", "Failed to cache background image: ${e.message}")
+            return null
+        }
+    }
+    
+    /**
+     * Gets the cached background image file if it exists.
+     */
+    private fun getCachedBackgroundFile(context: Context): File? {
+        val cacheDir = File(context.filesDir, "background_cache")
+        val cachedFile = File(cacheDir, CACHED_BACKGROUND_FILENAME)
+        return if (cachedFile.exists()) cachedFile else null
+    }
+    
+    /**
+     * Loads a bitmap from a file path with optimization.
+     */
+    private fun loadBitmapFromFile(context: Context, filePath: String): Bitmap? {
+        try {
+            val dimensionOptions = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(filePath, dimensionOptions)
+            
+            val originalWidth = dimensionOptions.outWidth
+            val originalHeight = dimensionOptions.outHeight
+            if (originalWidth <= 0 || originalHeight <= 0) {
+                Log.e("BackgroundImageHelper", "Invalid cached image dimensions: ${originalWidth}x${originalHeight}")
+                return null
+            }
+            
+            val displayMetrics = context.resources.displayMetrics
+            val screenWidth = displayMetrics.widthPixels
+            val screenHeight = displayMetrics.heightPixels
+            val maxWidth = screenWidth * 2
+            val maxHeight = screenHeight * 2
+            
+            var inSampleSize = 1
+            if (originalWidth > maxWidth || originalHeight > maxHeight) {
+                val halfWidth = originalWidth / 2
+                val halfHeight = originalHeight / 2
+                while ((halfWidth / inSampleSize) >= maxWidth && (halfHeight / inSampleSize) >= maxHeight) {
+                    inSampleSize *= 2
+                }
+            }
+            
+            val loadOptions = BitmapFactory.Options().apply {
+                this.inSampleSize = inSampleSize
+                inPreferredConfig = Bitmap.Config.RGB_565
+            }
+            
+            return BitmapFactory.decodeFile(filePath, loadOptions)
+        } catch (e: Exception) {
+            Log.e("BackgroundImageHelper", "Error loading bitmap from file: ${e.message}")
+            return null
+        }
+    }
+    
+    /**
+     * Loads a bitmap directly from URI (fallback method).
+     */
+    private fun loadBitmapFromUri(context: Context, uri: Uri): Bitmap? {
+        try {
+            val contentResolver = context.contentResolver
+            
+            val dimensionOptions = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            contentResolver.openInputStream(uri)?.use { inputStream ->
+                BitmapFactory.decodeStream(inputStream, null, dimensionOptions)
+            }
+            
+            val originalWidth = dimensionOptions.outWidth
+            val originalHeight = dimensionOptions.outHeight
+            if (originalWidth <= 0 || originalHeight <= 0) {
+                Log.e("BackgroundImageHelper", "Invalid image dimensions: ${originalWidth}x${originalHeight}")
+                return null
+            }
+            
+            val displayMetrics = context.resources.displayMetrics
+            val screenWidth = displayMetrics.widthPixels
+            val screenHeight = displayMetrics.heightPixels
+            val maxWidth = screenWidth * 2
+            val maxHeight = screenHeight * 2
+            
+            var inSampleSize = 1
+            if (originalWidth > maxWidth || originalHeight > maxHeight) {
+                val halfWidth = originalWidth / 2
+                val halfHeight = originalHeight / 2
+                while ((halfWidth / inSampleSize) >= maxWidth && (halfHeight / inSampleSize) >= maxHeight) {
+                    inSampleSize *= 2
+                }
+            }
+            
+            val loadOptions = BitmapFactory.Options().apply {
+                this.inSampleSize = inSampleSize
+                inPreferredConfig = Bitmap.Config.RGB_565
+            }
+            
+            return contentResolver.openInputStream(uri)?.use { inputStream ->
+                BitmapFactory.decodeStream(inputStream, null, loadOptions)
+            }
+        } catch (e: Exception) {
+            Log.e("BackgroundImageHelper", "Error loading bitmap from URI: ${e.message}")
+            return null
+        }
+    }
+    
+    /**
+     * Clears the cached background image.
+     */
+    fun clearCachedBackground(context: Context) {
+        try {
+            val cachedFile = getCachedBackgroundFile(context)
+            if (cachedFile != null && cachedFile.exists()) {
+                cachedFile.delete()
+                Log.d("BackgroundImageHelper", "Cached background image cleared")
+            }
+        } catch (e: Exception) {
+            Log.e("BackgroundImageHelper", "Error clearing cached background: ${e.message}")
+        }
+    }
     
     /**
      * Validates that the stored background image URI is still accessible.
@@ -157,62 +301,48 @@ object BackgroundImageHelper {
     }
 
     /**
-     * Safely loads a background image with auto-optimization to prevent crashes.
-     * Returns null if image cannot be safely loaded.
+     * Loads background image from cache or original URI, with automatic caching.
      */
     fun loadSafeBackgroundImage(context: Context, prefs: Prefs, uri: Uri): Bitmap? {
         try {
+            // First try to load from cache
+            val cachedFile = getCachedBackgroundFile(context)
+            if (cachedFile != null) {
+                Log.d("BackgroundImageHelper", "Loading background from cache: ${cachedFile.absolutePath}")
+                val bitmap = loadBitmapFromFile(context, cachedFile.absolutePath)
+                if (bitmap != null) {
+                    return bitmap
+                }
+                // If cached file is corrupted, delete it and continue with original URI
+                Log.w("BackgroundImageHelper", "Cached background file corrupted, deleting and reloading")
+                cachedFile.delete()
+            }
+            
+            // If no cache, try to load from original URI and cache it
+            Log.d("BackgroundImageHelper", "No cached background found, attempting to load and cache from URI")
+            
             val contentResolver = context.contentResolver
             
-            // Check if we still have permission to access this URI
+            // Check permissions first
             val persistableUris = contentResolver.persistedUriPermissions
             val hasPermission = persistableUris.any { it.uri == uri && it.isReadPermission }
             
             if (!hasPermission) {
-                Log.w("BackgroundImageHelper", "No persistent permission for URI during load: $uri")
+                Log.w("BackgroundImageHelper", "No persistent permission for URI: $uri")
                 return null
             }
             
-            val dimensionOptions = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            contentResolver.openInputStream(uri)?.use { inputStream ->
-                BitmapFactory.decodeStream(inputStream, null, dimensionOptions)
+            // Try to cache the image first
+            val cachedPath = cacheBackgroundImage(context, uri)
+            if (cachedPath != null) {
+                // Load from the newly cached file
+                return loadBitmapFromFile(context, cachedPath)
             }
-            val originalWidth = dimensionOptions.outWidth
-            val originalHeight = dimensionOptions.outHeight
-            if (originalWidth <= 0 || originalHeight <= 0) {
-                Log.e("BackgroundImageHelper", "Invalid image dimensions: ${originalWidth}x${originalHeight}")
-                return null
-            }
-            val displayMetrics = context.resources.displayMetrics
-            val screenWidth = displayMetrics.widthPixels
-            val screenHeight = displayMetrics.heightPixels
-            val maxWidth = screenWidth * 2
-            val maxHeight = screenHeight * 2
-            var inSampleSize = 1
-            if (originalWidth > maxWidth || originalHeight > maxHeight) {
-                val halfWidth = originalWidth / 2
-                val halfHeight = originalHeight / 2
-                while ((halfWidth / inSampleSize) >= maxWidth && (halfHeight / inSampleSize) >= maxHeight) {
-                    inSampleSize *= 2
-                }
-            }
-            val estimatedWidth = originalWidth / inSampleSize
-            val estimatedHeight = originalHeight / inSampleSize
-            val estimatedMemory = estimatedWidth * estimatedHeight * 2
-            val maxSafeMemory = 50 * 1024 * 1024
-            while (estimatedMemory > maxSafeMemory && inSampleSize < 32) {
-                inSampleSize *= 2
-            }
-            val loadOptions = BitmapFactory.Options().apply {
-                this.inSampleSize = inSampleSize
-                inPreferredConfig = Bitmap.Config.RGB_565
-            }
-            return contentResolver.openInputStream(uri)?.use { inputStream ->
-                BitmapFactory.decodeStream(inputStream, null, loadOptions)
-            }
-        } catch (e: SecurityException) {
-            Log.e("BackgroundImageHelper", "Security exception loading background image: ${e.message}")
-            return null
+            
+            // If caching failed, try to load directly (fallback)
+            Log.w("BackgroundImageHelper", "Caching failed, loading directly from URI")
+            return loadBitmapFromUri(context, uri)
+            
         } catch (e: Exception) {
             Log.e("BackgroundImageHelper", "Error loading background image: ${e.message}")
             return null

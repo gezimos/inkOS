@@ -331,7 +331,19 @@ class Prefs(val context: Context) {
 
     var homeBackgroundImageUri: String?
         get() = prefs.getString(HOME_BACKGROUND_IMAGE_URI, null)
-        set(value) = prefs.edit { putString(HOME_BACKGROUND_IMAGE_URI, value) }
+        set(value) {
+            val oldValue = prefs.getString(HOME_BACKGROUND_IMAGE_URI, null)
+            prefs.edit { putString(HOME_BACKGROUND_IMAGE_URI, value) }
+            
+            // Clear cache when URI changes or is cleared
+            if (oldValue != value) {
+                try {
+                    com.github.gezimos.inkos.helper.utils.BackgroundImageHelper.clearCachedBackground(context)
+                } catch (e: Exception) {
+                    // Ignore errors during cache clearing
+                }
+            }
+        }
 
     var homeBackgroundImageOpacity: Int
         get() = prefs.getInt(HOME_BACKGROUND_IMAGE_OPACITY, 100)
