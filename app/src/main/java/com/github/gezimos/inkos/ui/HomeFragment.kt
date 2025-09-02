@@ -132,6 +132,8 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
         @Suppress("DEPRECATION")
         vibrator = context?.getSystemService(VIBRATOR_SERVICE) as Vibrator
 
+        // Validate background image URI permissions before attempting to load
+        BackgroundImageHelper.validateBackgroundImageUri(requireContext(), prefs)
         setupBackgroundImage()
 
         initObservers()

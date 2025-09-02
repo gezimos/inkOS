@@ -14,6 +14,30 @@ import com.github.gezimos.inkos.MainViewModel
 
 object BackgroundImageHelper {
     /**
+     * Validates that the stored background image URI still has persistent permission.
+     * Clears invalid URIs to prevent repeated load failures.
+     */
+    fun validateBackgroundImageUri(context: Context, prefs: Prefs) {
+        val backgroundImageUri = prefs.homeBackgroundImageUri
+        if (!backgroundImageUri.isNullOrEmpty()) {
+            try {
+                val uri = Uri.parse(backgroundImageUri)
+                val contentResolver = context.contentResolver
+                val persistableUris = contentResolver.persistedUriPermissions
+                val hasPermission = persistableUris.any { it.uri == uri && it.isReadPermission }
+                
+                if (!hasPermission) {
+                    Log.w("BackgroundImageHelper", "Background image URI lost permission, clearing: $backgroundImageUri")
+                    prefs.homeBackgroundImageUri = null
+                }
+            } catch (e: Exception) {
+                Log.e("BackgroundImageHelper", "Error validating background image URI: ${e.message}")
+                prefs.homeBackgroundImageUri = null
+            }
+        }
+    }
+
+    /**
      * Sets up the background image for the provided root layout using the URI in prefs.
      * Handles image loading, optimization, and error feedback.
      */
@@ -84,6 +108,16 @@ object BackgroundImageHelper {
     fun loadSafeBackgroundImage(context: Context, prefs: Prefs, uri: Uri): Bitmap? {
         try {
             val contentResolver = context.contentResolver
+            
+            // Check if we still have permission to access this URI
+            val persistableUris = contentResolver.persistedUriPermissions
+            val hasPermission = persistableUris.any { it.uri == uri && it.isReadPermission }
+            
+            if (!hasPermission) {
+                Log.w("BackgroundImageHelper", "No persistent permission for URI: $uri")
+                prefs.homeBackgroundImageUri = null
+                return null
+            }
             val dimensionOptions = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             contentResolver.openInputStream(uri)?.use { inputStream ->
                 BitmapFactory.decodeStream(inputStream, null, dimensionOptions)
