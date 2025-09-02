@@ -13,8 +13,12 @@ import com.github.gezimos.common.showShortToast
 import com.github.gezimos.inkos.MainViewModel
 
 object BackgroundImageHelper {
+    private var lastFailedUri: String? = null
+    private var failureCount = 0
+    private const val MAX_RETRIES = 3
+    
     /**
-     * Validates that the stored background image URI still has persistent permission.
+     * Validates that the stored background image URI is still accessible.
      * Clears invalid URIs to prevent repeated load failures.
      */
     fun validateBackgroundImageUri(context: Context, prefs: Prefs) {
@@ -23,16 +27,66 @@ object BackgroundImageHelper {
             try {
                 val uri = Uri.parse(backgroundImageUri)
                 val contentResolver = context.contentResolver
+                
+                // Reset failure count if this is a different URI
+                if (lastFailedUri != backgroundImageUri) {
+                    lastFailedUri = null
+                    failureCount = 0
+                }
+                
+                // First check persistent permissions
                 val persistableUris = contentResolver.persistedUriPermissions
                 val hasPermission = persistableUris.any { it.uri == uri && it.isReadPermission }
                 
                 if (!hasPermission) {
-                    Log.w("BackgroundImageHelper", "Background image URI lost permission, clearing: $backgroundImageUri")
+                    failureCount++
+                    Log.w("BackgroundImageHelper", "Background image URI lost persistent permission (attempt $failureCount/$MAX_RETRIES): $backgroundImageUri")
+                    
+                    if (failureCount >= MAX_RETRIES) {
+                        prefs.homeBackgroundImageUri = null
+                        lastFailedUri = null
+                        failureCount = 0
+                        Log.w("BackgroundImageHelper", "Background image URI cleared after $MAX_RETRIES failed attempts")
+                    } else {
+                        lastFailedUri = backgroundImageUri
+                    }
+                    return
+                }
+                
+                // Additional check: try to actually access the URI
+                contentResolver.openInputStream(uri)?.use { inputStream ->
+                    // Just check if we can read the first few bytes
+                    val buffer = ByteArray(4)
+                    inputStream.read(buffer)
+                }
+                
+                // Success - reset failure tracking
+                lastFailedUri = null
+                failureCount = 0
+                Log.d("BackgroundImageHelper", "Background image URI validated successfully: $backgroundImageUri")
+                
+            } catch (e: SecurityException) {
+                failureCount++
+                Log.w("BackgroundImageHelper", "Background image URI access denied (attempt $failureCount/$MAX_RETRIES): $backgroundImageUri")
+                
+                if (failureCount >= MAX_RETRIES) {
                     prefs.homeBackgroundImageUri = null
+                    lastFailedUri = null
+                    failureCount = 0
+                } else {
+                    lastFailedUri = backgroundImageUri
                 }
             } catch (e: Exception) {
-                Log.e("BackgroundImageHelper", "Error validating background image URI: ${e.message}")
-                prefs.homeBackgroundImageUri = null
+                failureCount++
+                Log.w("BackgroundImageHelper", "Background image URI not accessible (attempt $failureCount/$MAX_RETRIES): $backgroundImageUri - ${e.message}")
+                
+                if (failureCount >= MAX_RETRIES) {
+                    prefs.homeBackgroundImageUri = null
+                    lastFailedUri = null
+                    failureCount = 0
+                } else {
+                    lastFailedUri = backgroundImageUri
+                }
             }
         }
     }
@@ -80,18 +134,19 @@ object BackgroundImageHelper {
                         backgroundImageView.imageAlpha = (opacity * 2.55f).toInt().coerceIn(0, 255)
                     }
                 } else {
-                    prefs.homeBackgroundImageUri = null
+                    // Only clear URI if we're certain it's permanently invalid
+                    // The validateBackgroundImageUri() method handles clearing invalid URIs
+                    Log.w("BackgroundImageHelper", "Background image could not be loaded, but keeping URI for retry")
                     rootLayout.removeView(backgroundImageView)
-                    context.showShortToast("Background image could not be loaded and was cleared")
                 }
             } catch (e: Exception) {
                 Log.e("BackgroundImageHelper", "Error loading background image: ${e.message}")
-                prefs.homeBackgroundImageUri = null
                 val backgroundImageView = rootLayout.findViewWithTag<ImageView>("home_background")
                 if (backgroundImageView != null) {
                     rootLayout.removeView(backgroundImageView)
                 }
-                context.showShortToast("Background image error - cleared to prevent crashes")
+                // Don't clear URI here - let validateBackgroundImageUri handle permanent failures
+                Log.w("BackgroundImageHelper", "Background image load failed, but keeping URI for retry")
             }
         } else {
             val backgroundImageView = rootLayout.findViewWithTag<ImageView>("home_background")
@@ -103,7 +158,7 @@ object BackgroundImageHelper {
 
     /**
      * Safely loads a background image with auto-optimization to prevent crashes.
-     * Returns null if image cannot be safely loaded (and clears the URI to prevent crash loops).
+     * Returns null if image cannot be safely loaded.
      */
     fun loadSafeBackgroundImage(context: Context, prefs: Prefs, uri: Uri): Bitmap? {
         try {
@@ -114,10 +169,10 @@ object BackgroundImageHelper {
             val hasPermission = persistableUris.any { it.uri == uri && it.isReadPermission }
             
             if (!hasPermission) {
-                Log.w("BackgroundImageHelper", "No persistent permission for URI: $uri")
-                prefs.homeBackgroundImageUri = null
+                Log.w("BackgroundImageHelper", "No persistent permission for URI during load: $uri")
                 return null
             }
+            
             val dimensionOptions = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             contentResolver.openInputStream(uri)?.use { inputStream ->
                 BitmapFactory.decodeStream(inputStream, null, dimensionOptions)
@@ -126,7 +181,6 @@ object BackgroundImageHelper {
             val originalHeight = dimensionOptions.outHeight
             if (originalWidth <= 0 || originalHeight <= 0) {
                 Log.e("BackgroundImageHelper", "Invalid image dimensions: ${originalWidth}x${originalHeight}")
-                prefs.homeBackgroundImageUri = null
                 return null
             }
             val displayMetrics = context.resources.displayMetrics
@@ -156,9 +210,11 @@ object BackgroundImageHelper {
             return contentResolver.openInputStream(uri)?.use { inputStream ->
                 BitmapFactory.decodeStream(inputStream, null, loadOptions)
             }
+        } catch (e: SecurityException) {
+            Log.e("BackgroundImageHelper", "Security exception loading background image: ${e.message}")
+            return null
         } catch (e: Exception) {
-            Log.e("BackgroundImageHelper", "Error in loadSafeBackgroundImage: ${e.message}")
-            prefs.homeBackgroundImageUri = null
+            Log.e("BackgroundImageHelper", "Error loading background image: ${e.message}")
             return null
         }
     }

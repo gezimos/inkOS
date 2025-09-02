@@ -313,6 +313,9 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
         }
         // Refresh home app UI state on resume
         viewModel.refreshHomeAppsUiState(requireContext())
+        
+        // Re-validate background image URI in case permissions were restored
+        BackgroundImageHelper.validateBackgroundImageUri(requireContext(), prefs)
 
         // Re-apply notification badges to all home app views
         val notifications = NotificationManager.getInstance(requireContext()).getBadgeNotifications()
