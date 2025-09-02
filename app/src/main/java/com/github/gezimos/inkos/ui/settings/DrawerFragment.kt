@@ -240,7 +240,7 @@ class DrawerFragment : Fragment() {
                     stringResource(R.string.right)
                 )
             SettingsSelect(
-                    title = stringResource(R.string.app_drawer_alingment),
+                    title = stringResource(R.string.app_drawer_alignment),
                     option = alignmentLabels.getOrElse(currentAlignment) { stringResource(R.string.left) },
                 fontSize = titleFontSize,
                 onClick = {

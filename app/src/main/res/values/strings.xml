@@ -236,7 +236,7 @@
     <string name="open_clock">Open Clock</string>
     <string name="app_drawer">App Drawer</string>
     <string name="customizations">Customizations</string>
-    <string name="app_drawer_alingment">Alingment</string>
+    <string name="app_drawer_alignment">Alignment</string>
     <string name="app_drawer_align_left">Left</string>
     <string name="app_drawer_align_center">Center</string>
     <string name="app_drawer_align_right">Right</string>
