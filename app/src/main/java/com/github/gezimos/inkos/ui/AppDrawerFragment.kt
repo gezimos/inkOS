@@ -59,6 +59,9 @@ class AppDrawerFragment : Fragment() {
     private lateinit var viewModel: MainViewModel
     private lateinit var flag: AppDrawerFlag
 
+    // Store the n parameter for keyboard navigation
+    private var appPosition: Int = 0
+
     // Paging state
     private var currentPage = 0
     private var appsPerPage = 0
@@ -67,6 +70,9 @@ class AppDrawerFragment : Fragment() {
 
     // Item selection state for keyboard navigation
     private var selectedItemIndex = 0 // Index within the current page
+    
+    // Protection against immediate key handling when drawer opens
+    private var isInitializing = true
 
     // Listener for app-drawer-specific preference changes
     private var appDrawerPrefListener: SharedPreferences.OnSharedPreferenceChangeListener? = null
@@ -220,7 +226,7 @@ class AppDrawerFragment : Fragment() {
             
             if (selectedItemIndex in pageApps.indices) {
                 val selectedApp = pageApps[selectedItemIndex]
-                appClickListener(viewModel, flag, 0)(selectedApp)
+                appClickListener(viewModel, flag, appPosition)(selectedApp)
             }
         } catch (_: Exception) {}
     }
@@ -276,7 +282,7 @@ class AppDrawerFragment : Fragment() {
         val flagString = arguments?.getString("flag", AppDrawerFlag.LaunchApp.toString())
             ?: AppDrawerFlag.LaunchApp.toString()
         flag = AppDrawerFlag.valueOf(flagString)
-        val n = arguments?.getInt("n", 0) ?: 0
+        appPosition = arguments?.getInt("n", 0) ?: 0
 
         // Include hidden apps only for SetHomeApp flag or HiddenApps flag
         val includeHidden = flag == AppDrawerFlag.SetHomeApp || flag == AppDrawerFlag.HiddenApps
@@ -308,7 +314,7 @@ class AppDrawerFragment : Fragment() {
                 it,
                 flag,
                 gravity,
-                appClickListener(viewModel, flag, n),
+                appClickListener(viewModel, flag, appPosition),
                 appDeleteListener(),
                 this.appRenameListener(),
                 appShowHideListener(),
@@ -725,9 +731,13 @@ class AppDrawerFragment : Fragment() {
             selectedItemIndex = kotlin.math.max(0, pageApps.size - 1)
         }
         
-        // Focus the selected item after a brief delay to ensure RecyclerView is ready
-        binding.recyclerView.post {
-            focusSelectedItem()
+        // Only auto-focus for regular LaunchApp mode, not for SetHomeApp or other special modes
+        // This prevents interference with touch-based selection in SetHomeApp mode
+        if (flag == AppDrawerFlag.LaunchApp) {
+            // Focus the selected item after a brief delay to ensure RecyclerView is ready
+            binding.recyclerView.post {
+                focusSelectedItem()
+            }
         }
     }
 
@@ -826,6 +836,12 @@ class AppDrawerFragment : Fragment() {
         binding.mainLayout.isFocusableInTouchMode = true
         binding.mainLayout.requestFocus()
         binding.mainLayout.setOnKeyListener { _, keyCode, event ->
+            // Ignore key events for a short period after opening to prevent
+            // interference from the key event that triggered opening the drawer
+            if (isInitializing) {
+                return@setOnKeyListener false
+            }
+            
             val action = KeyMapperHelper.mapAppDrawerKey(prefs, keyCode, event)
             when (action) {
                 KeyMapperHelper.AppDrawerKeyAction.PageUp -> {
@@ -871,6 +887,11 @@ class AppDrawerFragment : Fragment() {
         }
         // Ensure zero animations
         binding.recyclerView.layoutAnimation = null
+        
+        // Reset initialization flag after a short delay to allow key handling
+        binding.root.postDelayed({
+            isInitializing = false
+        }, 300) // 300ms delay should be enough to avoid interference
     }
 
     private fun vibratePaging() {
