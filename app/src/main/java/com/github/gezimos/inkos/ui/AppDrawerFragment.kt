@@ -838,8 +838,9 @@ class AppDrawerFragment : Fragment() {
         binding.mainLayout.setOnKeyListener { _, keyCode, event ->
             // Ignore key events for a short period after opening to prevent
             // interference from the key event that triggered opening the drawer
+            // For SetHomeApp mode, ignore all keys during initialization to prevent auto-selection
             if (isInitializing) {
-                return@setOnKeyListener false
+                return@setOnKeyListener true
             }
             
             val action = KeyMapperHelper.mapAppDrawerKey(prefs, keyCode, event)
@@ -889,9 +890,11 @@ class AppDrawerFragment : Fragment() {
         binding.recyclerView.layoutAnimation = null
         
         // Reset initialization flag after a short delay to allow key handling
+        // Use longer delay for SetHomeApp mode to prevent auto-selection from long press
+        val delay = if (flag == AppDrawerFlag.SetHomeApp) 800 else 300
         binding.root.postDelayed({
             isInitializing = false
-        }, 300) // 300ms delay should be enough to avoid interference
+        }, delay.toLong())
     }
 
     private fun vibratePaging() {
