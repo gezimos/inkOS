@@ -44,6 +44,17 @@ class Migration(val context: Context) {
         }
 
         // Update the stored version code after cleanup
+        // Clear stored brightness if it equals the old minimum sentinel (20).
+        // Removing the stored key lets the app save the user's new brightness correctly.
+        try {
+            val stored = prefs.brightnessLevel
+            if (stored == 20) {
+                prefs.remove("BRIGHTNESS_LEVEL")
+            }
+        } catch (_: Exception) {
+            // Ignore errors (permissions, prefs issues, etc.)
+        }
+
         prefs.appVersion = currentVersionCode
     }
 }
