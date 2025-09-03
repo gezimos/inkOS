@@ -34,8 +34,8 @@ object BrightnessHelper {
             val isDimmed = currentSystemBrightness <= 1
 
             if (isDimmed) {
-                // Restore brightness to the last saved non-zero value
-                val savedBrightness = prefs.brightnessLevel.coerceIn(20, 255) // Ensure minimum readable brightness
+                // Restore brightness to the last saved value (allow user to set any value)
+                val savedBrightness = prefs.brightnessLevel.coerceIn(0, 255)
 
                 // Set system brightness
                 android.provider.Settings.System.putInt(
@@ -89,10 +89,8 @@ object BrightnessHelper {
                 android.provider.Settings.System.SCREEN_BRIGHTNESS
             )
             
-            // Only save if brightness is above minimum threshold (not dimmed)
-            if (currentSystemBrightness >= 20) {
-                prefs.brightnessLevel = currentSystemBrightness
-            }
+            // Save the user's chosen brightness level (allow values below previous 20 threshold)
+            prefs.brightnessLevel = currentSystemBrightness
         } catch (_: Exception) {
             // Silently ignore if we can't read brightness
         }
