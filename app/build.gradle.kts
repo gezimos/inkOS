@@ -15,8 +15,8 @@ android {
         applicationId = "app.inkos"
         minSdk = 26
         targetSdk = 36
-        versionCode = 101001
-        versionName = "0.2"
+        versionCode = 101003
+        versionName = "0.3"
     }
 
     buildTypes {
