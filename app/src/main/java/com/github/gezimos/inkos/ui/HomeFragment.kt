@@ -34,6 +34,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.github.gezimos.common.CrashHandler
 import com.github.gezimos.common.hideKeyboard
+import com.github.gezimos.common.launchCalendar
 import com.github.gezimos.common.openAlarmApp
 import com.github.gezimos.common.openCameraApp
 import com.github.gezimos.common.openDialerApp
@@ -593,7 +594,7 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
         if (prefs.appClickDate.activityPackage.isNotEmpty())
             viewModel.launchApp(prefs.appClickDate, this)
         else
-            requireContext().openAlarmApp()
+            requireContext().launchCalendar()
     }
 
     override fun onLongClick(view: View): Boolean {
@@ -696,6 +697,10 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
             clock.setOnClickListener(this@HomeFragment)
             quote.setOnClickListener(this@HomeFragment)
         }
+        
+        // Set up date click listener (date view is found dynamically as it's not in binding)
+        val dateView = binding.root.findViewById<TextView>(R.id.date)
+        dateView?.setOnClickListener(this@HomeFragment)
     }
 
     private fun initObservers() {
@@ -1384,6 +1389,7 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
         val showDate = prefs.showDate
         val clockView = binding.root.findViewById<TextView>(R.id.clock)
         val dateView = binding.root.findViewById<TextView>(R.id.date)
+        // Redundant safeguard: ensure date click listener is set even if view is recreated
         dateView?.setOnClickListener(this@HomeFragment)
         val density = requireContext().resources.displayMetrics.density
         val clockLayoutParams = clockView.layoutParams as? LinearLayout.LayoutParams
