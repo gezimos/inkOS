@@ -62,10 +62,6 @@
     <style name="TextDefault" parent="@android:style/TextAppearance.Large">
         <item name="android:textColor">@drawable/text_colors_default</item>
         <item name="android:textColorHint">?attr/primaryColorTrans80</item>
-        <item name="android:shadowColor">?attr/primaryTextShadowColor</item>
-        <item name="android:shadowDx">1</item>
-        <item name="android:shadowDy">1</item>
-        <item name="android:shadowRadius">2</item>
     </style>
 
     <style name="TextLarge" parent="TextDefault">
@@ -82,11 +78,6 @@
 
     <style name="TextDefaultStyle" parent="@android:style/TextAppearance.Large">
         <item name="android:fontFamily">@android:fontFamily/system_font</item>
-
-        <item name="android:shadowColor">?attr/primaryTextShadowColor</item>
-        <item name="android:shadowDx">1</item>
-        <item name="android:shadowDy">1</item>
-        <item name="android:shadowRadius">2</item>
     </style>
 
     <!-- Style for dialog titles to match SettingsTitle -->

@@ -263,11 +263,10 @@ class AdvancedFragment : Fragment() {
                 )
             }
             DashedSeparator(isDark = isDark)
-            DashedSeparator(isDark = isDark)
             // App Info item with version text (opens app info dialog on click)
             SettingsSelect(
                 title = stringResource(R.string.app_version),
-                option = "v0.2",
+                option = "v0.3",
                 fontSize = titleFontSize,
                 enabled = true,
                 onClick = {
