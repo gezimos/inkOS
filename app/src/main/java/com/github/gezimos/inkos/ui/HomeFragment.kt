@@ -311,6 +311,11 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
             updateAppsVisibility(prefs.homePagesNum)
             focusAppButton(selectedAppIndex)
         }
+
+        // Ensure fragment root has focus so volume keys are handled by the fragment
+        binding.root.isFocusableInTouchMode = true
+        binding.root.requestFocus()
+
         // Refresh home app UI state on resume
         viewModel.refreshHomeAppsUiState(requireContext())
         

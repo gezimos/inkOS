@@ -184,6 +184,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             AppDrawerFlag.SetHomeApp -> {
                 prefs.setHomeAppModel(n, app)
+                // Immediately refresh home UI state so HomeFragment gets updated data
+                refreshHomeAppsUiState(fragment.requireContext())
                 findNavController(fragment).popBackStack()
             }
 
