@@ -26,6 +26,7 @@ import com.github.gezimos.inkos.data.Prefs
 import com.github.gezimos.inkos.databinding.ActivityMainBinding
 import com.github.gezimos.inkos.helper.isTablet
 import com.github.gezimos.inkos.helper.isinkosDefault
+import com.github.gezimos.inkos.helper.AudioWidgetHelper
 import com.github.gezimos.inkos.ui.dialogs.DialogManager
 import java.io.BufferedReader
 import java.io.FileOutputStream
@@ -165,13 +166,32 @@ class MainActivity : AppCompatActivity() {
             // (ACTION_DOWN, ACTION_UP, ACTION_MULTIPLE) so long-presses/repeats
             // don't fall through to the system and show the volume dialog.
             if (prefs.useVolumeKeysForPages) {
+                // Check if audio is playing before handling volume keys for navigation
+                val audioWidgetHelper = AudioWidgetHelper.getInstance(this)
+                val currentMediaPlayer = audioWidgetHelper.getCurrentMediaPlayer()
+                val isAudioPlaying = currentMediaPlayer?.isPlaying == true
+                
                 when (event.keyCode) {
                     KeyEvent.KEYCODE_VOLUME_UP -> {
-                        if (event.action == KeyEvent.ACTION_DOWN) handler.pageUp()
+                        if (event.action == KeyEvent.ACTION_DOWN) {
+                            if (!isAudioPlaying) {
+                                handler.pageUp()
+                            } else {
+                                // Let system handle volume control when audio is playing
+                                return super.dispatchKeyEvent(event)
+                            }
+                        }
                         return true
                     }
                     KeyEvent.KEYCODE_VOLUME_DOWN -> {
-                        if (event.action == KeyEvent.ACTION_DOWN) handler.pageDown()
+                        if (event.action == KeyEvent.ACTION_DOWN) {
+                            if (!isAudioPlaying) {
+                                handler.pageDown()
+                            } else {
+                                // Let system handle volume control when audio is playing
+                                return super.dispatchKeyEvent(event)
+                            }
+                        }
                         return true
                     }
                 }
