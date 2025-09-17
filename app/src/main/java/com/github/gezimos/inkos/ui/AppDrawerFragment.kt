@@ -453,6 +453,20 @@ class AppDrawerFragment : Fragment() {
 
         override fun onFling(e1: MotionEvent?, e2: MotionEvent, velocityX: Float, velocityY: Float): Boolean {
             val diffY = e2.y - (e1?.y ?: e2.y)
+            val diffX = e2.x - (e1?.x ?: e2.x)
+            // Only treat horizontal fling as back when the gesture STARTS near the left or right edge of the screen
+            val startX = e1?.x ?: e2.x
+            val screenWidth = resources.displayMetrics.widthPixels
+            val edgeThresholdPx = (48 * density) // 48dp edge region
+            if (kotlin.math.abs(diffX) > flingThreshold && kotlin.math.abs(velocityX) > flingVelocity) {
+                if (startX <= edgeThresholdPx || startX >= (screenWidth - edgeThresholdPx)) {
+                    try {
+                        findNavController().popBackStack()
+                    } catch (_: Exception) {}
+                    vibratePaging()
+                    return true
+                }
+            }
             if (kotlin.math.abs(diffY) > flingThreshold && kotlin.math.abs(velocityY) > flingVelocity) {
                 flingDetected.set(true)
                 if (diffY < 0) {
