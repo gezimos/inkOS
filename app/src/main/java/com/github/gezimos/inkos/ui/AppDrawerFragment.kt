@@ -845,27 +845,12 @@ class AppDrawerFragment : Fragment() {
             
             val action = KeyMapperHelper.mapAppDrawerKey(prefs, keyCode, event)
             when (action) {
+                // Let Activity handle PageUp/PageDown (volume keys) so navigation is centralized.
                 KeyMapperHelper.AppDrawerKeyAction.PageUp -> {
-                    if (currentPage > 0) {
-                        currentPage--
-                        updatePagedList(fullAppsList, adapter)
-                        updatePageIndicator()
-                        selectedItemIndex = 0 // Reset selection to first item on new page
-                        focusSelectedItem()
-                        vibratePaging()
-                    }
-                    true
+                    return@setOnKeyListener false
                 }
                 KeyMapperHelper.AppDrawerKeyAction.PageDown -> {
-                    if (currentPage < totalPages - 1) {
-                        currentPage++
-                        updatePagedList(fullAppsList, adapter)
-                        updatePageIndicator()
-                        selectedItemIndex = 0 // Reset selection to first item on new page
-                        focusSelectedItem()
-                        vibratePaging()
-                    }
-                    true
+                    return@setOnKeyListener false
                 }
                 KeyMapperHelper.AppDrawerKeyAction.MoveSelectionUp -> {
                     moveSelectionUp()
@@ -895,6 +880,46 @@ class AppDrawerFragment : Fragment() {
         binding.root.postDelayed({
             isInitializing = false
         }, delay.toLong())
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Register Activity-level page navigation handler so volume keys are forwarded
+        val act = activity as? com.github.gezimos.inkos.MainActivity ?: return
+        act.pageNavigationHandler = object : com.github.gezimos.inkos.MainActivity.PageNavigationHandler {
+            // AppDrawer wants to keep DPAD behavior local (per-item selection), so do not handle DPAD as pages
+            override val handleDpadAsPage: Boolean = false
+
+            override fun pageUp() {
+                if (isInitializing) return
+                if (currentPage > 0) {
+                    currentPage--
+                    updatePagedList(fullAppsList, adapter)
+                    updatePageIndicator()
+                    selectedItemIndex = 0
+                    focusSelectedItem()
+                    vibratePaging()
+                }
+            }
+
+            override fun pageDown() {
+                if (isInitializing) return
+                if (currentPage < totalPages - 1) {
+                    currentPage++
+                    updatePagedList(fullAppsList, adapter)
+                    updatePageIndicator()
+                    selectedItemIndex = 0
+                    focusSelectedItem()
+                    vibratePaging()
+                }
+            }
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        val act = activity as? com.github.gezimos.inkos.MainActivity ?: return
+        if (act.pageNavigationHandler != null) act.pageNavigationHandler = null
     }
 
     private fun vibratePaging() {

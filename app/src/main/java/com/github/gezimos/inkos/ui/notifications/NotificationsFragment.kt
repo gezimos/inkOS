@@ -92,10 +92,13 @@ class NotificationsFragment : Fragment() {
         com.github.gezimos.inkos.helper.utils.EinkRefreshHelper.refreshEink(
             requireContext(), prefs, null, prefs.einkRefreshDelay, useActivityRoot = true
         )
-        // Add DPAD up/down navigation for notifications
+        // Keep view focus so other key events can be received by the fragment if needed
         view.isFocusable = true
         view.isFocusableInTouchMode = true
         view.requestFocus()
+
+        // Local key listener remains responsible only for actions other than page up/down.
+        // Page navigation (volume keys and optionally DPAD/pages) is forwarded from the Activity.
         view.setOnKeyListener { v, keyCode, event ->
             // Show quick hint when user presses left/right dpad keys to explain actions
             if (event.action == KeyEvent.ACTION_DOWN) {
@@ -114,6 +117,11 @@ class NotificationsFragment : Fragment() {
             val mapped = KeyMapperHelper.mapNotificationsKey(prefs, keyCode, event)
             if (mapped == KeyMapperHelper.NotificationKeyAction.None) return@setOnKeyListener false
 
+            // If the mapped action is PageUp/PageDown, let the Activity handle it via the centralized handler.
+            if (mapped == KeyMapperHelper.NotificationKeyAction.PageUp || mapped == KeyMapperHelper.NotificationKeyAction.PageDown) {
+                return@setOnKeyListener false
+            }
+
             val composeView = v as? ComposeView
             val pagerState = composeView?.getTag(0xdeadbeef.toInt()) as? androidx.compose.foundation.pager.PagerState
             val coroutineScope = composeView?.getTag(0xcafebabe.toInt()) as? kotlinx.coroutines.CoroutineScope
@@ -126,30 +134,6 @@ class NotificationsFragment : Fragment() {
             }
 
             when (mapped) {
-                KeyMapperHelper.NotificationKeyAction.PageDown -> {
-                    coroutineScope.launch {
-                        if (pagerState.currentPage < pagerState.pageCount - 1) {
-                            pagerState.scrollToPage(pagerState.currentPage + 1)
-                            vibratePaging()
-                        } else if (pagerState.pageCount > 0) {
-                            pagerState.scrollToPage(0)
-                            vibratePaging()
-                        }
-                    }
-                    true
-                }
-                KeyMapperHelper.NotificationKeyAction.PageUp -> {
-                    coroutineScope.launch {
-                        if (pagerState.currentPage > 0) {
-                            pagerState.scrollToPage(pagerState.currentPage - 1)
-                            vibratePaging()
-                        } else if (pagerState.pageCount > 0) {
-                            pagerState.scrollToPage(pagerState.pageCount - 1)
-                            vibratePaging()
-                        }
-                    }
-                    true
-                }
                 KeyMapperHelper.NotificationKeyAction.Dismiss -> {
                     // Dismiss current notification
                     val (pkg, notif) = validNotifications.getOrNull(pagerState.currentPage) ?: return@setOnKeyListener true
@@ -173,7 +157,9 @@ class NotificationsFragment : Fragment() {
                     try {
                         val context = requireContext()
                         val launchIntent = context.packageManager.getLaunchIntentForPackage(pkg)
-                        if (launchIntent != null) context.startActivity(launchIntent)
+                        if (launchIntent != null) {
+                            context.startActivity(launchIntent)
+                        }
                     } catch (_: Exception) {
                     }
                     NotificationManager.getInstance(requireContext())
@@ -185,10 +171,62 @@ class NotificationsFragment : Fragment() {
                     }
                     true
                 }
-                // Ignore OpenSettings for notifications; keep navigation within notifications only
                 else -> false
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Register Activity-level page navigation handler so volume and page/DPAD keys are forwarded
+        val act = activity as? com.github.gezimos.inkos.MainActivity ?: return
+        act.pageNavigationHandler = object : com.github.gezimos.inkos.MainActivity.PageNavigationHandler {
+            override val handleDpadAsPage: Boolean = true
+
+            override fun pageUp() {
+                val composeView = view as? ComposeView ?: return
+                val pagerState = composeView.getTag(0xdeadbeef.toInt()) as? androidx.compose.foundation.pager.PagerState
+                val coroutineScope = composeView.getTag(0xcafebabe.toInt()) as? kotlinx.coroutines.CoroutineScope
+                val validNotifications = (composeView.getTag(0xabcdef01.toInt()) as? List<*>)
+                    ?.filterIsInstance<Pair<String, NotificationManager.ConversationNotification>>() ?: return
+                if (pagerState == null || coroutineScope == null) return
+
+                coroutineScope.launch {
+                    if (pagerState.currentPage > 0) {
+                        pagerState.scrollToPage(pagerState.currentPage - 1)
+                        vibratePaging()
+                    } else if (pagerState.pageCount > 0) {
+                        pagerState.scrollToPage(pagerState.pageCount - 1)
+                        vibratePaging()
+                    }
+                }
+            }
+
+            override fun pageDown() {
+                val composeView = view as? ComposeView ?: return
+                val pagerState = composeView.getTag(0xdeadbeef.toInt()) as? androidx.compose.foundation.pager.PagerState
+                val coroutineScope = composeView.getTag(0xcafebabe.toInt()) as? kotlinx.coroutines.CoroutineScope
+                val validNotifications = (composeView.getTag(0xabcdef01.toInt()) as? List<*>)
+                    ?.filterIsInstance<Pair<String, NotificationManager.ConversationNotification>>() ?: return
+                if (pagerState == null || coroutineScope == null) return
+
+                coroutineScope.launch {
+                    if (pagerState.currentPage < pagerState.pageCount - 1) {
+                        pagerState.scrollToPage(pagerState.currentPage + 1)
+                        vibratePaging()
+                    } else if (pagerState.pageCount > 0) {
+                        pagerState.scrollToPage(0)
+                        vibratePaging()
+                    }
+                }
+            }
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        val act = activity as? com.github.gezimos.inkos.MainActivity ?: return
+        if (act.pageNavigationHandler != null) act.pageNavigationHandler = null
     }
 
     @Composable

@@ -190,16 +190,12 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
                     true
                 }
                 is KeyMapperHelper.HomeKeyAction.PageUp -> {
-                    val totalPages = prefs.homePagesNum
-                    handleSwipeLeft(totalPages)
-                    vibratePaging()
-                    true
+                    // Let Activity handle PageUp/PageDown (volume keys) centrally. Return false so Activity can forward.
+                    return@setOnKeyListener false
                 }
                 is KeyMapperHelper.HomeKeyAction.PageDown -> {
-                    val totalPages = prefs.homePagesNum
-                    handleSwipeRight(totalPages)
-                    vibratePaging()
-                    true
+                    // Let Activity handle PageUp/PageDown (volume keys) centrally. Return false so Activity can forward.
+                    return@setOnKeyListener false
                 }
                 is KeyMapperHelper.HomeKeyAction.GestureLeft -> {
                     when (val act = action.action) {
@@ -271,6 +267,8 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
         }
     }
 
+    // ...existing code...
+
     private fun updateHomeAppsUi(homeAppsUiState: List<HomeAppUiState>) {
         val notifications =
             NotificationManager.getInstance(requireContext()).notificationInfoLiveData.value
@@ -317,6 +315,24 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
         binding.root.isFocusableInTouchMode = true
         binding.root.requestFocus()
 
+        // Register Activity-level page navigation handler so volume keys are forwarded
+        val act = activity as? com.github.gezimos.inkos.MainActivity
+        act?.pageNavigationHandler = object : com.github.gezimos.inkos.MainActivity.PageNavigationHandler {
+            override val handleDpadAsPage: Boolean = false
+
+            override fun pageUp() {
+                val totalPages = prefs.homePagesNum
+                handleSwipeLeft(totalPages)
+                vibratePaging()
+            }
+
+            override fun pageDown() {
+                val totalPages = prefs.homePagesNum
+                handleSwipeRight(totalPages)
+                vibratePaging()
+            }
+        }
+
         // Refresh home app UI state on resume
         viewModel.refreshHomeAppsUiState(requireContext())
         
@@ -341,6 +357,8 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
     override fun onPause() {
         super.onPause()
         isHomeVisible = false
+    val act = activity as? com.github.gezimos.inkos.MainActivity
+    if (act?.pageNavigationHandler != null) act.pageNavigationHandler = null
     }
 
     private fun moveSelectionDown() {

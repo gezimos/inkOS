@@ -117,6 +117,64 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Interface for fragments to handle page navigation when Activity forwards key events.
+     * Fragments that provide page navigation should register an instance in the Activity
+     * so key events (volume, page keys, optional DPAD) are handled regardless of view focus.
+     */
+    interface PageNavigationHandler {
+        /**
+         * When true the Activity will forward DPAD_UP/DPAD_DOWN and PAGE_UP/PAGE_DOWN keys as page navigation.
+         * When false only volume keys (if enabled) will be forwarded.
+         */
+        val handleDpadAsPage: Boolean
+        fun pageUp()
+        fun pageDown()
+    }
+
+    // Currently registered page navigation handler (null when none). Fragments must set/unset
+    // this in onResume/onPause to receive forwarded key events only while visible.
+    var pageNavigationHandler: PageNavigationHandler? = null
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        // If onboarding or no handler, use default dispatch
+        if (isOnboarding) return super.dispatchKeyEvent(event)
+
+        val handler = pageNavigationHandler
+        // Only handle ACTION_DOWN to mirror existing behaviour
+        if (event.action == KeyEvent.ACTION_DOWN && handler != null) {
+            // Volume keys always considered for page navigation if user enabled the pref
+            if (prefs.useVolumeKeysForPages) {
+                when (event.keyCode) {
+                    KeyEvent.KEYCODE_VOLUME_UP -> {
+                        handler.pageUp()
+                        return true
+                    }
+                    KeyEvent.KEYCODE_VOLUME_DOWN -> {
+                        handler.pageDown()
+                        return true
+                    }
+                }
+            }
+
+            // Forward DPAD / PAGE keys only if the fragment opted in
+            if (handler.handleDpadAsPage) {
+                when (event.keyCode) {
+                    KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_PAGE_UP -> {
+                        handler.pageUp()
+                        return true
+                    }
+                    KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_PAGE_DOWN -> {
+                        handler.pageDown()
+                        return true
+                    }
+                }
+            }
+        }
+
+        return super.dispatchKeyEvent(event)
+    }
+
     override fun onNewIntent(intent: Intent) {
         if (isOnboarding) return
         super.onNewIntent(intent)
