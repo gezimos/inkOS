@@ -160,24 +160,25 @@ class MainActivity : AppCompatActivity() {
         }
 
         val handler = pageNavigationHandler
-        // Only handle ACTION_DOWN to mirror existing behaviour
-        if (event.action == KeyEvent.ACTION_DOWN && handler != null) {
-            // Volume keys always considered for page navigation if user enabled the pref
+        if (handler != null) {
+            // Volume keys: if user enabled pref, consume ALL volume key actions
+            // (ACTION_DOWN, ACTION_UP, ACTION_MULTIPLE) so long-presses/repeats
+            // don't fall through to the system and show the volume dialog.
             if (prefs.useVolumeKeysForPages) {
                 when (event.keyCode) {
                     KeyEvent.KEYCODE_VOLUME_UP -> {
-                        handler.pageUp()
+                        if (event.action == KeyEvent.ACTION_DOWN) handler.pageUp()
                         return true
                     }
                     KeyEvent.KEYCODE_VOLUME_DOWN -> {
-                        handler.pageDown()
+                        if (event.action == KeyEvent.ACTION_DOWN) handler.pageDown()
                         return true
                     }
                 }
             }
 
-            // Forward DPAD / PAGE keys only if the fragment opted in
-            if (handler.handleDpadAsPage) {
+            // Only handle DPAD / PAGE keys on ACTION_DOWN to mirror existing behaviour
+            if (event.action == KeyEvent.ACTION_DOWN && handler.handleDpadAsPage) {
                 when (event.keyCode) {
                     KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_PAGE_UP -> {
                         handler.pageUp()
