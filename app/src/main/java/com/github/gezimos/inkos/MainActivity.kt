@@ -136,9 +136,28 @@ class MainActivity : AppCompatActivity() {
     // this in onResume/onPause to receive forwarded key events only while visible.
     var pageNavigationHandler: PageNavigationHandler? = null
 
+    /**
+     * Optional fragment-level key handler for non-navigation keys (e.g. keypad gestures).
+     * If set, Activity will forward key events to it before attempting page navigation so
+     * fragments receive keys regardless of view focus.
+     */
+    interface FragmentKeyHandler {
+        fun handleKeyEvent(keyCode: Int, event: KeyEvent): Boolean
+    }
+
+    var fragmentKeyHandler: FragmentKeyHandler? = null
+
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         // If onboarding or no handler, use default dispatch
         if (isOnboarding) return super.dispatchKeyEvent(event)
+
+        // First give the visible fragment a chance to handle arbitrary keys
+        val fragHandler = fragmentKeyHandler
+        if (event.action == KeyEvent.ACTION_DOWN && fragHandler != null) {
+            try {
+                if (fragHandler.handleKeyEvent(event.keyCode, event)) return true
+            } catch (_: Exception) {}
+        }
 
         val handler = pageNavigationHandler
         // Only handle ACTION_DOWN to mirror existing behaviour

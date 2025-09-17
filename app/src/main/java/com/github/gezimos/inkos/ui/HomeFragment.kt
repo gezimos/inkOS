@@ -61,6 +61,7 @@ import com.github.gezimos.inkos.services.NotificationManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import com.github.gezimos.inkos.helper.KeyMapperHelper
+import android.view.KeyEvent
 import com.github.gezimos.inkos.helper.utils.EinkRefreshHelper
 import com.github.gezimos.inkos.helper.utils.BackgroundImageHelper
 
@@ -333,6 +334,94 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
             }
         }
 
+        // Also register a fragment key handler so keypad shortcuts (2,6,7,8 etc.) keep working
+        act?.fragmentKeyHandler = object : com.github.gezimos.inkos.MainActivity.FragmentKeyHandler {
+            override fun handleKeyEvent(keyCode: Int, event: KeyEvent): Boolean {
+                val action = KeyMapperHelper.mapHomeKey(prefs, keyCode, event)
+                // only handle ACTION_DOWN mapping already applied in KeyMapperHelper
+                when (action) {
+                    is KeyMapperHelper.HomeKeyAction.MoveSelectionDown -> {
+                        moveSelectionDown()
+                        return true
+                    }
+                    is KeyMapperHelper.HomeKeyAction.PageUp -> {
+                        // volume/page keys routed to pageNavigationHandler; ignore here
+                        return false
+                    }
+                    is KeyMapperHelper.HomeKeyAction.PageDown -> {
+                        return false
+                    }
+                    is KeyMapperHelper.HomeKeyAction.GestureLeft -> {
+                        when (val act = action.action) {
+                            Action.OpenApp -> openSwipeLeftApp()
+                            else -> handleOtherAction(act)
+                        }
+                        CrashHandler.logUserAction("DPAD_RIGHT Gesture (SwipeLeft)")
+                        return true
+                    }
+                    is KeyMapperHelper.HomeKeyAction.GestureRight -> {
+                        when (val act = action.action) {
+                            Action.OpenApp -> openSwipeRightApp()
+                            else -> handleOtherAction(act)
+                        }
+                        CrashHandler.logUserAction("DPAD_LEFT Gesture (SwipeRight)")
+                        return true
+                    }
+                    is KeyMapperHelper.HomeKeyAction.LongPressSelected -> {
+                        val view = binding.homeAppsLayout.getChildAt(selectedAppIndex)
+                        if (view != null) onLongClick(view) else false
+                        return true
+                    }
+                    is KeyMapperHelper.HomeKeyAction.ClickClock -> {
+                        when (val action = prefs.clickClockAction) {
+                            Action.OpenApp -> openClickClockApp()
+                            Action.Disabled -> showShortToast(getString(R.string.edit_gestures_settings_toast))
+                            else -> handleOtherAction(action)
+                        }
+                        CrashHandler.logUserAction("Clock Clicked (key)")
+                        return true
+                    }
+                    is KeyMapperHelper.HomeKeyAction.ClickQuote -> {
+                        when (val action = prefs.quoteAction) {
+                            Action.OpenApp -> {
+                                if (prefs.appQuoteWidget.activityPackage.isNotEmpty()) {
+                                    viewModel.launchApp(prefs.appQuoteWidget, this@HomeFragment)
+                                } else {
+                                    showLongPressToast()
+                                }
+                            }
+                            Action.Disabled -> showShortToast(getString(R.string.edit_gestures_settings_toast))
+                            else -> handleOtherAction(action)
+                        }
+                        CrashHandler.logUserAction("Quote Clicked (key)")
+                        return true
+                    }
+                    is KeyMapperHelper.HomeKeyAction.ClickDate -> {
+                        when (val action = prefs.clickDateAction) {
+                            Action.OpenApp -> openClickDateApp()
+                            Action.Disabled -> showShortToast(getString(R.string.edit_gestures_settings_toast))
+                            else -> handleOtherAction(action)
+                        }
+                        CrashHandler.logUserAction("Date Clicked (key)")
+                        return true
+                    }
+                    is KeyMapperHelper.HomeKeyAction.DoubleTap -> {
+                        when (val action = prefs.doubleTapAction) {
+                            Action.OpenApp -> openDoubleTapApp()
+                            else -> handleOtherAction(action)
+                        }
+                        CrashHandler.logUserAction("DoubleTap (key)")
+                        return true
+                    }
+                    is KeyMapperHelper.HomeKeyAction.OpenSettings -> {
+                        trySettings()
+                        return true
+                    }
+                    else -> return false
+                }
+            }
+        }
+
         // Refresh home app UI state on resume
         viewModel.refreshHomeAppsUiState(requireContext())
         
@@ -359,6 +448,7 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
         isHomeVisible = false
     val act = activity as? com.github.gezimos.inkos.MainActivity
     if (act?.pageNavigationHandler != null) act.pageNavigationHandler = null
+    if (act?.fragmentKeyHandler != null) act.fragmentKeyHandler = null
     }
 
     private fun moveSelectionDown() {
