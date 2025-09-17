@@ -190,6 +190,10 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
                     moveSelectionDown()
                     true
                 }
+                is KeyMapperHelper.HomeKeyAction.MoveSelectionUp -> {
+                    moveSelectionUp()
+                    true
+                }
                 is KeyMapperHelper.HomeKeyAction.PageUp -> {
                     // Let Activity handle PageUp/PageDown (volume keys) centrally. Return false so Activity can forward.
                     return@setOnKeyListener false
@@ -344,6 +348,10 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
                         moveSelectionDown()
                         return true
                     }
+                    is KeyMapperHelper.HomeKeyAction.MoveSelectionUp -> {
+                        moveSelectionUp()
+                        return true
+                    }
                     is KeyMapperHelper.HomeKeyAction.PageUp -> {
                         // volume/page keys routed to pageNavigationHandler; ignore here
                         return false
@@ -454,10 +462,7 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
     private fun moveSelectionDown() {
         val totalApps = getTotalAppsCount()
         val totalPages = prefs.homePagesNum
-        val appsPerPage = if (totalPages > 0) (totalApps + totalPages - 1) / totalPages else 0
-        totalApps - 1
-
-        currentPage * appsPerPage
+    val appsPerPage = if (totalPages > 0) (totalApps + totalPages - 1) / totalPages else 0
         val endIdx = minOf((currentPage + 1) * appsPerPage, totalApps) - 1
 
         if (selectedAppIndex < endIdx) {
@@ -473,6 +478,39 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
                 // Wrap to first app of first page
                 currentPage = 0
                 selectedAppIndex = 0
+            }
+        }
+        updateAppsVisibility(totalPages)
+        focusAppButton(selectedAppIndex)
+    }
+
+    private fun moveSelectionUp() {
+        val totalApps = getTotalAppsCount()
+        val totalPages = prefs.homePagesNum
+        val appsPerPage = if (totalPages > 0) (totalApps + totalPages - 1) / totalPages else 0
+
+        val startIdx = currentPage * appsPerPage
+
+        if (selectedAppIndex > startIdx) {
+            // Move to previous app in current page
+            selectedAppIndex--
+        } else {
+            // At first app of current page
+            if (currentPage > 0) {
+                // Move to last app of previous page
+                currentPage--
+                val prevEndIdx = minOf((currentPage + 1) * appsPerPage, totalApps) - 1
+                selectedAppIndex = if (prevEndIdx >= 0) prevEndIdx else 0
+            } else {
+                // Wrap to last app of last page
+                if (totalPages > 0) {
+                    currentPage = totalPages - 1
+                    val lastEndIdx = minOf((currentPage + 1) * appsPerPage, totalApps) - 1
+                    selectedAppIndex = if (lastEndIdx >= 0) lastEndIdx else 0
+                } else {
+                    // Fallback: single page behavior
+                    selectedAppIndex = 0
+                }
             }
         }
         updateAppsVisibility(totalPages)
@@ -1228,6 +1266,10 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
                         when (mapped) {
                             is KeyMapperHelper.HomeKeyAction.MoveSelectionDown -> {
                                 moveSelectionDown()
+                                true
+                            }
+                            is KeyMapperHelper.HomeKeyAction.MoveSelectionUp -> {
+                                moveSelectionUp()
                                 true
                             }
                             is KeyMapperHelper.HomeKeyAction.GestureLeft -> {
