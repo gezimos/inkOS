@@ -1432,8 +1432,15 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
             currentPage - 1 // Move to the previous page
         }
 
-        updateAppsVisibility(totalPages)
-        vibratePaging()
+    // Move focus to first visible item on the new page
+    val totalApps = getTotalAppsCount()
+    val appsPerPageLocal = if (totalPages > 0) (totalApps + totalPages - 1) / totalPages else 0
+    selectedAppIndex = currentPage * appsPerPageLocal
+    if (selectedAppIndex >= totalApps) selectedAppIndex = maxOf(0, totalApps - 1)
+
+    updateAppsVisibility(totalPages)
+    focusAppButton(selectedAppIndex)
+    vibratePaging()
     }
 
     private fun handleSwipeRight(totalPages: Int) {
@@ -1445,8 +1452,15 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
             currentPage + 1 // Move to the next page
         }
 
-        updateAppsVisibility(totalPages)
-        vibratePaging()
+    // Move focus to first visible item on the new page
+    val totalApps = getTotalAppsCount()
+    val appsPerPageLocal = if (totalPages > 0) (totalApps + totalPages - 1) / totalPages else 0
+    selectedAppIndex = currentPage * appsPerPageLocal
+    if (selectedAppIndex >= totalApps) selectedAppIndex = maxOf(0, totalApps - 1)
+
+    updateAppsVisibility(totalPages)
+    focusAppButton(selectedAppIndex)
+    vibratePaging()
     }
 
     private fun vibratePaging() {
