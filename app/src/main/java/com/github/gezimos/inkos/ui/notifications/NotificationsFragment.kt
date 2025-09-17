@@ -8,6 +8,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -104,7 +105,7 @@ class NotificationsFragment : Fragment() {
             if (event.action == KeyEvent.ACTION_DOWN) {
                 when (keyCode) {
                     KeyEvent.KEYCODE_DPAD_LEFT -> {
-                        showShortToast("Dismiss: Del, C, #1,")
+                        showShortToast("Dismiss: Del, C, #1 | Long press to dismiss all")
                         return@setOnKeyListener true
                     }
                     KeyEvent.KEYCODE_DPAD_RIGHT -> {
@@ -441,23 +442,34 @@ class NotificationsFragment : Fragment() {
                             modifier = Modifier
                                 .weight(1f)
                                 .heightIn(min = 56.dp)
-                                .clickable(enabled = canDismiss) {
-                                    val (pkg, notif) = validNotifications.getOrNull(pagerState.currentPage)
-                                        ?: return@clickable
-                                    NotificationManager.getInstance(requireContext())
-                                        .removeConversationNotification(pkg, notif.conversationId)
-                                    coroutineScope.launch {
-                                        val nextPage = when {
-                                            pagerState.currentPage == validNotifications.lastIndex && pagerState.currentPage > 0 -> pagerState.currentPage - 1
-                                            pagerState.currentPage < validNotifications.lastIndex -> pagerState.currentPage
-                                            else -> 0
+                                .pointerInput(validNotifications) {
+                                    detectTapGestures(
+                                        onTap = {
+                                            if (canDismiss) {
+                                                val (pkg, notif) = validNotifications.getOrNull(pagerState.currentPage)
+                                                    ?: return@detectTapGestures
+                                                NotificationManager.getInstance(requireContext())
+                                                    .removeConversationNotification(pkg, notif.conversationId)
+                                                coroutineScope.launch {
+                                                    val nextPage = when {
+                                                        pagerState.currentPage == validNotifications.lastIndex && pagerState.currentPage > 0 -> pagerState.currentPage - 1
+                                                        pagerState.currentPage < validNotifications.lastIndex -> pagerState.currentPage
+                                                        else -> 0
+                                                    }
+                                                    kotlinx.coroutines.delay(150)
+                                                    if (validNotifications.size > 1) {
+                                                        pagerState.scrollToPage(nextPage)
+                                                    }
+                                                }
+                                                vibratePaging() // vibrate on dismiss tap if enabled
+                                            }
+                                        },
+                                        onLongPress = {
+                                            if (canDismiss) {
+                                                dismissAllNotifications()
+                                            }
                                         }
-                                        kotlinx.coroutines.delay(150)
-                                        if (validNotifications.size > 1) {
-                                            pagerState.scrollToPage(nextPage)
-                                        }
-                                    }
-                                    vibratePaging() // vibrate on dismiss tap if enabled
+                                    )
                                 },
                             contentAlignment = Alignment.CenterStart
                         ) {
@@ -532,6 +544,19 @@ class NotificationsFragment : Fragment() {
             } catch (_: Exception) {
             }
         }
+    }
+
+    private fun dismissAllNotifications() {
+        val notificationManager = NotificationManager.getInstance(requireContext())
+        // Get all current notifications and dismiss them
+        val allNotifications = notificationManager.conversationNotificationsLiveData.value ?: emptyMap()
+        allNotifications.forEach { (packageName, conversations) ->
+            conversations.forEach { notif ->
+                notificationManager.removeConversationNotification(packageName, notif.conversationId)
+            }
+        }
+        vibratePaging() // vibrate on dismiss all if enabled
+        showShortToast("All notifications dismissed")
     }
 
     // settings shortcut intentionally not supported from notifications
