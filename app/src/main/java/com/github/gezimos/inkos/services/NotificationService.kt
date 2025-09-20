@@ -434,7 +434,12 @@ class NotificationService : NotificationListenerService() {
         
         var conversationTitle = conversationTitleRaw
         var sender = senderRaw
-        var message = messageRaw
+        // Normalize whitespace and cap message to 300 characters to avoid overly long UI strings
+        var message = messageRaw?.replace("\n", " ")
+            ?.replace("\r", " ")
+            ?.trim()
+            ?.replace(Regex("\\s+"), " ")
+            ?.take(300)
         
         // Fallback: if both sender/title and message are missing, use app label and 'Notification received'
         if ((conversationTitle.isNullOrBlank() && sender.isNullOrBlank()) && (message.isNullOrBlank())) {
