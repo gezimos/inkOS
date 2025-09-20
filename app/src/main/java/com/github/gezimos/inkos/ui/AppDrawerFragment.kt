@@ -530,16 +530,45 @@ class AppDrawerFragment : Fragment() {
             val translatedX = rawX - rvLocation[0]
             val translatedY = rawY - rvLocation[1]
 
-            val forwarded = MotionEvent.obtain(
-                event.downTime,
-                event.eventTime,
-                event.action,
-                translatedX,
-                translatedY,
-                event.metaState
-            )
-            val handledByRecycler = rv.dispatchTouchEvent(forwarded)
-            forwarded.recycle()
+            // Forward the exact MotionEvent (preserves pointer properties) and
+            // offset it into RecyclerView local coordinates. This prevents
+            // invalid pointerIndex errors that occur when synthesizing single-
+            // pointer MotionEvents from multi-touch originals.
+            var handledByRecycler = false
+            try {
+                val forwarded = MotionEvent.obtain(event)
+                // Compute overlay (touchArea) location on screen so we can convert
+                // overlay-local coordinates into RecyclerView-local coordinates.
+                val overlayLocation = IntArray(2)
+                try { v.getLocationOnScreen(overlayLocation) } catch (_: Exception) { overlayLocation[0] = 0; overlayLocation[1] = 0 }
+                // Offset forwarded event by (overlayOnScreen - rvOnScreen) so forwarded.x == rawX - rvX
+                forwarded.offsetLocation(
+                    (overlayLocation[0] - rvLocation[0]).toFloat(),
+                    (overlayLocation[1] - rvLocation[1]).toFloat()
+                )
+                handledByRecycler = try {
+                    rv.dispatchTouchEvent(forwarded)
+                } catch (iae: IllegalArgumentException) {
+                    // Some devices may still be unhappy; fall back below
+                    false
+                }
+                forwarded.recycle()
+            } catch (iae: IllegalArgumentException) {
+                // Worst-case fallback: send a simple ACTION_CANCEL to clear touch state
+                try {
+                    val cancel = MotionEvent.obtain(
+                        event.downTime,
+                        event.eventTime,
+                        MotionEvent.ACTION_CANCEL,
+                        0f,
+                        0f,
+                        0
+                    )
+                    rv.dispatchTouchEvent(cancel)
+                    cancel.recycle()
+                } catch (_: Exception) {}
+                handledByRecycler = false
+            }
 
             // Call performClick when touch is completed
             if (event.actionMasked == MotionEvent.ACTION_UP && !handledByRecycler) {

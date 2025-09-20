@@ -47,20 +47,22 @@ internal open class OnSwipeTouchListener(c: Context?) : OnTouchListener {
 
         override fun onDoubleTap(e: MotionEvent): Boolean {
             doubleTapOn = true
-            Timer().schedule(Constants.TRIPLE_TAP_DELAY_MS.toLong()) {
+            // Ensure delayed callbacks run on the main thread (Timer runs background thread)
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                 if (doubleTapOn) {
                     doubleTapOn = false
                     onDoubleClick()
                 }
-            }
+            }, Constants.TRIPLE_TAP_DELAY_MS.toLong())
             return super.onDoubleTap(e)
         }
 
         override fun onLongPress(e: MotionEvent) {
             longPressOn = true
-            Timer().schedule(Constants.LONG_PRESS_DELAY_MS.toLong()) {
+            // Run long-press timeout on main thread to allow safe UI interactions
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                 if (longPressOn) onLongClick()
-            }
+            }, Constants.LONG_PRESS_DELAY_MS.toLong())
             super.onLongPress(e)
         }
 

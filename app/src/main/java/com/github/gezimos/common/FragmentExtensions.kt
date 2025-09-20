@@ -8,11 +8,21 @@ import android.widget.Toast
 import androidx.fragment.app.Fragment
 
 fun Fragment.showLongToast(message: String) {
-    Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
+    // Use a null-safe context and always post toast display to the main thread
+    context?.let { ctx ->
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            Toast.makeText(ctx, message, Toast.LENGTH_LONG).show()
+        }
+    }
 }
 
 fun Fragment.showShortToast(message: String) {
-    Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
+    // Use a null-safe context and always post toast display to the main thread
+    context?.let { ctx ->
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            Toast.makeText(ctx, message, Toast.LENGTH_SHORT).show()
+        }
+    }
 }
 
 @SuppressLint("ServiceCast")
