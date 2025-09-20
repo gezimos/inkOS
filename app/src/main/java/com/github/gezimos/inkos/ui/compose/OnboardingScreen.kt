@@ -343,7 +343,7 @@ object OnboardingScreen {
                             }
                             SettingsComposable.FullLineSeparator(isDark = false)
                             SettingsComposable.SettingsSwitch(
-                                text = "E-ink Quality Mode",
+                                text = "E-ink Mode",
                                 fontSize = titleFontSize,
                                 defaultState = einkHelperEnabled,
                                 onCheckedChange = {
