@@ -10,6 +10,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,6 +40,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.TextUnit
@@ -334,6 +336,7 @@ class NotificationsFragment : Fragment() {
         // Detect navigation bar height for padding
         val view = LocalView.current
         val density = LocalDensity.current
+        val configuration = LocalConfiguration.current
         var navBarPadding by remember { mutableStateOf(0.dp) }
         var statusBarPadding by remember { mutableStateOf(0.dp) }
         LaunchedEffect(view) {
@@ -364,6 +367,37 @@ class NotificationsFragment : Fragment() {
             modifier = Modifier
                 .fillMaxSize()
                 .background(backgroundColor)
+                .pointerInput(Unit) {
+                    // Horizontal swipe gesture with edge detection for navigation
+                    val screenWidthPx = configuration.screenWidthDp * density.density
+                    val edgeThresholdPx = 48 * density.density // 48dp edge region
+                    var initialX = 0f
+                    var totalDragX = 0f
+                    
+                    detectHorizontalDragGestures(
+                        onDragStart = { offset ->
+                            initialX = offset.x
+                            totalDragX = 0f
+                        },
+                        onDragEnd = {
+                            // Only treat horizontal fling as back when the gesture STARTS near the left or right edge of the screen
+                            if (initialX <= edgeThresholdPx || initialX >= (screenWidthPx - edgeThresholdPx)) {
+                                val flingThreshold = 48 * density.density // 48dp threshold
+                                if (kotlin.math.abs(totalDragX) > flingThreshold) {
+                                    try {
+                                        findNavController().popBackStack()
+                                        vibratePaging()
+                                    } catch (_: Exception) {}
+                                }
+                            }
+                            totalDragX = 0f
+                        },
+                        onHorizontalDrag = { change, dragAmount ->
+                            change.consume()
+                            totalDragX += dragAmount
+                        }
+                    )
+                }
         ) {
 
             if (validNotifications.isEmpty()) {
