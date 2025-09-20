@@ -403,7 +403,8 @@ class NotificationSettingsFragment : Fragment() {
                         onConfirm = { selected ->
                             prefs.allowedBadgeNotificationApps = selected.toMutableSet()
                             badgeAllowlist = selected.toMutableSet() // update state to refresh UI
-                        }
+                        },
+                        includeHidden = true
                     )
                 }
             }
@@ -515,7 +516,8 @@ class NotificationSettingsFragment : Fragment() {
                         onConfirm = { selected ->
                             prefs.allowedNotificationApps = selected.toMutableSet()
                             allowlist = selected.toMutableSet() // update state to refresh UI
-                        }
+                        },
+                        includeHidden = true
                     )
                 }
             }

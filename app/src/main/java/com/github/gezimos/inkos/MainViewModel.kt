@@ -342,28 +342,42 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             val hiddenAppsSet = prefs.hiddenApps
 
-            // Always exclude hidden apps from the app drawer, regardless of flag
-            val filteredApps: MutableList<AppListItem> = apps.filter { app ->
-                !hiddenAppsSet.contains("${app.activityPackage}|${app.user}")
-            }.toMutableList()
+            // Filter hidden apps based on includeHiddenApps parameter
+            val filteredApps: MutableList<AppListItem> = if (includeHiddenApps) {
+                apps.toMutableList()
+            } else {
+                apps.filter { app ->
+                    !hiddenAppsSet.contains("${app.activityPackage}|${app.user}")
+                }.toMutableList()
+            }
 
-            // Add synthetic apps (App Drawer, Notifications, Empty Space) that are not hidden
+            // Add synthetic apps based on includeHiddenApps parameter
             val syntheticApps =
                 com.github.gezimos.inkos.helper.getSyntheticApps(prefs, flag, includeHiddenApps)
             val nonShortcutSyntheticApps = syntheticApps.filterNot {
                 com.github.gezimos.inkos.helper.SystemShortcutHelper.isSystemShortcut(it.activityPackage)
-            }.filter { app ->
-                !hiddenAppsSet.contains("${app.activityPackage}|${app.user}")
+            }.let { apps ->
+                if (includeHiddenApps) {
+                    apps
+                } else {
+                    apps.filter { app ->
+                        !hiddenAppsSet.contains("${app.activityPackage}|${app.user}")
+                    }
+                }
             }
             filteredApps.addAll(nonShortcutSyntheticApps)
 
-            // Add selected system shortcuts that are not hidden
+            // Add selected system shortcuts based on includeHiddenApps parameter
             val selectedSystemShortcuts =
                 com.github.gezimos.inkos.helper.SystemShortcutHelper.getSelectedSystemShortcutsAsAppItems(
                     prefs
                 )
-            val visibleSystemShortcuts = selectedSystemShortcuts.filter { app ->
-                !hiddenAppsSet.contains("${app.activityPackage}|${app.user}")
+            val visibleSystemShortcuts = if (includeHiddenApps) {
+                selectedSystemShortcuts
+            } else {
+                selectedSystemShortcuts.filter { app ->
+                    !hiddenAppsSet.contains("${app.activityPackage}|${app.user}")
+                }
             }
             filteredApps.addAll(visibleSystemShortcuts)
 
