@@ -215,6 +215,7 @@ class FeaturesFragment : Fragment() {
         // Layout & Positioning section (moved from LookFeelFragment)
         var toggledExtendHomeAppsArea = remember { mutableStateOf(prefs.extendHomeAppsArea) }
         var selectedPaddingSize = remember { mutableStateOf(prefs.textPaddingSize) }
+    var selectedHomeAppsYOffset = remember { mutableStateOf(prefs.homeAppsYOffset) }
         var selectedTopWidgetMargin = remember { mutableStateOf(prefs.topWidgetMargin) }
         var selectedBottomWidgetMargin = remember { mutableStateOf(prefs.bottomWidgetMargin) }
         // Remove verticalScroll and isDark param, handled by parent ComposeView
@@ -240,6 +241,25 @@ class FeaturesFragment : Fragment() {
                         onValueSelected = { newPaddingSize ->
                             selectedPaddingSize.value = newPaddingSize
                             prefs.textPaddingSize = newPaddingSize
+                        }
+                    )
+                }
+            )
+            DashedSeparator(isDark)
+            SettingsSelect(
+                title = stringResource(R.string.home_apps_y_offset),
+                option = selectedHomeAppsYOffset.value.toString(),
+                fontSize = titleFontSize,
+                onClick = {
+                    dialogBuilder.showSliderDialog(
+                        context = requireContext(),
+                        title = getString(R.string.home_apps_y_offset),
+                        minValue = Constants.MIN_HOME_APPS_Y_OFFSET,
+                        maxValue = Constants.MAX_HOME_APPS_Y_OFFSET,
+                        currentValue = selectedHomeAppsYOffset.value,
+                        onValueSelected = { newValue ->
+                            selectedHomeAppsYOffset.value = newValue
+                            prefs.homeAppsYOffset = newValue
                         }
                     )
                 }

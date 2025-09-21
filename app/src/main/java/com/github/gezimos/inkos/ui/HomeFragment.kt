@@ -142,6 +142,9 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
         initClickListeners()
         initSwipeTouchListener()
 
+    // Apply Y-offset from preferences to position home apps container
+    applyHomeAppsYOffset()
+
         // Initialize date display
         updateDateDisplay()
 
@@ -304,6 +307,8 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
 
     // Eink refresh: flash overlay if enabled
     EinkRefreshHelper.refreshEink(requireContext(), prefs, binding.root as? ViewGroup, prefs.einkRefreshDelay)
+        // Re-apply Y-offset after resume to ensure position reflects latest setting
+        applyHomeAppsYOffset()
         // Centralized reset logic for home button
         if (prefs.homeReset || goToFirstPageSignal) {
             currentPage = 0
@@ -1536,6 +1541,23 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
 
     fun setupBackgroundImage() {
     BackgroundImageHelper.setupBackgroundImage(requireContext(), prefs, viewModel, binding.root as ViewGroup)
+    }
+
+    // Apply the Home Apps Y-offset preference by adjusting top padding of the main container.
+    private fun applyHomeAppsYOffset() {
+        try {
+            val dp = prefs.homeAppsYOffset
+            val scale = resources.displayMetrics.density
+            val px = (dp * scale).toInt()
+            // Keep existing left/right/bottom paddings
+            val left = binding.maincontainer.paddingLeft
+            val right = binding.maincontainer.paddingRight
+            val bottom = binding.maincontainer.paddingBottom
+            binding.maincontainer.setPadding(left, px, right, bottom)
+        } catch (e: Exception) {
+            // Fail silently; don't crash the home screen if something goes wrong
+            e.printStackTrace()
+        }
     }
 
     // ...existing code...

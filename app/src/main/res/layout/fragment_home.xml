@@ -81,24 +81,33 @@
     </androidx.appcompat.widget.LinearLayoutCompat>
 
 
-    <!-- Home apps-->
-    <LinearLayout
-        android:id="@+id/homeAppsLayout"
+    <!-- Home apps + pager grouped in a padding-free FrameLayout -->
+    <FrameLayout
+        android:id="@+id/maincontainer"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:gravity="center_vertical"
-        android:orientation="vertical"
-        android:paddingHorizontal="20dp"
-        android:paddingBottom="30dp" />
+        android:paddingTop="0dp">
 
-    <LinearLayout
-        android:id="@+id/homeScreenPager"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center_vertical|end"
-        android:layout_marginEnd="32dp"
-        android:orientation="vertical"
-        android:visibility="gone" />
+        <!-- Home apps-->
+        <LinearLayout
+            android:id="@+id/homeAppsLayout"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center_vertical"
+            android:orientation="vertical"
+            android:paddingHorizontal="20dp"
+            android:paddingBottom="30dp" />
+
+        <LinearLayout
+            android:id="@+id/homeScreenPager"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_vertical|end"
+            android:layout_marginEnd="32dp"
+            android:orientation="vertical"
+            android:visibility="gone" />
+
+    </FrameLayout>
 
 
     <!-- Battery indicator repositioned to bottom center -->

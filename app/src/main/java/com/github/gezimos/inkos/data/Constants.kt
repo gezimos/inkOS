@@ -53,6 +53,10 @@ object Constants {
 
     const val MIN_TEXT_PADDING = 0
     const val MAX_TEXT_PADDING = 80
+    
+    // Specific min/max for Home Apps Y-Offset (dp)
+    const val MIN_HOME_APPS_Y_OFFSET = 0
+    const val MAX_HOME_APPS_Y_OFFSET = 500
 
     // Restore for date_size (not gap)
     const val MIN_CLOCK_SIZE = 12

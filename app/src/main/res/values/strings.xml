@@ -87,6 +87,7 @@
 
     <string name="app_size">App Size</string>
     <string name="app_padding_size">Gap Between Apps</string>
+    <string name="home_apps_y_offset">Home Apps Y-Offset</string>
     <string name="top_widget_margin">Top Widget Margin</string>
     <string name="bottom_widget_margin">Bottom Widget Margin</string>
 

@@ -87,6 +87,7 @@ private const val APP_DRAWER_SIZE = "APP_DRAWER_SIZE"
 private const val APP_DRAWER_GAP = "APP_DRAWER_GAP"
 private const val APP_DRAWER_ALIGNMENT = "APP_DRAWER_ALIGNMENT"
 private const val APP_DRAWER_PAGER = "APP_DRAWER_PAGER"
+private const val HOME_APPS_Y_OFFSET = "HOME_APPS_Y_OFFSET"
 
 class Prefs(val context: Context) {
     private val BRIGHTNESS_LEVEL = "BRIGHTNESS_LEVEL"
@@ -928,6 +929,15 @@ class Prefs(val context: Context) {
             12
         }
         set(value) = prefs.edit { putInt(TEXT_PADDING_SIZE, value) }
+
+    // Vertical offset (Y) applied to home apps grouping (in dp). Default 0.
+    var homeAppsYOffset: Int
+        get() = try {
+            prefs.getInt(HOME_APPS_Y_OFFSET, 0)
+        } catch (_: Exception) {
+            0
+        }
+    set(value) = prefs.edit { putInt(HOME_APPS_Y_OFFSET, value.coerceIn(Constants.MIN_HOME_APPS_Y_OFFSET, Constants.MAX_HOME_APPS_Y_OFFSET)) }
 
     // --- App Drawer specific settings ---
     // Size for app drawer labels (defaults to existing appSize)
