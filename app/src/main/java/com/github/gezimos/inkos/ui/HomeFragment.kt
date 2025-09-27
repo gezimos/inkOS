@@ -749,6 +749,8 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
     }
 
     override fun onLongClick(view: View): Boolean {
+        vibratePaging()
+        
         if (prefs.homeLocked) {
             if (prefs.longPressAppInfoEnabled) {
                 // Open app info for the long-pressed app
@@ -808,6 +810,7 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
             }
 
             override fun onLongClick() {
+                vibratePaging()
                 CrashHandler.logUserAction("Launcher Settings Opened")
                 trySettings()
             }
