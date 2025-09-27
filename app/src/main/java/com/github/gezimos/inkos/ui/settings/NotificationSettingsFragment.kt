@@ -42,7 +42,8 @@ class NotificationSettingsFragment : Fragment() {
         null
 
     // Helper data class for app info
-    data class AppInfo(val label: String, val packageName: String)
+    // `user` is included so we can detect stored entries that use the package|user format
+    data class AppInfo(val label: String, val packageName: String, val user: String? = null)
 
     @Suppress("unused")
     private fun getInstalledApps(): List<AppInfo> {
@@ -648,8 +649,11 @@ class NotificationSettingsFragment : Fragment() {
                         !pkg.startsWith("com.inkos.system.")
             }
             val allApps = filteredApps.map {
-                AppInfo(label = it.customLabel.takeIf { l -> !l.isNullOrEmpty() }
-                    ?: it.activityLabel, packageName = it.activityPackage)
+                AppInfo(
+                    label = it.customLabel.takeIf { l -> !l.isNullOrEmpty() } ?: it.activityLabel,
+                    packageName = it.activityPackage,
+                    user = it.user.toString()
+                )
             }
             // Sort: selected apps first, then unselected, both alphabetically
             val sortedApps = allApps.sortedWith(
@@ -658,7 +662,11 @@ class NotificationSettingsFragment : Fragment() {
             )
             val appLabels = sortedApps.map { it.label }
             val appPackages = sortedApps.map { it.packageName }
-            val checkedItems = appPackages.map { initialSelected.contains(it) }.toBooleanArray()
+            val checkedItems = appPackages.mapIndexed { idx, pkg ->
+                val userStr = sortedApps[idx].user
+                val pkgWithUser = if (!userStr.isNullOrBlank()) "$pkg|$userStr" else pkg
+                initialSelected.contains(pkg) || initialSelected.contains(pkgWithUser)
+            }.toBooleanArray()
 
             dialogManager.showMultiChoiceDialog(
                 context = requireContext(),
