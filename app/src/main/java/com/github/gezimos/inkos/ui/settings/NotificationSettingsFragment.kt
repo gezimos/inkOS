@@ -38,10 +38,6 @@ class NotificationSettingsFragment : Fragment() {
     private lateinit var prefs: Prefs
     private lateinit var dialogManager: DialogManager
 
-    private var onCustomFontSelected: ((com.github.gezimos.inkos.data.Constants.FontFamily) -> Unit)? =
-        null
-
-    // Helper data class for app info
     // `user` is included so we can detect stored entries that use the package|user format
     data class AppInfo(val label: String, val packageName: String, val user: String? = null)
 
@@ -191,58 +187,7 @@ class NotificationSettingsFragment : Fragment() {
         return rootLayout
     }
 
-    @Deprecated("Deprecated in Java")
-    @Suppress("DEPRECATION")
-    override fun onActivityResult(
-        requestCode: Int,
-        resultCode: Int,
-        data: android.content.Intent?
-    ) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == 1002 && resultCode == android.app.Activity.RESULT_OK) {
-            data?.data?.let { uri ->
-                val fileName = getFileName(uri) ?: "custom_font.ttf"
-                val file = java.io.File(requireContext().filesDir, fileName)
-                try {
-                    val inputStream: java.io.InputStream? =
-                        requireContext().contentResolver.openInputStream(uri)
-                    val outputStream = java.io.FileOutputStream(file)
-                    inputStream?.copyTo(outputStream)
-                    inputStream?.close()
-                    outputStream.close()
-                    // Save path and call callback
-                    val prefs = Prefs(requireContext())
-                    prefs.customFontPath = file.absolutePath
-                    // Add to custom font set
-                    prefs.addCustomFontPath(file.absolutePath)
-                    onCustomFontSelected?.invoke(com.github.gezimos.inkos.data.Constants.FontFamily.Custom)
-                } catch (_: Exception) {
-                }
-            }
-        }
-    }
 
-    private fun getFileName(uri: android.net.Uri): String? {
-        var name: String? = null
-        val cursor = requireContext().contentResolver.query(uri, null, null, null, null)
-        cursor?.use {
-            if (it.moveToFirst()) {
-                val index = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
-                if (index >= 0) name = it.getString(index)
-            }
-        }
-        return name
-    }
-
-    // Helper to display a short, user-friendly font name for custom fonts
-    @Suppress("unused")
-    private fun getShortFontDisplayName(fontPath: String?, maxLen: Int = 24): String {
-        if (fontPath.isNullOrBlank()) return "Custom Font"
-        val fileName = fontPath.substringAfterLast('/')
-        return if (fileName.length > maxLen) {
-            fileName.take(maxLen - 3) + "..."
-        } else fileName
-    }
 
     @Composable
     fun NotificationSettingsAllInOne(fontSize: androidx.compose.ui.unit.TextUnit = androidx.compose.ui.unit.TextUnit.Unspecified) {
@@ -526,104 +471,7 @@ class NotificationSettingsFragment : Fragment() {
         }
     }
 
-    // Font selection dialog helper (copied from FontsFragment, but simplified for notification fonts)
-    @Suppress("unused")
-    private fun showFontSelectionDialogWithCustoms(
-        titleResId: Int,
-        onFontSelected: (com.github.gezimos.inkos.data.Constants.FontFamily, String?) -> Unit
-    ) {
-        val fontFamilyEntries =
-            com.github.gezimos.inkos.data.Constants.FontFamily.entries
-                .filter { it != com.github.gezimos.inkos.data.Constants.FontFamily.Custom }
-        val context = requireContext()
-        val prefs = Prefs(context)
 
-        val builtInFontOptions = fontFamilyEntries.map { it.getString(context) }
-        val builtInFonts = fontFamilyEntries.map {
-            it.getFont(context) ?: com.github.gezimos.inkos.helper.getTrueSystemFont()
-        }
-
-        val customFonts =
-            com.github.gezimos.inkos.data.Constants.FontFamily.getAllCustomFonts(
-                context
-            )
-        val customFontOptions = customFonts.map { it.first }
-        val customFontPaths = customFonts.map { it.second }
-        val customFontTypefaces = customFontPaths.map { path ->
-            com.github.gezimos.inkos.data.Constants.FontFamily.Custom.getFont(
-                context,
-                path
-            ) ?: com.github.gezimos.inkos.helper.getTrueSystemFont()
-        }
-
-        val addCustomFontOption = "Add Custom Font..."
-
-        val options = builtInFontOptions + customFontOptions + addCustomFontOption
-        val fonts =
-            builtInFonts + customFontTypefaces + com.github.gezimos.inkos.helper.getTrueSystemFont()
-
-        dialogManager.showSingleChoiceDialog(
-            context = context,
-            options = options.toTypedArray(),
-            fonts = fonts,
-            titleResId = titleResId,
-            onItemSelected = { selectedName ->
-                when (selectedName) {
-                    addCustomFontOption -> {
-                        pickCustomFontFile { _, path ->
-                            prefs.setCustomFontPath("custom", path)
-                            prefs.addCustomFontPath(path)
-                            onFontSelected(
-                                com.github.gezimos.inkos.data.Constants.FontFamily.Custom,
-                                path
-                            )
-                            activity?.recreate()
-                        }
-                    }
-
-                    else -> {
-                        val builtInIndex = builtInFontOptions.indexOf(selectedName)
-                        if (builtInIndex != -1) {
-                            onFontSelected(fontFamilyEntries[builtInIndex], null)
-                            return@showSingleChoiceDialog
-                        }
-                        val customIndex = customFontOptions.indexOf(selectedName)
-                        if (customIndex != -1) {
-                            val path = customFontPaths[customIndex]
-                            onFontSelected(
-                                com.github.gezimos.inkos.data.Constants.FontFamily.Custom,
-                                path
-                            )
-                            return@showSingleChoiceDialog
-                        }
-                    }
-                }
-            }
-        )
-    }
-
-    // Font file picker for custom fonts (copied from FontsFragment, but only path is needed)
-    @Suppress("UNUSED_PARAMETER")
-    private fun pickCustomFontFile(onFontPicked: (android.graphics.Typeface, String) -> Unit) {
-        onCustomFontSelected = { _ ->
-            // Not used here, but required for interface
-        }
-        val intent = android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT).apply {
-            addCategory(android.content.Intent.CATEGORY_OPENABLE)
-            type = "font/*"
-            putExtra(
-                android.content.Intent.EXTRA_MIME_TYPES,
-                arrayOf(
-                    "font/ttf",
-                    "font/otf",
-                    "application/x-font-ttf",
-                    "application/x-font-opentype",
-                    "application/octet-stream"
-                )
-            )
-        }
-        startActivityForResult(intent, 1002)
-    }
 
     // Helper to show app allowlist dialog using DialogManager (imperative, not Compose)
     private fun showAppAllowlistDialog(
