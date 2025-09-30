@@ -216,7 +216,7 @@ class NotificationSettingsFragment : Fragment() {
         var showSenderName by rememberSaveable { mutableStateOf(prefs.showNotificationSenderName) }
         var showGroupName by rememberSaveable { mutableStateOf(prefs.showNotificationGroupName) }
         var showMessage by rememberSaveable { mutableStateOf(prefs.showNotificationMessage) }
-        var notificationsEnabled by rememberSaveable { mutableStateOf(prefs.notificationsEnabled) }
+            var notificationsEnabled by rememberSaveable { mutableStateOf(prefs.notificationsEnabled) }
         var charLimit by rememberSaveable { mutableStateOf(prefs.homeAppCharLimit) }
         var clearConversationOnAppOpen by rememberSaveable { mutableStateOf(prefs.clearConversationOnAppOpen) }
 
@@ -349,8 +349,7 @@ class NotificationSettingsFragment : Fragment() {
                         onConfirm = { selected ->
                             prefs.allowedBadgeNotificationApps = selected.toMutableSet()
                             badgeAllowlist = selected.toMutableSet() // update state to refresh UI
-                        },
-                        includeHidden = true
+                        }
                     )
                 }
             }
@@ -420,7 +419,7 @@ class NotificationSettingsFragment : Fragment() {
                 fontSize = titleFontSize
             )
             SettingsComposable.FullLineSeparator(isDark = isDark)
-            var notificationsEnabled by remember { mutableStateOf(prefs.notificationsEnabled) }
+            // use the outer `notificationsEnabled` declared above instead of redeclaring
             val allowlistState = allowlist // for recomposition
             var showAllowlistDialog by remember { mutableStateOf(false) }
             SettingsComposable.SettingsSwitch(
@@ -463,7 +462,7 @@ class NotificationSettingsFragment : Fragment() {
                             prefs.allowedNotificationApps = selected.toMutableSet()
                             allowlist = selected.toMutableSet() // update state to refresh UI
                         },
-                        includeHidden = true
+                        // includeHidden parameter removed; dialog always shows full list
                     )
                 }
             }
@@ -477,8 +476,7 @@ class NotificationSettingsFragment : Fragment() {
     private fun showAppAllowlistDialog(
         title: String,
         initialSelected: Set<String>,
-        onConfirm: (Set<String>) -> Unit,
-        includeHidden: Boolean = true // Add this param to control hidden apps
+        onConfirm: (Set<String>) -> Unit
     ) {
         // Use MainViewModel's appList instead of getInstalledApps
         val activity = requireActivity()
@@ -494,14 +492,14 @@ class NotificationSettingsFragment : Fragment() {
             if (appListItems == null) return@observe
             // Exclude internal/synthetic apps only; show everything else
             val filteredApps = appListItems.filter {
-                val pkg = it.activityPackage ?: ""
+                val pkg = it.activityPackage
                 pkg.isNotBlank() &&
                         !pkg.startsWith("com.inkos.internal.") &&
                         !pkg.startsWith("com.inkos.system.")
             }
             val allApps = filteredApps.map {
                 AppInfo(
-                    label = it.customLabel.takeIf { l -> !l.isNullOrEmpty() } ?: it.activityLabel,
+                    label = it.customLabel.takeIf { l -> l.isNotEmpty() } ?: it.activityLabel,
                     packageName = it.activityPackage,
                     user = it.user.toString()
                 )
