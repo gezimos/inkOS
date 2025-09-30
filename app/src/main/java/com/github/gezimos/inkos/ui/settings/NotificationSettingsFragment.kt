@@ -484,38 +484,21 @@ class NotificationSettingsFragment : Fragment() {
         val activity = requireActivity()
         val viewModel =
             androidx.lifecycle.ViewModelProvider(activity)[com.github.gezimos.inkos.MainViewModel::class.java]
-        viewModel.getAppList(includeHiddenApps = includeHidden)
+    // Always request the full list (include hidden apps). Keep the dialog
+    // simple: we only filter out internal/synthetic entries and show all
+    // other apps so both allowlists behave the same.
+    viewModel.getAppList(includeHiddenApps = true)
         val appListLiveData = viewModel.appList
         // Observe once and show dialog when data is available
         appListLiveData.observe(viewLifecycleOwner) { appListItems ->
             if (appListItems == null) return@observe
-            // Exclude synthetic apps, but include hidden apps
+            // Exclude internal/synthetic apps only; show everything else
             val filteredApps = appListItems.filter {
                 val pkg = it.activityPackage ?: ""
                 pkg.isNotBlank() &&
                         !pkg.startsWith("com.inkos.internal.") &&
                         !pkg.startsWith("com.inkos.system.")
             }
-            // If caller requested hidden apps but the prefs indicate there are hidden
-            // apps and the current emission does not contain any of them, then
-            // this emission is stale (likely a pre-request cache). Wait for the
-            // next emission instead of showing an incomplete dialog.
-            try {
-                if (includeHidden) {
-                    val hiddenSet = prefs.hiddenApps
-                    if (hiddenSet.isNotEmpty()) {
-                        // Check if any filteredApps correspond to a hidden entry
-                        val containsHidden = filteredApps.any { item ->
-                            val key = "${item.activityPackage}|${item.user}"
-                            hiddenSet.contains(key) || hiddenSet.contains(item.activityPackage)
-                        }
-                        if (!containsHidden) {
-                            // Skip this emission and wait for the updated list
-                            return@observe
-                        }
-                    }
-                }
-            } catch (_: Exception) {}
             val allApps = filteredApps.map {
                 AppInfo(
                     label = it.customLabel.takeIf { l -> !l.isNullOrEmpty() } ?: it.activityLabel,
