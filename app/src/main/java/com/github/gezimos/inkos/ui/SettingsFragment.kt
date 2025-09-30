@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.clickable
 import androidx.compose.runtime.Composable
+import androidx.core.net.toUri
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -123,7 +124,7 @@ class SettingsFragment : Fragment() {
                             pageIndicator = {
                                 // Small 'bmc' drawable tinted like the page indicator (white in dark mode, black in light)
                                 val composeCtx = androidx.compose.ui.platform.LocalContext.current
-                                val buyMeUri = android.net.Uri.parse("https://buymeacoffee.com/gezimos")
+                                val buyMeUri = "https://buymeacoffee.com/gezimos".toUri()
                                 val buyMeIntent = android.content.Intent(android.content.Intent.ACTION_VIEW, buyMeUri)
                                 androidx.compose.foundation.Image(
                                     painter = androidx.compose.ui.res.painterResource(id = R.drawable.bmc),
