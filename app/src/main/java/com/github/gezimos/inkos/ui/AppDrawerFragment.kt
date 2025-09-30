@@ -661,7 +661,9 @@ class AppDrawerFragment : Fragment() {
     // or by the normal label. Adapter-side sorting exists, but paging is computed
     // from the fragment's `fullAppsList`, so we must sort here to ensure pages
     // (including HiddenApps mode) are alphabetically ordered.
-    fullAppsList = apps.sortedWith(compareBy { it.customLabel.ifEmpty { it.label }.lowercase() })
+    // Sort using AppListItem's Comparable which uses the shared collator
+    // configured to ignore diacritics and case differences.
+    fullAppsList = apps.sorted()
     
     // Reset selection to the first item when app list changes
     selectedItemIndex = 0

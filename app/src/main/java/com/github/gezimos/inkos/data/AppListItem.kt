@@ -3,7 +3,10 @@ package com.github.gezimos.inkos.data
 import android.os.UserHandle
 import java.text.Collator
 
-val collator: Collator = Collator.getInstance()
+val collator: Collator = Collator.getInstance().apply {
+    strength = Collator.PRIMARY
+    decomposition = Collator.CANONICAL_DECOMPOSITION
+}
 
 /**
  * We create instances in 3 different places:

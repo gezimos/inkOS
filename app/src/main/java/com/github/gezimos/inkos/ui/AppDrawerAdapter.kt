@@ -182,11 +182,10 @@ class AppDrawerAdapter(
     }
 
     private fun sortAppList() {
-        val comparator = compareBy<AppListItem> { appItem ->
-            appItem.customLabel.ifEmpty { appItem.label }.lowercase()
-        }
-        appsList.sortWith(comparator)
-        appFilteredList.sortWith(comparator)
+        // Use AppListItem's natural ordering which relies on the repo-wide
+        // collator configured to ignore accents and case differences.
+        appsList.sort()
+        appFilteredList.sort()
     }
 
     // Payload marker used to indicate only textual content changed
