@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.clickable
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
@@ -42,7 +43,6 @@ import com.github.gezimos.inkos.style.SettingsTheme
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.DashedSeparator
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.FullLineSeparator
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.PageHeader
-import com.github.gezimos.inkos.ui.compose.SettingsComposable.PageIndicator
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsHomeItem
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.SolidSeparator
 
@@ -121,10 +121,25 @@ class SettingsFragment : Fragment() {
                             },
                             showStatusBar = prefs.showStatusBar,
                             pageIndicator = {
-                                PageIndicator(
-                                    currentPage = currentPage[0],
-                                    pageCount = pageCount[0],
-                                    titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else TextUnit.Unspecified
+                                // Small 'bmc' drawable tinted like the page indicator (white in dark mode, black in light)
+                                val composeCtx = androidx.compose.ui.platform.LocalContext.current
+                                val buyMeUri = android.net.Uri.parse("https://buymeacoffee.com/gezimos")
+                                val buyMeIntent = android.content.Intent(android.content.Intent.ACTION_VIEW, buyMeUri)
+                                androidx.compose.foundation.Image(
+                                    painter = androidx.compose.ui.res.painterResource(id = R.drawable.bmc),
+                                    contentDescription = null,
+                                    colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(
+                                        if (isDark) androidx.compose.ui.graphics.Color.White else androidx.compose.ui.graphics.Color.Black
+                                    ),
+                                    modifier = Modifier
+                                        .height(18.dp)
+                                        .clickable {
+                                            try {
+                                                composeCtx.startActivity(buyMeIntent)
+                                            } catch (_: Exception) {
+                                                // Ignore failures to open browser
+                                            }
+                                        }
                                 )
                             },
                             titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else TextUnit.Unspecified

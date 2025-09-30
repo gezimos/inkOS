@@ -8,7 +8,7 @@
     <string name="select_app">Select App</string>
 
     <!-- Strings used for settings menus -->
-    <string name="settings_name">inkOS Settings</string>
+    <string name="settings_name">Settings</string>
 
     <string name="settings_home_title">Home</string>
 
