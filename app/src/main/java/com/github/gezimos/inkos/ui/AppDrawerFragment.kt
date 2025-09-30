@@ -1,11 +1,6 @@
-/**
- * The view for the list of all the installed applications.
- */
-
 package com.github.gezimos.inkos.ui
 
 import android.annotation.SuppressLint
-import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.text.Spannable
