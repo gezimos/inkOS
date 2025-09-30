@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -191,12 +192,12 @@ class ExtrasFragment : Fragment() {
         Column(modifier = Modifier.fillMaxSize()) {
             FullLineSeparator(isDark)
             SettingsTitle(
-                text = "E-ink Modes",
+                text = stringResource(R.string.eink_auto_mode),
                 fontSize = titleFontSize,
             )
             FullLineSeparator(isDark)
             SettingsSwitch(
-                text = "Enable E-Ink Mode",
+                text = stringResource(R.string.eink_auto_mode),
                 fontSize = titleFontSize,
                 defaultState = einkHelperEnabled.value,
                 onCheckedChange = {

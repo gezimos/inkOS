@@ -150,6 +150,7 @@
     <string name="previous_page">Go to Previous Page</string>
     <string name="eink_refresh_switch">Eink Auto Rrefresh</string>
     <string name="eink_auto_refresh">Auto E-ink Refresh</string>
+    <string name="eink_auto_mode">E-ink Auto Mode</string>
     <string name="eink_refresh">E-ink Refresh</string>
     <string name="lock_screen">Lock Screen</string>
     <string name="show_recents">Show Recents</string>

@@ -40,6 +40,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -343,7 +344,7 @@ object OnboardingScreen {
                             }
                             SettingsComposable.FullLineSeparator(isDark = false)
                             SettingsComposable.SettingsSwitch(
-                                text = "E-ink Mode",
+                                text = stringResource(R.string.eink_auto_mode),
                                 fontSize = titleFontSize,
                                 defaultState = einkHelperEnabled,
                                 onCheckedChange = {
@@ -370,7 +371,7 @@ object OnboardingScreen {
                     val tipText = when (page) {
                         0 -> "Tip: Longpress in home for Settings"
                         1 -> "Tip: Hold 9 in home for Settings"
-                        2 -> "Tip: Manage E-ink in Settings/Extra"
+                        2 -> stringResource(R.string.eink_auto_mode)
                         else -> null
                     }
                     if (tipText != null) {
