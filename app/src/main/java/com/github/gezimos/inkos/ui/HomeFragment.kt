@@ -1366,11 +1366,9 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
     // updates number of apps visible on home screen
     // does nothing if number has not changed
     private var currentPage = 0
-    private var appsPerPage = 0
 
     private fun updatePagesAndAppsPerPage(totalApps: Int, totalPages: Int) {
         refreshCachedCalculations()
-        appsPerPage = cachedAppsPerPage // Sync legacy field for backward compatibility
         updateAppsVisibility(cachedTotalPages)
     }
 
