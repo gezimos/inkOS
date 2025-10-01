@@ -102,6 +102,11 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
     private val appViews: List<TextView>
         get() = binding.homeAppsLayout.children.filterIsInstance<TextView>().toList()
 
+    // Cached view references for performance (eliminate findViewById calls)
+    private val cachedClockView: TextView get() = binding.clock
+    private val cachedDateView: TextView? get() = binding.root.findViewById(R.id.date)
+    private val cachedBottomWidgetsWrapper: LinearLayout? get() = binding.root.findViewById(R.id.bottomWidgetsWrapper)
+
     // Add a BroadcastReceiver for user present (unlock)
     private var userPresentReceiver: android.content.BroadcastReceiver? = null
 
@@ -677,7 +682,7 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
             binding.quote.setTextColor(prefs.quoteColor)
             binding.quote.text = prefs.quoteText
             binding.quote.typeface = cachedQuoteFont
-            root.findViewById<TextView>(R.id.date)?.setTextColor(prefs.dateColor)
+            cachedDateView?.setTextColor(prefs.dateColor)
             applyAudioWidgetColor(prefs.audioWidgetColor)
 
             homeAppsLayout.children.forEach { view ->
@@ -888,8 +893,7 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
         }
         
         // Set up date click listener (date view is found dynamically as it's not in binding)
-        val dateView = binding.root.findViewById<TextView>(R.id.date)
-        dateView?.setOnClickListener(this@HomeFragment)
+        cachedDateView?.setOnClickListener(this@HomeFragment)
     }
 
     private fun initObservers() {
@@ -940,7 +944,7 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
             }
             // batteryColor observer removed
             dateColor.observe(viewLifecycleOwner) { color ->
-                binding.root.findViewById<TextView>(R.id.date)?.setTextColor(color)
+                cachedDateView?.setTextColor(color)
             }
             quoteColor.distinctUntilChanged().observe(viewLifecycleOwner) { color ->
                 binding.quote.setTextColor(color)
@@ -1591,8 +1595,8 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
     private fun updateDateDisplay() {
         val showClock = prefs.showClock
         val showDate = prefs.showDate
-        val clockView = binding.root.findViewById<TextView>(R.id.clock)
-        val dateView = binding.root.findViewById<TextView>(R.id.date)
+        val clockView = cachedClockView
+        val dateView = cachedDateView
         
         // Redundant safeguard: ensure date click listener is set even if view is recreated
         dateView?.setOnClickListener(this@HomeFragment)
@@ -1715,8 +1719,7 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
     }
 
     private fun applyBottomWidgetMargin() {
-        val bottomWidgetsWrapper = binding.root.findViewById<LinearLayout>(R.id.bottomWidgetsWrapper)
-        bottomWidgetsWrapper?.let { wrapper ->
+        cachedBottomWidgetsWrapper?.let { wrapper ->
             val wrapperLayoutParams = wrapper.layoutParams as? ViewGroup.MarginLayoutParams
             if (wrapperLayoutParams != null) {
                 val density = requireContext().resources.displayMetrics.density
