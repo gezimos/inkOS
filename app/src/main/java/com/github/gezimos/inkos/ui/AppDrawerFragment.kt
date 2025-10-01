@@ -70,13 +70,9 @@ class AppDrawerFragment : Fragment() {
     // Uninstall launcher and package tracking
     private var pendingUninstallPackage: String? = null
     private val uninstallLauncher =
-        registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) { result ->
-            if (pendingUninstallPackage != null) {
-                // Clear cached measurements to force re-calculation after uninstall
-                lastRecyclerHeight = 0
-                lastAppTextSize = -1
-                lastAppTextPadding = -1
-                cachedPages = emptyList()
+        registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) {
+            pendingUninstallPackage?.let {
+                clearMeasurementCache()
                 viewModel.refreshAppListAfterUninstall(includeHiddenApps = false)
                 pendingUninstallPackage = null
             }
