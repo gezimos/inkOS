@@ -93,9 +93,7 @@ class LookFeelFragment : Fragment() {
                 val originalHeight = dimensionOptions.outHeight
 
                 // Calculate screen size limits (2x resolution max)
-                val display = requireActivity().windowManager.defaultDisplay
-                val displayMetrics = android.util.DisplayMetrics()
-                display.getMetrics(displayMetrics)
+                val displayMetrics = requireContext().resources.displayMetrics
                 val screenWidth = displayMetrics.widthPixels
                 val screenHeight = displayMetrics.heightPixels
                 val maxWidth = screenWidth * 2
@@ -296,7 +294,6 @@ class LookFeelFragment : Fragment() {
                     Constants.Theme.System -> "System"
                     Constants.Theme.Light -> "Light"
                     Constants.Theme.Dark -> "Dark"
-                    else -> "System"
                 },
                 fontSize = titleFontSize,
                 onClick = {
@@ -304,14 +301,12 @@ class LookFeelFragment : Fragment() {
                         Constants.Theme.System -> Constants.Theme.Light
                         Constants.Theme.Light -> Constants.Theme.Dark
                         Constants.Theme.Dark -> Constants.Theme.System
-                        else -> Constants.Theme.System
                     }
                     prefs.appTheme = selectedTheme.value
                     val isDark = when (selectedTheme.value) {
                         Constants.Theme.Light -> false
                         Constants.Theme.Dark -> true
                         Constants.Theme.System -> isSystemInDarkMode(requireContext())
-                        else -> false
                     }
                     selectedBackgroundColor.value =
                         if (isDark) Color.Black.toArgb() else Color.White.toArgb()
