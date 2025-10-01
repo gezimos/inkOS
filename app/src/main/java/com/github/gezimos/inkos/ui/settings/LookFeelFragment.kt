@@ -291,21 +291,21 @@ class LookFeelFragment : Fragment() {
                 title = stringResource(id = R.string.theme_mode),
                 option = when (selectedTheme.value) {
                     System -> "System"
-                    Constants.Theme.Light -> "Light"
-                    Constants.Theme.Dark -> "Dark"
+                    Light -> "Light"
+                    Dark -> "Dark"
                 },
                 fontSize = titleFontSize,
                 onClick = {
                     selectedTheme.value = when (selectedTheme.value) {
-                        Constants.Theme.System -> Constants.Theme.Light
-                        Constants.Theme.Light -> Constants.Theme.Dark
-                        Constants.Theme.Dark -> Constants.Theme.System
+                        System -> Light
+                        Light -> Dark
+                        Dark -> System
                     }
                     prefs.appTheme = selectedTheme.value
                     val isDark = when (selectedTheme.value) {
-                        Constants.Theme.Light -> false
-                        Constants.Theme.Dark -> true
-                        Constants.Theme.System -> isSystemInDarkMode(requireContext())
+                        Light -> false
+                        Dark -> true
+                        System -> isSystemInDarkMode(requireContext())
                     }
                     selectedBackgroundColor.value =
                         if (isDark) Color.Black.toArgb() else Color.White.toArgb()
