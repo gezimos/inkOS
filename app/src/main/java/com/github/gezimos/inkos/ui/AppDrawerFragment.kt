@@ -54,7 +54,6 @@ class AppDrawerFragment : Fragment() {
     private lateinit var viewModel: MainViewModel
     private lateinit var flag: AppDrawerFlag
 
-    // Store the n parameter for keyboard navigation
     private var appPosition: Int = 0
 
     // Paging state
@@ -63,16 +62,12 @@ class AppDrawerFragment : Fragment() {
     private var totalPages = 1
     private var vibrator: Vibrator? = null
 
-    // Item selection state for keyboard navigation
-    private var selectedItemIndex = 0 // Index within the current page
-    
-    // Protection against immediate key handling when drawer opens
+    private var selectedItemIndex = 0
     private var isInitializing = true
 
-    // Listener for app-drawer-specific preference changes
     private var appDrawerPrefListener: SharedPreferences.OnSharedPreferenceChangeListener? = null
 
-    // --- Add uninstall launcher and package tracking ---
+    // Uninstall launcher and package tracking
     private var pendingUninstallPackage: String? = null
     private val uninstallLauncher =
         registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) { result ->
@@ -100,16 +95,13 @@ class AppDrawerFragment : Fragment() {
     @Suppress("DEPRECATION")
     vibrator = requireContext().getSystemService(VIBRATOR_SERVICE) as? Vibrator
 
-        // Initialize viewModel
         viewModel = ViewModelProvider(requireActivity())[MainViewModel::class.java]
 
         return binding.root
     }
 
-    // Focus the view at the given absolute adapter position (within fullAppsList).
     private fun focusAdapterPosition(adapterPos: Int) {
         try {
-            // Since RecyclerView holds only the current page, compute the index within current page
             val pageStart = currentPage * appsPerPage
             val indexInPage = adapterPos - pageStart
             if (indexInPage < 0) return
@@ -117,13 +109,11 @@ class AppDrawerFragment : Fragment() {
             val vh = rv.findViewHolderForAdapterPosition(indexInPage)
             if (vh != null) {
                 vh.itemView.requestFocus()
-                // Try to focus the title TextView if possible
                 try {
                     val title = vh.itemView.findViewById<View>(R.id.appTitle)
                     title?.requestFocus()
                 } catch (_: Exception) {}
             } else {
-                // If not attached yet, scrollToPosition then post focus
                 rv.scrollToPosition(indexInPage)
                 rv.post {
                     val vh2 = rv.findViewHolderForAdapterPosition(indexInPage)
@@ -137,13 +127,11 @@ class AppDrawerFragment : Fragment() {
         } catch (_: Exception) {}
     }
 
-    // Move selection up within the current page
     private fun moveSelectionUp() {
         if (selectedItemIndex > 0) {
             selectedItemIndex--
             focusSelectedItem()
         } else {
-            // If at top of page, go to previous page (last item)
             if (currentPage > 0) {
                 currentPage--
                 updatePagedList(fullAppsList, adapter)
@@ -155,14 +143,12 @@ class AppDrawerFragment : Fragment() {
         }
     }
 
-    // Move selection down within the current page
     private fun moveSelectionDown() {
         val currentPageAppCount = getCurrentPageAppCount()
         if (selectedItemIndex < currentPageAppCount - 1) {
             selectedItemIndex++
             focusSelectedItem()
         } else {
-            // If at bottom of page, go to next page (first item)
             if (currentPage < totalPages - 1) {
                 currentPage++
                 updatePagedList(fullAppsList, adapter)
@@ -174,20 +160,17 @@ class AppDrawerFragment : Fragment() {
         }
     }
 
-    // Focus the currently selected item
     private fun focusSelectedItem() {
         try {
             val rv = binding.recyclerView
             val vh = rv.findViewHolderForAdapterPosition(selectedItemIndex)
             if (vh != null) {
                 vh.itemView.requestFocus()
-                // Try to focus the title TextView if possible
                 try {
                     val title = vh.itemView.findViewById<View>(R.id.appTitle)
                     title?.requestFocus()
                 } catch (_: Exception) {}
             } else {
-                // If not attached yet, scrollToPosition then post focus
                 rv.scrollToPosition(selectedItemIndex)
                 rv.post {
                     val vh2 = rv.findViewHolderForAdapterPosition(selectedItemIndex)
@@ -201,7 +184,6 @@ class AppDrawerFragment : Fragment() {
         } catch (_: Exception) {}
     }
 
-    // Get the number of apps on the current page
     private fun getCurrentPageAppCount(): Int {
         val pageApps: List<AppListItem> = if (cachedPages.isNotEmpty()) {
             if (currentPage in cachedPages.indices) cachedPages[currentPage] else emptyList()
@@ -213,7 +195,6 @@ class AppDrawerFragment : Fragment() {
         return pageApps.size
     }
 
-    // Select the currently focused item
     private fun selectCurrentItem() {
         try {
             val pageApps: List<AppListItem> = if (cachedPages.isNotEmpty()) {
@@ -231,7 +212,6 @@ class AppDrawerFragment : Fragment() {
         } catch (_: Exception) {}
     }
 
-    // Long press the currently focused item
     private fun longPressCurrentItem() {
         try {
             val rv = binding.recyclerView
@@ -253,7 +233,6 @@ class AppDrawerFragment : Fragment() {
         val backgroundColor = getHexForOpacity(prefs)
         binding.mainLayout.setBackgroundColor(backgroundColor)
 
-        // Set up window insets listener for navigation bar padding
         var bottomInsetPx = 0
         ViewCompat.setOnApplyWindowInsetsListener(binding.mainLayout) { v, insets ->
             val navBarInset = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
@@ -261,22 +240,10 @@ class AppDrawerFragment : Fragment() {
             insets
         }
 
-        // Apply bottom padding to prevent content from going under navigation bar
-        // and limit the drawer content to 90% of the available height so
-        // prefs-driven padding won't clip app names.
         binding.mainLayout.post {
             val vPad = resources.getDimensionPixelSize(R.dimen.app_drawer_vertical_padding)
             binding.mainLayout.setPadding(0, vPad, 0, bottomInsetPx + vPad)
             binding.mainLayout.clipToPadding = false
-
-            // If the root is a ConstraintLayout, the XML guidelines keep
-            // the recyclerView/touchArea centered at 90% height; skip runtime
-            // resizing to avoid fighting the layout. Otherwise, apply the
-            // fallback 90% sizing so older layouts still behave.
-            try {
-                // mainLayout is always ConstraintLayout based on XML
-                // ConstraintLayout handles centering via XML; nothing to do.
-            } catch (_: Exception) {}
         }
 
         val flagString = arguments?.getString("flag", AppDrawerFlag.LaunchApp.toString())
@@ -284,23 +251,17 @@ class AppDrawerFragment : Fragment() {
         flag = AppDrawerFlag.valueOf(flagString)
         appPosition = arguments?.getInt("n", 0) ?: 0
 
-        // Include hidden apps only for SetHomeApp flag or HiddenApps flag
         val includeHidden = flag == AppDrawerFlag.SetHomeApp || flag == AppDrawerFlag.HiddenApps
         viewModel.getAppList(includeHiddenApps = includeHidden, flag = flag)
 
-    // No drawer button in layout; navigation handled via other UI actions.
-
-    // Align app names based on app-drawer-specific preference
-    val alignmentPref = prefs.appDrawerAlignment
+        val alignmentPref = prefs.appDrawerAlignment
     val gravity = when (alignmentPref) {
         1 -> Gravity.CENTER
         2 -> Gravity.END
         else -> Gravity.START
     }
 
-    // Position page indicator opposite to app name alignment: when names are
-    // right-aligned (2), place the pager on the left (horizontalBias=0f).
-    try {
+        try {
         val pager = binding.appDrawerPager
         val lp = pager.layoutParams
         if (lp is androidx.constraintlayout.widget.ConstraintLayout.LayoutParams) {
@@ -319,14 +280,10 @@ class AppDrawerFragment : Fragment() {
                 this.appRenameListener(),
                 appShowHideListener(),
                 appInfoListener(),
-                // key navigation listener: return true if handled
                 { keyCode, adapterPos ->
-                    // adapterPos here is page-relative (0..pageSize-1). Convert to absolute index.
                     val absolutePos = currentPage * appsPerPage + adapterPos
                     when (keyCode) {
                         KeyEvent.KEYCODE_DPAD_DOWN -> {
-                            // If this is the last visible item in the current page,
-                            // move to next page (if available) and focus first item.
                             val pageStart = currentPage * appsPerPage
                             val pageEnd = (pageStart + appsPerPage).coerceAtMost(fullAppsList.size) - 1
                             if (absolutePos >= pageEnd) {
@@ -335,7 +292,6 @@ class AppDrawerFragment : Fragment() {
                                     updatePagedList(fullAppsList, adapter)
                                     updatePageIndicator()
                                     vibratePaging()
-                                    // focus first item of new page after layout applied
                                     binding.recyclerView.post {
                                         focusAdapterPosition(currentPage * appsPerPage)
                                     }
@@ -346,8 +302,6 @@ class AppDrawerFragment : Fragment() {
                         }
 
                         KeyEvent.KEYCODE_DPAD_UP -> {
-                            // If this is the first visible item in the current page,
-                            // move to previous page (if available) and focus last item.
                             val pageStart = currentPage * appsPerPage
                             if (absolutePos == pageStart) {
                                 if (currentPage > 0) {
@@ -633,16 +587,11 @@ class AppDrawerFragment : Fragment() {
         super.onStop()
     }
 
-    // Store the full app list for paging
     private var fullAppsList: List<AppListItem> = emptyList()
-    // Cache the last displayed page to avoid redundant updates
-    private var lastDisplayedPage: Int = -1
-    // Cache the last measured recycler height so we don't recalc appsPerPage unnecessarily
-    private var lastRecyclerHeight: Int = 0
-    // Cache prefs-derived sizing values so we can detect when they change
-    private var lastAppTextSize: Int = -1
-    private var lastAppTextPadding: Int = -1
-    // Pre-sliced pages cache to avoid repeated subList allocations
+    private var lastDisplayedPage = -1
+    private var lastRecyclerHeight = 0
+    private var lastAppTextSize = -1
+    private var lastAppTextPadding = -1
     private var cachedPages: List<List<AppListItem>> = emptyList()
 
     private fun populateAppList(apps: List<AppListItem>, appAdapter: AppDrawerAdapter) {
