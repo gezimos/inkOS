@@ -93,6 +93,11 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
 
     private var selectedAppIndex = 0
 
+    // Cached calculations for performance (avoid repeated division in hot paths)
+    private var cachedTotalApps = 0
+    private var cachedTotalPages = 0
+    private var cachedAppsPerPage = 0
+
     // Add a BroadcastReceiver for user present (unlock)
     private var userPresentReceiver: android.content.BroadcastReceiver? = null
 
@@ -464,37 +469,38 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
     if (act?.fragmentKeyHandler != null) act.fragmentKeyHandler = null
     }
 
+    private fun refreshCachedCalculations() {
+        cachedTotalApps = getTotalAppsCount()
+        cachedTotalPages = prefs.homePagesNum
+        cachedAppsPerPage = if (cachedTotalPages > 0) (cachedTotalApps + cachedTotalPages - 1) / cachedTotalPages else 0
+    }
+
     private fun moveSelectionDown() {
-        val totalApps = getTotalAppsCount()
-        val totalPages = prefs.homePagesNum
-    val appsPerPage = if (totalPages > 0) (totalApps + totalPages - 1) / totalPages else 0
-        val endIdx = minOf((currentPage + 1) * appsPerPage, totalApps) - 1
+        refreshCachedCalculations()
+        val endIdx = minOf((currentPage + 1) * cachedAppsPerPage, cachedTotalApps) - 1
 
         if (selectedAppIndex < endIdx) {
             // Move to next app in current page
             selectedAppIndex++
         } else {
             // At last app of current page
-            if (currentPage < totalPages - 1) {
+            if (currentPage < cachedTotalPages - 1) {
                 // Move to first app of next page
                 currentPage++
-                selectedAppIndex = currentPage * appsPerPage
+                selectedAppIndex = currentPage * cachedAppsPerPage
             } else {
                 // Wrap to first app of first page
                 currentPage = 0
                 selectedAppIndex = 0
             }
         }
-        updateAppsVisibility(totalPages)
+        updateAppsVisibility(cachedTotalPages)
         focusAppButton(selectedAppIndex)
     }
 
     private fun moveSelectionUp() {
-        val totalApps = getTotalAppsCount()
-        val totalPages = prefs.homePagesNum
-        val appsPerPage = if (totalPages > 0) (totalApps + totalPages - 1) / totalPages else 0
-
-        val startIdx = currentPage * appsPerPage
+        refreshCachedCalculations()
+        val startIdx = currentPage * cachedAppsPerPage
 
         if (selectedAppIndex > startIdx) {
             // Move to previous app in current page
@@ -504,13 +510,13 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
             if (currentPage > 0) {
                 // Move to last app of previous page
                 currentPage--
-                val prevEndIdx = minOf((currentPage + 1) * appsPerPage, totalApps) - 1
+                val prevEndIdx = minOf((currentPage + 1) * cachedAppsPerPage, cachedTotalApps) - 1
                 selectedAppIndex = if (prevEndIdx >= 0) prevEndIdx else 0
             } else {
                 // Wrap to last app of last page
-                if (totalPages > 0) {
-                    currentPage = totalPages - 1
-                    val lastEndIdx = minOf((currentPage + 1) * appsPerPage, totalApps) - 1
+                if (cachedTotalPages > 0) {
+                    currentPage = cachedTotalPages - 1
+                    val lastEndIdx = minOf((currentPage + 1) * cachedAppsPerPage, cachedTotalApps) - 1
                     selectedAppIndex = if (lastEndIdx >= 0) lastEndIdx else 0
                 } else {
                     // Fallback: single page behavior
@@ -518,7 +524,7 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
                 }
             }
         }
-        updateAppsVisibility(totalPages)
+        updateAppsVisibility(cachedTotalPages)
         focusAppButton(selectedAppIndex)
     }
 
@@ -1363,19 +1369,18 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
     private var appsPerPage = 0
 
     private fun updatePagesAndAppsPerPage(totalApps: Int, totalPages: Int) {
-        appsPerPage = if (totalPages > 0) {
-            (totalApps + totalPages - 1) / totalPages
-        } else {
-            0
-        }
-        updateAppsVisibility(totalPages)
+        refreshCachedCalculations()
+        appsPerPage = cachedAppsPerPage // Sync legacy field for backward compatibility
+        updateAppsVisibility(cachedTotalPages)
     }
 
     private fun updateAppsVisibility(totalPages: Int) {
-        val startIdx = currentPage * appsPerPage
-        val endIdx = minOf((currentPage + 1) * appsPerPage, getTotalAppsCount())
+        // Use cached values if available, otherwise refresh
+        if (cachedAppsPerPage == 0) refreshCachedCalculations()
+        val startIdx = currentPage * cachedAppsPerPage
+        val endIdx = minOf((currentPage + 1) * cachedAppsPerPage, cachedTotalApps)
 
-        for (i in 0 until getTotalAppsCount()) {
+        for (i in 0 until cachedTotalApps) {
             val view = binding.homeAppsLayout.getChildAt(i)
             view.visibility = if (i in startIdx until endIdx) View.VISIBLE else View.GONE
         }
@@ -1434,19 +1439,18 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
     private fun handleSwipeLeft(totalPages: Int) {
         if (totalPages <= 0) return // Prevent issues if totalPages is 0 or negative
 
+        refreshCachedCalculations()
         currentPage = if (currentPage == 0) {
-            totalPages - 1 // Wrap to last page if on the first page
+            cachedTotalPages - 1 // Wrap to last page if on the first page
         } else {
             currentPage - 1 // Move to the previous page
         }
 
     // Move focus to first visible item on the new page
-    val totalApps = getTotalAppsCount()
-    val appsPerPageLocal = if (totalPages > 0) (totalApps + totalPages - 1) / totalPages else 0
-    selectedAppIndex = currentPage * appsPerPageLocal
-    if (selectedAppIndex >= totalApps) selectedAppIndex = maxOf(0, totalApps - 1)
+    selectedAppIndex = currentPage * cachedAppsPerPage
+    if (selectedAppIndex >= cachedTotalApps) selectedAppIndex = maxOf(0, cachedTotalApps - 1)
 
-    updateAppsVisibility(totalPages)
+    updateAppsVisibility(cachedTotalPages)
     focusAppButton(selectedAppIndex)
     vibratePaging()
     }
@@ -1454,19 +1458,18 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
     private fun handleSwipeRight(totalPages: Int) {
         if (totalPages <= 0) return // Prevent issues if totalPages is 0 or negative
 
-        currentPage = if (currentPage == totalPages - 1) {
+        refreshCachedCalculations()
+        currentPage = if (currentPage == cachedTotalPages - 1) {
             0 // Wrap to first page if on the last page
         } else {
             currentPage + 1 // Move to the next page
         }
 
     // Move focus to first visible item on the new page
-    val totalApps = getTotalAppsCount()
-    val appsPerPageLocal = if (totalPages > 0) (totalApps + totalPages - 1) / totalPages else 0
-    selectedAppIndex = currentPage * appsPerPageLocal
-    if (selectedAppIndex >= totalApps) selectedAppIndex = maxOf(0, totalApps - 1)
+    selectedAppIndex = currentPage * cachedAppsPerPage
+    if (selectedAppIndex >= cachedTotalApps) selectedAppIndex = maxOf(0, cachedTotalApps - 1)
 
-    updateAppsVisibility(totalPages)
+    updateAppsVisibility(cachedTotalPages)
     focusAppButton(selectedAppIndex)
     vibratePaging()
     }

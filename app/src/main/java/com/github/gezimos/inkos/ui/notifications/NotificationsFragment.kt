@@ -194,7 +194,7 @@ class NotificationsFragment : Fragment() {
                 val composeView = view as? ComposeView ?: return
                 val pagerState = composeView.getTag(0xdeadbeef.toInt()) as? androidx.compose.foundation.pager.PagerState
                 val coroutineScope = composeView.getTag(0xcafebabe.toInt()) as? kotlinx.coroutines.CoroutineScope
-                val validNotifications = (composeView.getTag(0xabcdef01.toInt()) as? List<*>)
+                (composeView.getTag(0xabcdef01.toInt()) as? List<*>)
                     ?.filterIsInstance<Pair<String, NotificationManager.ConversationNotification>>() ?: return
                 if (pagerState == null || coroutineScope == null) return
 
@@ -259,7 +259,7 @@ class NotificationsFragment : Fragment() {
         }
         
         val notifTitleSize = remember { prefs.lettersTitleSize.sp }
-        
+
         val isDark = remember {
             when (prefs.appTheme) {
                 com.github.gezimos.inkos.data.Constants.Theme.Dark -> true
