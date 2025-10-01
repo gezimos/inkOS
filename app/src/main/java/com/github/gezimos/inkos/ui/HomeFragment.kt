@@ -1600,28 +1600,26 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
         // Update bottom widget margin for bottom widgets wrapper
         applyBottomWidgetMargin()
         
-        // Use lookup for the 4 visibility states
+        // Set visibility states
+        setViewsVisibility(
+            clockView to if (showClock) View.VISIBLE else View.GONE,
+            dateView to if (showDate) View.VISIBLE else View.GONE
+        )
+        
+        // Configure date view if visible
+        if (showDate) {
+            configureDateView(dateView)
+            triggerBatteryUpdate()
+        }
+        
+        // Set top margins based on what's visible
         when {
             showClock && showDate -> {
-                setViewsVisibility(clockView to View.VISIBLE, dateView to View.VISIBLE)
-                configureDateView(dateView)
                 setTopMargin(clockView, prefs.topWidgetMargin)
                 setTopMargin(dateView, 0)
-                triggerBatteryUpdate()
             }
-            showClock -> {
-                setViewsVisibility(clockView to View.VISIBLE, dateView to View.GONE)
-                setTopMargin(clockView, prefs.topWidgetMargin)
-            }
-            showDate -> {
-                setViewsVisibility(clockView to View.GONE, dateView to View.VISIBLE)
-                configureDateView(dateView)
-                setTopMargin(dateView, prefs.topWidgetMargin)
-                triggerBatteryUpdate()
-            }
-            else -> {
-                setViewsVisibility(clockView to View.GONE, dateView to View.GONE)
-            }
+            showClock -> setTopMargin(clockView, prefs.topWidgetMargin)
+            showDate -> setTopMargin(dateView, prefs.topWidgetMargin)
         }
     }
     
