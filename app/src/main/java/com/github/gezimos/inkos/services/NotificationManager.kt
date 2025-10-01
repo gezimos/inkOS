@@ -36,6 +36,9 @@ class NotificationManager private constructor(private val context: Context) {
     val notificationInfoLiveData: LiveData<Map<String, NotificationInfo>> =
         _notificationInfoLiveData
 
+    // Keep last posted snapshot to avoid spamming observers with identical maps
+    private var lastPostedNotificationInfo: Map<String, NotificationInfo>? = null
+
     private val conversationNotifications =
         mutableMapOf<String, MutableMap<String, ConversationNotification>>()
     private val _conversationNotificationsLiveData =
@@ -84,7 +87,11 @@ class NotificationManager private constructor(private val context: Context) {
             // Create a new filtered map
             HashMap(notificationInfo.filter { (pkg, _) -> pkg in allowed })
         }
-        _notificationInfoLiveData.postValue(filtered)
+        // Only post when the filtered map actually changed to avoid redundant updates
+        if (lastPostedNotificationInfo != filtered) {
+            lastPostedNotificationInfo = HashMap(filtered)
+            _notificationInfoLiveData.postValue(filtered)
+        }
     }
 
     fun clearMediaNotification(packageName: String) {
