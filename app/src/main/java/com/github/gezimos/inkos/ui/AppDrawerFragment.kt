@@ -209,11 +209,7 @@ class AppDrawerFragment : Fragment() {
     }
 
     private fun longPressCurrentItem() {
-        try {
-            val rv = binding.recyclerView
-            val vh = rv.findViewHolderForAdapterPosition(selectedItemIndex)
-            vh?.itemView?.performLongClick()
-        } catch (_: Exception) {}
+        binding.recyclerView.findViewHolderForAdapterPosition(selectedItemIndex)?.itemView?.performLongClick()
     }
 
     @SuppressLint("RtlHardcoded")
@@ -333,12 +329,11 @@ class AppDrawerFragment : Fragment() {
 
         // Observe runtime changes to app text size or padding and recompute pages
         try {
-            viewModel.appSize.observe(viewLifecycleOwner) { _ ->
+            val repopulateObserver: (Any?) -> Unit = { _ ->
                 if (this::adapter.isInitialized) populateAppList(fullAppsList, adapter)
             }
-            viewModel.textPaddingSize.observe(viewLifecycleOwner) { _ ->
-                if (this::adapter.isInitialized) populateAppList(fullAppsList, adapter)
-            }
+            viewModel.appSize.observe(viewLifecycleOwner, repopulateObserver)
+            viewModel.textPaddingSize.observe(viewLifecycleOwner, repopulateObserver)
         } catch (_: Exception) {}
 
         // Register SharedPreferences listener for app-drawer-specific keys
@@ -961,13 +956,9 @@ class AppDrawerFragment : Fragment() {
                 adapter.cancelBackgroundWork()
                 binding.recyclerView.adapter = null
             }
-        } catch (_: Exception) {}
-        
-        try {
             appDrawerPrefListener?.let { prefs.sharedPrefs.unregisterOnSharedPreferenceChangeListener(it) }
             appDrawerPrefListener = null
         } catch (_: Exception) {}
-
         _binding = null
     }
 }
