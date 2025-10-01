@@ -664,7 +664,7 @@ class NotificationsFragment : Fragment() {
         val message = remember(notif.message) {
             if (notif.message.isNullOrBlank()) "Notification received" else notif.message
         }
-    DashedSeparator(isDark = isDark)
+    DashedSeparator()
 
         Column(
             modifier = Modifier.fillMaxWidth()
@@ -684,7 +684,7 @@ class NotificationsFragment : Fragment() {
                 )
             }
 
-            DashedSeparator(isDark = isDark)
+            DashedSeparator()
             Spacer(modifier = Modifier.height(8.dp))
 
             Row(
@@ -714,7 +714,7 @@ class NotificationsFragment : Fragment() {
 
             Spacer(modifier = Modifier.height(8.dp))
             // Separator: no extra padding, already handled in DashedSeparator
-            DashedSeparator(isDark = isDark)
+            DashedSeparator()
             Spacer(modifier = Modifier.height(24.dp))
 
             Text(

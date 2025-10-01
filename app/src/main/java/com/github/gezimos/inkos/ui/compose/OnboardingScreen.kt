@@ -158,7 +158,7 @@ object OnboardingScreen {
                     when (page) {
                         0 -> {
                             // Page 1: Theme Mode, Universal Font, Show Status Bar, Volume key navigation
-                            SettingsComposable.DashedSeparator(isDark = false)
+                            SettingsComposable.DashedSeparator()
                             Box(modifier = Modifier.focusRequester(focusRequesterPage0)) {
                                 SettingsComposable.SettingsSelect(
                                     title = "Theme Mode",
@@ -179,7 +179,7 @@ object OnboardingScreen {
                             LaunchedEffect(page) {
                                 focusRequesterPage0.requestFocus()
                             }
-                            SettingsComposable.DashedSeparator(isDark = false)
+                            SettingsComposable.DashedSeparator()
                             // Custom font selector that shows font in its own typeface
                             val interactionSource = remember { MutableInteractionSource() }
                             val isFocused = interactionSource.collectIsFocusedAsState().value
@@ -228,7 +228,7 @@ object OnboardingScreen {
                                     color = SettingsTheme.typography.title.color
                                 )
                             }
-                            SettingsComposable.DashedSeparator(isDark = false)
+                            SettingsComposable.DashedSeparator()
                             SettingsComposable.SettingsSwitch(
                                 text = "Show Status Bar",
                                 fontSize = titleFontSize,
@@ -243,7 +243,7 @@ object OnboardingScreen {
                                     }
                                 }
                             )
-                            SettingsComposable.DashedSeparator(isDark = false)
+                            SettingsComposable.DashedSeparator()
                             SettingsComposable.SettingsSwitch(
                                 text = "Volume Key Navigation",
                                 fontSize = titleFontSize,
@@ -257,7 +257,7 @@ object OnboardingScreen {
 
                         1 -> {
                             // Page 2: Clock, Date, Battery, Quote
-                            SettingsComposable.DashedSeparator(isDark = false)
+                            SettingsComposable.DashedSeparator()
                             SettingsComposable.SettingsSwitch(
                                 text = "Show Clock",
                                 fontSize = titleFontSize,
@@ -271,7 +271,7 @@ object OnboardingScreen {
                             LaunchedEffect(page) {
                                 focusRequesterPage1.requestFocus()
                             }
-                            SettingsComposable.DashedSeparator(isDark = false)
+                            SettingsComposable.DashedSeparator()
                             SettingsComposable.SettingsSwitch(
                                 text = "Show Date",
                                 fontSize = titleFontSize,
@@ -281,7 +281,7 @@ object OnboardingScreen {
                                     prefs.showDate = it
                                 }
                             )
-                            SettingsComposable.DashedSeparator(isDark = false)
+                            SettingsComposable.DashedSeparator()
                             SettingsComposable.SettingsSwitch(
                                 text = "Show Battery",
                                 fontSize = titleFontSize,
@@ -291,7 +291,7 @@ object OnboardingScreen {
                                     prefs.showDateBatteryCombo = it
                                 }
                             )
-                            SettingsComposable.DashedSeparator(isDark = false)
+                            SettingsComposable.DashedSeparator()
                             SettingsComposable.SettingsSwitch(
                                 text = "Show Quote",
                                 fontSize = titleFontSize,
@@ -305,7 +305,7 @@ object OnboardingScreen {
 
                         2 -> {
                             // Page 3: Notifications first, then E-ink Quality Mode
-                            SettingsComposable.DashedSeparator(isDark = false)
+                            SettingsComposable.DashedSeparator()
                             SettingsComposable.SettingsSwitch(
                                 text = "Enable Notifications",
                                 fontSize = titleFontSize,
@@ -323,7 +323,7 @@ object OnboardingScreen {
                                     }
                                 }
                             )
-                            SettingsComposable.DashedSeparator(isDark = false)
+                            SettingsComposable.DashedSeparator()
                             SettingsComposable.SettingsSwitch(
                                 text = "Enable Audio Widget",
                                 fontSize = titleFontSize,
@@ -336,7 +336,7 @@ object OnboardingScreen {
                             LaunchedEffect(page) {
                                 focusRequesterPage2.requestFocus()
                             }
-                            SettingsComposable.DashedSeparator(isDark = false)
+                            SettingsComposable.DashedSeparator()
                             SettingsComposable.SettingsSwitch(
                                 text = stringResource(R.string.eink_auto_mode),
                                 fontSize = titleFontSize,
@@ -346,7 +346,7 @@ object OnboardingScreen {
                                     prefs.einkHelperEnabled = it
                                 }
                             )
-                            SettingsComposable.DashedSeparator(isDark = false)
+                            SettingsComposable.DashedSeparator()
                             SettingsComposable.SettingsHomeItem(
                                 title = "Set as Default Launcher",
                                 onClick = {
@@ -358,7 +358,7 @@ object OnboardingScreen {
                             )
                         }
                     }
-                    SettingsComposable.DashedSeparator(isDark = false)
+                    SettingsComposable.DashedSeparator()
                     // One static tip per page (avoid dynamic behavior)
                     // Provide a fallback/default tip string used when page index is unexpected
                     val defaultTip = "Tip: Use number keys to quickly open apps; long-press for options"

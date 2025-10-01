@@ -104,8 +104,7 @@ class GesturesFragment : Fragment() {
                             pageIndicator = {
                                 PageIndicator(
                                     currentPage = currentPage[0],
-                                    pageCount = pageCount[0],
-                                    titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else TextUnit.Unspecified
+                                    pageCount = pageCount[0]
                                 )
                             },
                             titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else TextUnit.Unspecified
@@ -179,8 +178,7 @@ class GesturesFragment : Fragment() {
                             pageIndicator = {
                                 PageIndicator(
                                     currentPage = currentPage[0],
-                                    pageCount = pageCount[0],
-                                    titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else TextUnit.Unspecified
+                                    pageCount = pageCount[0]
                                 )
                             },
                             titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else TextUnit.Unspecified
@@ -345,12 +343,12 @@ class GesturesFragment : Fragment() {
         val appLabelSwipeRightAction = getOpenAppLabel(prefs.appSwipeRight.activityLabel)
 
         Column(modifier = Modifier.fillMaxSize()) {
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsTitle(
                 text = stringResource(R.string.tap_click_actions),
                 fontSize = titleFontSize,
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSelect(
                 title = "${stringResource(R.string.double_tap)} (2)",
                 option = if (selectedDoubleTapAction == Action.OpenApp) {
@@ -379,7 +377,7 @@ class GesturesFragment : Fragment() {
                     )
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSelect(
                 title = "${stringResource(R.string.clock_click_app)} (6)",
                 option = when (selectedClickClockAction) {
@@ -416,7 +414,7 @@ class GesturesFragment : Fragment() {
                     )
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSelect(
                 title = "${stringResource(R.string.date_click_app)} (7)",
                 option = when (selectedClickDateAction) {
@@ -454,7 +452,7 @@ class GesturesFragment : Fragment() {
                     )
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSelect(
                 title = "${stringResource(R.string.quote_click_app)} (8)",
                 option = when (selectedQuoteAction) {
@@ -498,12 +496,12 @@ class GesturesFragment : Fragment() {
                     )
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsTitle(
                 text = stringResource(R.string.swipe_movement),
                 fontSize = titleFontSize,
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSelect(
                 title = "${stringResource(R.string.swipe_left_app)} (>)",
                 option = when (selectedSwipeLeftAction) {
@@ -540,7 +538,7 @@ class GesturesFragment : Fragment() {
                     )
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSelect(
                 title = "${stringResource(R.string.swipe_right_app)} (<)",
                 option = when (selectedSwipeRightAction) {
@@ -578,7 +576,7 @@ class GesturesFragment : Fragment() {
                     )
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             Spacer(modifier = Modifier.height(24.dp))
         }
     }

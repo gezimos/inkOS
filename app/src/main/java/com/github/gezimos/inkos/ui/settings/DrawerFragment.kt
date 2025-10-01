@@ -152,12 +152,11 @@ class DrawerFragment : Fragment() {
     var toggledAppDrawerPager by remember { mutableStateOf(prefs.appDrawerPager) }
 
         Column {
-            DashedSeparator(isDark)
+            DashedSeparator()
 
             SettingsHomeItem(
                 title = "App Drawer",
                 titleFontSize = titleFontSize,
-                iconSize = iconSize,
                 onClick = {
                     navController.navigate(
                         R.id.appDrawerListFragment,
@@ -165,12 +164,11 @@ class DrawerFragment : Fragment() {
                     )
                 }
             )
-            DashedSeparator(isDark = isDark)
+            DashedSeparator()
 
             SettingsHomeItem(
                 title = "Hidden Apps",
                 titleFontSize = titleFontSize,
-                iconSize = iconSize,
                 onClick = {
                     viewModel.getHiddenApps()
                     navController.navigate(
@@ -179,13 +177,13 @@ class DrawerFragment : Fragment() {
                     )
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
 
             SettingsTitle(
                 text = stringResource(R.string.customizations),
                 fontSize = titleFontSize,
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
 
             SettingsSelect(
                 title = stringResource(R.string.app_size),
@@ -205,7 +203,7 @@ class DrawerFragment : Fragment() {
                     )
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
 
             SettingsSelect(
                 title = stringResource(R.string.app_padding_size),
@@ -225,7 +223,7 @@ class DrawerFragment : Fragment() {
                     )
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
 
             // Cycle alignment between Left / Center / Right on each click (localized)
                 // Cycle alignment between Left / Center / Right on each click (use short string keys)
@@ -244,7 +242,7 @@ class DrawerFragment : Fragment() {
                     currentAlignment = next
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsSwitch(
                 text = stringResource(R.string.enable_home_pager),
                 fontSize = titleFontSize,
@@ -254,7 +252,7 @@ class DrawerFragment : Fragment() {
                     prefs.appDrawerPager = toggledAppDrawerPager
                 }
             )
-            DashedSeparator(isDark = isDark)
+            DashedSeparator()
         }
     }
 

@@ -11,7 +11,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -45,8 +44,7 @@ object SettingsComposable {
     fun PageIndicator(
         currentPage: Int,
         pageCount: Int,
-        modifier: Modifier = Modifier,
-        titleFontSize: TextUnit = TextUnit.Unspecified
+        modifier: Modifier = Modifier
     ) {
         // Use the current theme to determine dark mode
         val isDark = androidx.compose.foundation.isSystemInDarkTheme()
@@ -127,45 +125,11 @@ object SettingsComposable {
     }
 
     @Composable
-    fun TopMainHeader(
-        @DrawableRes iconRes: Int,
-        title: String,
-        iconSize: Dp = 96.dp, // Default size for the icon
-        fontSize: TextUnit = 24.sp, // Default font size for the title
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = SettingsTheme.color.horizontalPadding),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            // Image Icon
-            Image(
-                painter = painterResource(id = iconRes),
-                contentDescription = title,
-                modifier = Modifier
-                    .size(iconSize)
-                    .padding(bottom = 16.dp) // Bottom margin like in XML
-            )
-
-            // Title Text
-            Text(
-                text = title,
-                style = SettingsTheme.typography.title,
-                fontSize = fontSize,
-                modifier = Modifier
-                    .padding(bottom = 24.dp)
-            )
-        }
-    }
-
-    @Composable
     fun SettingsHomeItem(
         title: String,
         imageVector: ImageVector? = null,
         onClick: () -> Unit = {},
         titleFontSize: TextUnit = TextUnit.Unspecified,
-        iconSize: Dp = 18.dp,
     ) {
         val interactionSource = remember { MutableInteractionSource() }
         val isFocused = interactionSource.collectIsFocusedAsState().value
@@ -495,19 +459,7 @@ object SettingsComposable {
     }
 
     @Composable
-    fun FullLineSeparator(isDark: Boolean) {
-        val borderColor = SettingsTheme.color.border
-        androidx.compose.material.Divider(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = SettingsTheme.color.horizontalPadding), // changed
-            color = borderColor,
-            thickness = 2.dp
-        )
-    }
-
-    @Composable
-    fun SolidSeparator(isDark: Boolean) {
+    fun SolidSeparator() {
         val borderColor = SettingsTheme.color.border
         androidx.compose.material.Divider(
             modifier = Modifier
@@ -518,7 +470,7 @@ object SettingsComposable {
     }
 
     @Composable
-    fun DashedSeparator(isDark: Boolean) {
+    fun DashedSeparator() {
         val borderColor = SettingsTheme.color.border
         Canvas(
             modifier = Modifier

@@ -111,8 +111,7 @@ class AdvancedFragment : Fragment() {
                             pageIndicator = {
                                 com.github.gezimos.inkos.ui.compose.SettingsComposable.PageIndicator(
                                     currentPage = currentPage[0],
-                                    pageCount = pageCount[0],
-                                    titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else TextUnit.Unspecified
+                                    pageCount = pageCount[0]
                                 )
                             },
                             titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else TextUnit.Unspecified
@@ -187,8 +186,7 @@ class AdvancedFragment : Fragment() {
                             pageIndicator = {
                                 com.github.gezimos.inkos.ui.compose.SettingsComposable.PageIndicator(
                                     currentPage = currentPage[0],
-                                    pageCount = pageCount[0],
-                                    titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else TextUnit.Unspecified
+                                    pageCount = pageCount[0]
                                 )
                             },
                             titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else TextUnit.Unspecified
@@ -221,7 +219,7 @@ class AdvancedFragment : Fragment() {
             var toggledAppsLocked by remember { mutableStateOf(prefs.homeLocked) }
             var toggledSettingsLocked by remember { mutableStateOf(prefs.settingsLocked) }
             var toggledLongPressAppInfo by remember { mutableStateOf(prefs.longPressAppInfoEnabled) }
-            DashedSeparator(isDark = isDark)
+            DashedSeparator()
             SettingsSwitch(
                 text = stringResource(R.string.lock_home_apps),
                 fontSize = titleFontSize,
@@ -235,7 +233,7 @@ class AdvancedFragment : Fragment() {
                     }
                 }
             )
-            DashedSeparator(isDark = isDark)
+            DashedSeparator()
             SettingsSwitch(
                 text = stringResource(R.string.longpress_app_info),
                 fontSize = titleFontSize,
@@ -247,7 +245,7 @@ class AdvancedFragment : Fragment() {
                 }
             )
             if (requireContext().isBiometricEnabled()) {
-                DashedSeparator(isDark = isDark)
+                DashedSeparator()
                 SettingsSwitch(
                     text = stringResource(R.string.lock_settings),
                     fontSize = titleFontSize,
@@ -258,7 +256,7 @@ class AdvancedFragment : Fragment() {
                     }
                 )
             }
-            DashedSeparator(isDark = isDark)
+            DashedSeparator()
             // App Info item with version text (opens app info dialog on click)
             SettingsSelect(
                 title = stringResource(R.string.app_version),
@@ -273,21 +271,19 @@ class AdvancedFragment : Fragment() {
                     )
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsHomeItem(
                 title = stringResource(R.string.advanced_settings_backup_restore_title),
                 titleFontSize = titleFontSize,
-                iconSize = iconSize,
                 onClick = {
                     dialogBuilder.showBackupRestoreDialog()
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsHomeItem(
                 title = stringResource(changeLauncherText) +
                         if (!isinkosDefault(requireContext())) "*" else "",
                 titleFontSize = titleFontSize,
-                iconSize = iconSize,
                 onClick = {
                     // Open system Default Home App settings for proper launcher selection UI
                     val intent =
@@ -295,20 +291,18 @@ class AdvancedFragment : Fragment() {
                     requireContext().startActivity(intent)
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsHomeItem(
                 title = stringResource(R.string.advanced_settings_restart_title),
                 titleFontSize = titleFontSize,
-                iconSize = iconSize,
                 onClick = {
                     AppReloader.restartApp(requireContext())
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsHomeItem(
                 title = stringResource(R.string.settings_exit_inkos_title),
                 titleFontSize = titleFontSize,
-                iconSize = iconSize,
                 onClick = { exitLauncher() }
             )
         }

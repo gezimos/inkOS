@@ -211,13 +211,12 @@ class BluetoothFragment : Fragment() {
                             pageIndicator = {
                                 com.github.gezimos.inkos.ui.compose.SettingsComposable.PageIndicator(
                                     currentPage = currentPage[0],
-                                    pageCount = pageCount[0],
-                                    titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else androidx.compose.ui.unit.TextUnit.Unspecified
+                                    pageCount = pageCount[0]
                                 )
                             },
                             titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else androidx.compose.ui.unit.TextUnit.Unspecified
                         )
-                        com.github.gezimos.inkos.ui.compose.SettingsComposable.SolidSeparator(isDark = isDark)
+                        com.github.gezimos.inkos.ui.compose.SettingsComposable.SolidSeparator()
                         androidx.compose.foundation.layout.Spacer(
                             modifier = Modifier.height(
                                 com.github.gezimos.inkos.style.SettingsTheme.color.horizontalPadding
@@ -360,13 +359,12 @@ class BluetoothFragment : Fragment() {
                             pageIndicator = {
                                 com.github.gezimos.inkos.ui.compose.SettingsComposable.PageIndicator(
                                     currentPage = currentPage[0],
-                                    pageCount = pageCount[0],
-                                    titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else androidx.compose.ui.unit.TextUnit.Unspecified
+                                    pageCount = pageCount[0]
                                 )
                             },
                             titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else androidx.compose.ui.unit.TextUnit.Unspecified
                         )
-                        com.github.gezimos.inkos.ui.compose.SettingsComposable.SolidSeparator(isDark = isDark)
+                        com.github.gezimos.inkos.ui.compose.SettingsComposable.SolidSeparator()
                         androidx.compose.foundation.layout.Spacer(
                             modifier = Modifier.height(
                                 com.github.gezimos.inkos.style.SettingsTheme.color.horizontalPadding
@@ -599,7 +597,7 @@ class BluetoothFragment : Fragment() {
                             )
                         }
                     )
-                    com.github.gezimos.inkos.ui.compose.SettingsComposable.DashedSeparator(isDark)
+                    com.github.gezimos.inkos.ui.compose.SettingsComposable.DashedSeparator()
                 }
             }
         }

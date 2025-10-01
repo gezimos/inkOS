@@ -232,59 +232,52 @@ class SettingsFragment : Fragment() {
         Column(
             modifier = Modifier.fillMaxWidth()
         ) {
-            DashedSeparator(isDark = isDark)
+            DashedSeparator()
             SettingsHomeItem(
                 title = stringResource(R.string.settings_home_title),
                 titleFontSize = titleFontSize,
-                iconSize = iconSize,
                 onClick = { showFeaturesSettings() },
             )
-            DashedSeparator(isDark = isDark)
+            DashedSeparator()
             SettingsHomeItem(
                 title = "App Drawer",
                 titleFontSize = titleFontSize,
-                iconSize = iconSize,
                 onClick = {
                     // Open Drawer settings page
                     navController.navigate(R.id.settingsDrawerFragment)
                 },
             )
-            DashedSeparator(isDark = isDark)
+            DashedSeparator()
             SettingsHomeItem(
                 title = stringResource(R.string.fonts_settings_title),
                 titleFontSize = titleFontSize,
-                iconSize = iconSize,
                 onClick = { showFontsSettings() },
             )
-            DashedSeparator(isDark = isDark)
+            DashedSeparator()
             SettingsHomeItem(
                 title = stringResource(R.string.settings_look_feel_title),
                 titleFontSize = titleFontSize,
-                iconSize = iconSize,
                 onClick = { showLookFeelSettings() },
             )
-            DashedSeparator(isDark = isDark)
+            DashedSeparator()
             SettingsHomeItem(
                 title = stringResource(R.string.settings_gestures_title),
                 titleFontSize = titleFontSize,
-                iconSize = iconSize,
                 onClick = { showGesturesSettings() },
             )
-            DashedSeparator(isDark = isDark)
+            DashedSeparator()
             SettingsHomeItem(
                 title = stringResource(R.string.notification_section),
                 titleFontSize = titleFontSize,
-                iconSize = iconSize,
                 onClick = { showNotificationSettings() },
             )
-            DashedSeparator(isDark = isDark)
+            DashedSeparator()
             if (privateSpaceManager.isPrivateSpaceSupported() &&
                 privateSpaceManager.isPrivateSpaceSetUp(showToast = false, launchSettings = false)
             ) {
                 SettingsHomeItem(
                     title = stringResource(R.string.private_space),
                     titleFontSize = titleFontSize,
-                    iconSize = iconSize,
                     onClick = {
                         privateSpaceManager.togglePrivateSpaceLock(
                             showToast = true,
@@ -292,25 +285,23 @@ class SettingsFragment : Fragment() {
                         )
                     }
                 )
-                DashedSeparator(isDark = isDark)
+                DashedSeparator()
             }
             SettingsHomeItem(
                 title = stringResource(R.string.settings_advanced_title) +
                         if (!isinkosDefault(requireContext())) "*" else "",
                 titleFontSize = titleFontSize,
-                iconSize = iconSize,
                 onClick = { showAdvancedSettings() },
             )
-            DashedSeparator(isDark = isDark)
+            DashedSeparator()
             SettingsHomeItem(
                 title = "Extras",
                 titleFontSize = titleFontSize,
-                iconSize = iconSize,
                 onClick = {
                     navController.navigate(R.id.extrasFragment)
                 },
             )
-            DashedSeparator(isDark = isDark)
+            DashedSeparator()
             Spacer(modifier = Modifier.height(16.dp))
         }
     }

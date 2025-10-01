@@ -178,8 +178,7 @@ class LookFeelFragment : Fragment() {
                         pageIndicator = {
                             com.github.gezimos.inkos.ui.compose.SettingsComposable.PageIndicator(
                                 currentPage = currentPage[0],
-                                pageCount = pageCount[0],
-                                titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else TextUnit.Unspecified
+                                pageCount = pageCount[0]
                             )
                         },
                         titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else TextUnit.Unspecified
@@ -279,14 +278,14 @@ class LookFeelFragment : Fragment() {
         Constants.updateMaxHomePages(requireContext())
         Column(modifier = Modifier.fillMaxSize()) {
             // Theme Mode
-            DashedSeparator(isDark)
+            DashedSeparator()
 
             // Visibility & Display
             SettingsTitle(
                 text = stringResource(R.string.visibility_display),
                 fontSize = titleFontSize,
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSelect(
                 title = stringResource(id = R.string.theme_mode),
                 option = when (selectedTheme.value) {
@@ -336,7 +335,7 @@ class LookFeelFragment : Fragment() {
                     requireActivity().recreate()
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSwitch(
                 text = "Vibration Feedback",
                 fontSize = titleFontSize,
@@ -346,7 +345,7 @@ class LookFeelFragment : Fragment() {
                     prefs.useVibrationForPaging = it
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSwitch(
                 text = stringResource(R.string.show_status_bar),
                 fontSize = titleFontSize,
@@ -359,7 +358,7 @@ class LookFeelFragment : Fragment() {
                     )
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSwitch(
                 text = stringResource(R.string.show_navigation_bar),
                 fontSize = titleFontSize,
@@ -373,13 +372,13 @@ class LookFeelFragment : Fragment() {
                 }
             )
 
-            DashedSeparator(isDark)
+            DashedSeparator()
             // Background Images
             SettingsTitle(
                 text = "Background Images",
                 fontSize = titleFontSize,
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
 
             SettingsSelect(
                 title = "Home Image",
@@ -400,7 +399,7 @@ class LookFeelFragment : Fragment() {
             )
 
             if (homeBackgroundImageUri.value != null) {
-                DashedSeparator(isDark)
+                DashedSeparator()
                 SettingsSelect(
                     title = "Image Opacity",
                     option = "${homeBackgroundImageOpacity.value}%",
@@ -428,7 +427,7 @@ class LookFeelFragment : Fragment() {
 
 
         // Element Colors
-    DashedSeparator(isDark)
+    DashedSeparator()
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
@@ -474,7 +473,7 @@ class LookFeelFragment : Fragment() {
                     }
             )
         }
-    DashedSeparator(isDark)
+    DashedSeparator()
         val hexBackgroundColor =
             String.format("#%06X", (0xFFFFFF and selectedBackgroundColor.value))
         SettingsSelectWithColorPreview(
@@ -493,7 +492,7 @@ class LookFeelFragment : Fragment() {
                     })
             }
         )
-        DashedSeparator(isDark)
+        DashedSeparator()
         val hexAppColor = String.format("#%06X", (0xFFFFFF and selectedAppColor.value))
         SettingsSelectWithColorPreview(
             title = stringResource(R.string.app_color),
@@ -512,7 +511,7 @@ class LookFeelFragment : Fragment() {
             }
         )
 
-        DashedSeparator(isDark)
+        DashedSeparator()
         val hexClockColor = String.format("#%06X", (0xFFFFFF and selectedClockColor.value))
         SettingsSelectWithColorPreview(
             title = stringResource(R.string.clock_color),
@@ -530,7 +529,7 @@ class LookFeelFragment : Fragment() {
                     })
             }
         )
-        DashedSeparator(isDark)
+        DashedSeparator()
         val hexBatteryColor = String.format("#%06X", (0xFFFFFF and selectedBatteryColor.value))
         SettingsSelectWithColorPreview(
             title = stringResource(R.string.battery_color),
@@ -548,7 +547,7 @@ class LookFeelFragment : Fragment() {
                     })
             }
         )
-        DashedSeparator(isDark)
+        DashedSeparator()
         val hexDateColor = String.format("#%06X", (0xFFFFFF and selectedDateColor.value))
         SettingsSelectWithColorPreview(
             title = stringResource(R.string.date_color),
@@ -566,7 +565,7 @@ class LookFeelFragment : Fragment() {
                     })
             }
         )
-        DashedSeparator(isDark)
+        DashedSeparator()
         val hexQuoteColor = String.format("#%06X", (0xFFFFFF and selectedQuoteColor.value))
         SettingsSelectWithColorPreview(
             title = stringResource(R.string.quote_color),
@@ -585,7 +584,7 @@ class LookFeelFragment : Fragment() {
                 )
             }
         )            // Audio Widget Color
-        DashedSeparator(isDark)
+        DashedSeparator()
         val hexAudioWidgetColor =
             String.format("#%06X", (0xFFFFFF and selectedAudioWidgetColor.value))
         SettingsSelectWithColorPreview(
@@ -605,7 +604,7 @@ class LookFeelFragment : Fragment() {
                 )
             }
         )
-    DashedSeparator(isDark)
+    DashedSeparator()
 
 
     }

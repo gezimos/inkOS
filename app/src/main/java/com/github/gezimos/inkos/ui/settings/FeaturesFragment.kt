@@ -102,8 +102,7 @@ class FeaturesFragment : Fragment() {
                             pageIndicator = {
                                 com.github.gezimos.inkos.ui.compose.SettingsComposable.PageIndicator(
                                     currentPage = currentPage[0],
-                                    pageCount = pageCount[0],
-                                    titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else TextUnit.Unspecified
+                                    pageCount = pageCount[0]
                                 )
                             },
                             titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else TextUnit.Unspecified
@@ -168,8 +167,7 @@ class FeaturesFragment : Fragment() {
                             pageIndicator = {
                                 com.github.gezimos.inkos.ui.compose.SettingsComposable.PageIndicator(
                                     currentPage = currentPage[0],
-                                    pageCount = pageCount[0],
-                                    titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else TextUnit.Unspecified
+                                    pageCount = pageCount[0]
                                 )
                             },
                             titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else TextUnit.Unspecified
@@ -214,13 +212,13 @@ class FeaturesFragment : Fragment() {
         var selectedBottomWidgetMargin = remember { mutableStateOf(prefs.bottomWidgetMargin) }
         // Remove verticalScroll and isDark param, handled by parent ComposeView
         Column(modifier = Modifier.fillMaxWidth()) {
-            DashedSeparator(isDark)
+            DashedSeparator()
             // --- Layout & Positioning (moved) ---
             SettingsTitle(
                 text = stringResource(R.string.layout_positioning),
                 fontSize = titleFontSize,
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSelect(
                 title = stringResource(R.string.app_padding_size),
                 option = selectedPaddingSize.value.toString(),
@@ -239,7 +237,7 @@ class FeaturesFragment : Fragment() {
                     )
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSelect(
                 title = stringResource(R.string.home_apps_y_offset),
                 option = selectedHomeAppsYOffset.value.toString(),
@@ -258,7 +256,7 @@ class FeaturesFragment : Fragment() {
                     )
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSelect(
                 title = stringResource(R.string.top_widget_margin),
                 option = selectedTopWidgetMargin.value.toString(),
@@ -277,7 +275,7 @@ class FeaturesFragment : Fragment() {
                     )
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSelect(
                 title = stringResource(R.string.bottom_widget_margin),
                 option = selectedBottomWidgetMargin.value.toString(),
@@ -296,7 +294,7 @@ class FeaturesFragment : Fragment() {
                     )
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsHomeItem(
                 title = stringResource(R.string.reorder_apps),
                 onClick = {
@@ -307,13 +305,13 @@ class FeaturesFragment : Fragment() {
                 },
                 titleFontSize = titleFontSize
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             // Home Apps Section
             SettingsTitle(
                 text = stringResource(R.string.home_apps),
                 fontSize = titleFontSize,
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSelect(
                 title = stringResource(R.string.apps_on_home_screen),
                 option = selectedHomeAppsNum.toString(),
@@ -340,7 +338,7 @@ class FeaturesFragment : Fragment() {
                     )
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSelect(
                 title = stringResource(R.string.pages_on_home_screen),
                 option = selectedHomePagesNum.toString(),
@@ -361,7 +359,7 @@ class FeaturesFragment : Fragment() {
                     )
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSwitch(
                 text = stringResource(R.string.enable_home_pager),
                 fontSize = titleFontSize,
@@ -371,7 +369,7 @@ class FeaturesFragment : Fragment() {
                     prefs.homePager = toggledHomePager
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSwitch(
                 text = stringResource(R.string.home_page_reset),
                 fontSize = titleFontSize,
@@ -382,12 +380,12 @@ class FeaturesFragment : Fragment() {
                 }
             )
             // Top Widgets Section
-            DashedSeparator(isDark = isDark)
+            DashedSeparator()
             SettingsTitle(
                 text = stringResource(R.string.top_widgets),
                 fontSize = titleFontSize,
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSwitch(
                 text = stringResource(R.string.show_clock),
                 fontSize = titleFontSize,
@@ -398,7 +396,7 @@ class FeaturesFragment : Fragment() {
                     viewModel.setShowClock(prefs.showClock)
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSwitch(
                 text = stringResource(R.string.show_date),
                 fontSize = titleFontSize,
@@ -415,7 +413,7 @@ class FeaturesFragment : Fragment() {
             )
             // Only show Date + Battery combo when Date is enabled
             if (toggledShowDate) {
-                DashedSeparator(isDark)
+                DashedSeparator()
                 SettingsSwitch(
                     text = stringResource(R.string.show_date_battery_combo),
                     fontSize = titleFontSize,
@@ -427,12 +425,12 @@ class FeaturesFragment : Fragment() {
                 )
             }
             // Bottom Widgets Section
-            DashedSeparator(isDark = isDark)
+            DashedSeparator()
             SettingsTitle(
                 text = stringResource(R.string.bottom_widgets),
                 fontSize = titleFontSize,
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSwitch(
                 text = stringResource(R.string.show_audio_widget),
                 fontSize = titleFontSize,
@@ -442,7 +440,7 @@ class FeaturesFragment : Fragment() {
                     prefs.showAudioWidgetEnabled = toggledShowAudioWidget
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSwitch(
                 text = stringResource(R.string.show_quote),
                 fontSize = titleFontSize,
@@ -454,7 +452,7 @@ class FeaturesFragment : Fragment() {
             )
             // Only show Quote text when Quote widget is enabled
             if (toggledShowQuote) {
-                DashedSeparator(isDark)
+                DashedSeparator()
                 SettingsSelect(
                     title = stringResource(R.string.quote_text),
                     option = if (quoteTextState.length > 12) "${quoteTextState.take(12)}..." else quoteTextState,
@@ -472,14 +470,14 @@ class FeaturesFragment : Fragment() {
                     }
                 )
             }
-            DashedSeparator(isDark)
+            DashedSeparator()
 
             // --- Others Section ---
             SettingsTitle(
                 text = "Other Functions",
                 fontSize = titleFontSize,
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSwitch(
                 text = stringResource(R.string.extend_home_apps_area),
                 fontSize = titleFontSize,
@@ -489,7 +487,7 @@ class FeaturesFragment : Fragment() {
                     prefs.extendHomeAppsArea = toggledExtendHomeAppsArea.value
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
         }
     }
 

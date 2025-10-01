@@ -83,8 +83,7 @@ class ExtrasFragment : Fragment() {
                                 if (pageCount[0] > 1)
                                     com.github.gezimos.inkos.ui.compose.SettingsComposable.PageIndicator(
                                         currentPage = currentPage[0],
-                                        pageCount = pageCount[0],
-                                        titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else TextUnit.Unspecified
+                                        pageCount = pageCount[0]
                                     )
                             },
                             titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else TextUnit.Unspecified
@@ -157,8 +156,7 @@ class ExtrasFragment : Fragment() {
                                 if (pageCount[0] > 1)
                                     com.github.gezimos.inkos.ui.compose.SettingsComposable.PageIndicator(
                                         currentPage = currentPage[0],
-                                        pageCount = pageCount[0],
-                                        titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else TextUnit.Unspecified
+                                        pageCount = pageCount[0]
                                     )
                             },
                             titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else TextUnit.Unspecified
@@ -182,12 +180,12 @@ class ExtrasFragment : Fragment() {
         val einkHelperEnabled = remember { mutableStateOf(prefs.einkHelperEnabled) }
         val navController = findNavController()
         Column(modifier = Modifier.fillMaxSize()) {
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsTitle(
                 text = stringResource(R.string.eink_auto_mode),
                 fontSize = titleFontSize,
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSwitch(
                 text = stringResource(R.string.eink_auto_mode),
                 fontSize = titleFontSize,
@@ -198,12 +196,12 @@ class ExtrasFragment : Fragment() {
                     requireActivity().recreate()
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsTitle(
                 text = "Extra Features",
                 fontSize = titleFontSize,
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSwitch(
                 text = "Auto E-Ink Refresh",
                 fontSize = titleFontSize,
@@ -213,7 +211,7 @@ class ExtrasFragment : Fragment() {
                     prefs.einkRefreshEnabled = it
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSelect(
                 title = "E-Ink Refresh Delay",
                 option = "${einkRefreshDelayState.value} ms",
@@ -233,7 +231,7 @@ class ExtrasFragment : Fragment() {
                     )
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSwitch(
                 text = getString(R.string.use_volume_keys_for_pages),
                 fontSize = titleFontSize,
@@ -243,7 +241,7 @@ class ExtrasFragment : Fragment() {
                     prefs.useVolumeKeysForPages = it
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSelect(
                 title = getString(R.string.system_shortcuts),
                 option = if (selectedShortcuts.value.isEmpty()) "None" else "${selectedShortcuts.value.size} selected",
@@ -279,7 +277,7 @@ class ExtrasFragment : Fragment() {
                     )
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSelect(
                 title = "mKompakt Bluetooth",
                 option = "Devices",
@@ -288,7 +286,7 @@ class ExtrasFragment : Fragment() {
                     navController.navigate(R.id.bluetoothFragment)
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
         }
     }
 }

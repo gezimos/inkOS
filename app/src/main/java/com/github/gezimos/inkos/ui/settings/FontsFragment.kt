@@ -104,8 +104,7 @@ class FontsFragment : Fragment() {
                             pageIndicator = {
                                 com.github.gezimos.inkos.ui.compose.SettingsComposable.PageIndicator(
                                     currentPage = currentPage[0],
-                                    pageCount = pageCount[0],
-                                    titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else TextUnit.Unspecified
+                                    pageCount = pageCount[0]
                                 )
                             },
                             titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else TextUnit.Unspecified
@@ -186,8 +185,7 @@ class FontsFragment : Fragment() {
                             pageIndicator = {
                                 com.github.gezimos.inkos.ui.compose.SettingsComposable.PageIndicator(
                                     currentPage = currentPage[0],
-                                    pageCount = pageCount[0],
-                                    titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else TextUnit.Unspecified
+                                    pageCount = pageCount[0]
                                 )
                             },
                             titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else TextUnit.Unspecified
@@ -272,7 +270,7 @@ class FontsFragment : Fragment() {
         // Use Column instead of LazyColumn (let parent NestedScrollView handle scrolling)
         Column(modifier = Modifier.fillMaxWidth()) {
             // --- Universal Custom Font Section (top, with Reset All on right) ---
-            DashedSeparator(isDark = isDark)
+            DashedSeparator()
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -347,7 +345,7 @@ class FontsFragment : Fragment() {
                         }
                 )
             }
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSwitch(
                 text = stringResource(R.string.universal_custom_font),
                 fontSize = titleFontSize,
@@ -391,7 +389,7 @@ class FontsFragment : Fragment() {
                     }
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSelect(
                 title = stringResource(R.string.universal_custom_font_selector),
                 option = getFontDisplayName(universalFontState, "universal"),
@@ -442,7 +440,7 @@ class FontsFragment : Fragment() {
                 },
                 enabled = prefs.universalFontEnabled
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSelect(
                 title = stringResource(R.string.settings_font_section),
                 option = getFontDisplayName(settingsFontState, "settings"),
@@ -463,7 +461,7 @@ class FontsFragment : Fragment() {
                 else Color.Gray,
                 enabled = !universalFontEnabledState
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSelect(
                 title = stringResource(R.string.settings_text_size),
                 option = settingsSize.toString(),
@@ -484,12 +482,12 @@ class FontsFragment : Fragment() {
             )
 
             // --- Home Fonts Section ---
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsTitle(
                 text = "Home Fonts",
                 fontSize = titleFontSize
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
 
             // Apps Font
             SettingsSelect(
@@ -513,7 +511,7 @@ class FontsFragment : Fragment() {
                 else Color.Gray,
                 enabled = !universalFontEnabledState
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSelect(
                 title = stringResource(R.string.app_text_size),
                 option = appSize.toString(),
@@ -532,7 +530,7 @@ class FontsFragment : Fragment() {
                     )
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             val appNameModeLabels = listOf(
                 stringResource(R.string.app_name_mode_normal),
                 stringResource(R.string.small_caps_apps),
@@ -549,7 +547,7 @@ class FontsFragment : Fragment() {
                     prefs.allCapsApps = nextMode == 2
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
 
             // Clock Font
             SettingsSelect(
@@ -573,7 +571,7 @@ class FontsFragment : Fragment() {
                 else Color.Gray,
                 enabled = !universalFontEnabledState
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSelect(
                 title = stringResource(R.string.clock_text_size),
                 option = clockSize.toString(),
@@ -592,7 +590,7 @@ class FontsFragment : Fragment() {
                     )
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             // Date Font
             SettingsSelect(
                 title = stringResource(R.string.date_font),
@@ -615,7 +613,7 @@ class FontsFragment : Fragment() {
                 else Color.Gray,
                 enabled = !universalFontEnabledState
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSelect(
                 title = stringResource(R.string.date_text_size),
                 option = dateSize.toString(),
@@ -634,7 +632,7 @@ class FontsFragment : Fragment() {
                     )
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
 
             // Battery Font
             SettingsSelect(
@@ -658,7 +656,7 @@ class FontsFragment : Fragment() {
                 else Color.Gray,
                 enabled = !universalFontEnabledState
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSelect(
                 title = stringResource(R.string.battery_text_size),
                 option = batterySize.toString(),
@@ -677,7 +675,7 @@ class FontsFragment : Fragment() {
                     )
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
 
             // Quote Font Section
             SettingsSelect(
@@ -701,7 +699,7 @@ class FontsFragment : Fragment() {
                 else Color.Gray,
                 enabled = !universalFontEnabledState
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSelect(
                 title = stringResource(R.string.quote_text_size),
                 option = quoteSize.toString(),
@@ -720,13 +718,13 @@ class FontsFragment : Fragment() {
                     )
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
 
             SettingsTitle(
                 text = "Label Notifications",
                 fontSize = titleFontSize
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSelect(
                 title = "Label Notifications Font",
                 option = if (labelnotificationsFontState == Constants.FontFamily.Custom)
@@ -752,7 +750,7 @@ class FontsFragment : Fragment() {
                 else Color.Gray,
                 enabled = !universalFontEnabledState
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSelect(
                 title = "Label Notifications Size",
                 option = labelnotificationsFontSize.toString(),
@@ -771,13 +769,13 @@ class FontsFragment : Fragment() {
                     )
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
 
             SettingsTitle(
                 text = "Notifications Window",
                 fontSize = titleFontSize
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSelect(
                 title = "Window Title",
                 option = notificationsTitle,
@@ -796,7 +794,7 @@ class FontsFragment : Fragment() {
                     )
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSelect(
                 title = "Title Font",
                 option = if (notificationsTitleFontState == Constants.FontFamily.Custom)
@@ -822,7 +820,7 @@ class FontsFragment : Fragment() {
                 else Color.Gray,
                 enabled = !universalFontEnabledState
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSelect(
                 title = "Title Size",
                 option = notificationsTitleSize.toString(),
@@ -841,7 +839,7 @@ class FontsFragment : Fragment() {
                     )
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSelect(
                 title = "Body Font",
                 option = if (universalFontEnabledState) {
@@ -872,7 +870,7 @@ class FontsFragment : Fragment() {
                 else Color.Gray,
                 enabled = !universalFontEnabledState
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             SettingsSelect(
                 title = "Body Text Size",
                 option = notificationsTextSize.toString(),
@@ -891,7 +889,7 @@ class FontsFragment : Fragment() {
                     )
                 }
             )
-            DashedSeparator(isDark)
+            DashedSeparator()
             Spacer(modifier = Modifier.height(24.dp))
         }
     }
