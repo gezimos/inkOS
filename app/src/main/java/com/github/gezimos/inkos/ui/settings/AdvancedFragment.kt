@@ -50,7 +50,6 @@ import com.github.gezimos.inkos.ui.compose.SettingsComposable.PageHeader
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsHomeItem
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsSelect
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsSwitch
-import com.github.gezimos.inkos.ui.compose.SettingsComposable.SolidSeparator
 import com.github.gezimos.inkos.ui.dialogs.DialogManager
 
 class AdvancedFragment : Fragment() {

@@ -45,8 +45,6 @@ import com.github.gezimos.inkos.ui.compose.SettingsComposable.DashedSeparator
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.FullLineSeparator
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.PageHeader
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsHomeItem
-import com.github.gezimos.inkos.ui.compose.SettingsComposable.SolidSeparator
-
 
 class SettingsFragment : Fragment() {
 

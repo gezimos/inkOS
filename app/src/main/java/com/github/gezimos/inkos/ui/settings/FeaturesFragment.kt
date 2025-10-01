@@ -9,10 +9,8 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -45,7 +43,6 @@ import com.github.gezimos.inkos.ui.compose.SettingsComposable.PageHeader
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsSelect
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsSwitch
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsTitle
-import com.github.gezimos.inkos.ui.compose.SettingsComposable.SolidSeparator
 import com.github.gezimos.inkos.ui.dialogs.DialogManager
 
 class FeaturesFragment : Fragment() {
