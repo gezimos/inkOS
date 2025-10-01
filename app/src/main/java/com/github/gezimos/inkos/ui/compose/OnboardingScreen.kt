@@ -134,15 +134,9 @@ object OnboardingScreen {
                         contentDescription = "InkOS Logo",
                         colorFilter = ColorFilter.tint(SettingsTheme.typography.title.color),
                         modifier = Modifier
-                            .width(42.dp)
+                            .width(48.dp)
                             .padding(bottom = 8.dp)
                             .align(Alignment.CenterHorizontally)
-                    )
-                    Text(
-                        text = "inkOS",
-                        style = SettingsTheme.typography.title,
-                        fontSize = 24.sp,
-                        modifier = Modifier.padding(bottom = 8.dp)
                     )
                 }
                 // Vertically centered switches, 3 per page
