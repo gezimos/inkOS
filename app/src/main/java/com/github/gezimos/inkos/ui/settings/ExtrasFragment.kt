@@ -39,8 +39,6 @@ import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsSwitch
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsTitle
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.SolidSeparator
 import com.github.gezimos.inkos.ui.dialogs.DialogManager
-import kotlin.math.ceil
-
 class ExtrasFragment : Fragment() {
     private lateinit var prefs: Prefs
     private lateinit var dialogBuilder: DialogManager
@@ -149,7 +147,7 @@ class ExtrasFragment : Fragment() {
         }
 
         // Use EinkScrollBehavior callback to update page indicator reliably
-        val scrollBehavior = com.github.gezimos.inkos.helper.utils.EinkScrollBehavior(context) { page, pages ->
+        val scrollBehavior = EinkScrollBehavior(context) { page, pages ->
             pageCount[0] = pages
             currentPage[0] = page
             headerView.setContent {
@@ -293,7 +291,7 @@ class ExtrasFragment : Fragment() {
                 option = "Devices",
                 fontSize = titleFontSize,
                 onClick = {
-                    navController.navigate(com.github.gezimos.inkos.R.id.bluetoothFragment)
+                    navController.navigate(R.id.bluetoothFragment)
                 }
             )
             DashedSeparator(isDark)

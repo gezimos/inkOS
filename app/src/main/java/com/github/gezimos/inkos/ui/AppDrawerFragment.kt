@@ -525,10 +525,6 @@ class AppDrawerFragment : Fragment() {
             val translatedX = rawX - rvLocation[0]
             val translatedY = rawY - rvLocation[1]
 
-            // Forward the exact MotionEvent (preserves pointer properties) and
-            // offset it into RecyclerView local coordinates. This prevents
-            // invalid pointerIndex errors that occur when synthesizing single-
-            // pointer MotionEvents from multi-touch originals.
             var handledByRecycler = false
             try {
                 val forwarded = MotionEvent.obtain(event)
@@ -815,10 +811,7 @@ class AppDrawerFragment : Fragment() {
     }
 
     private fun setupPagingListeners() {
-    // Install an OnItemTouchListener on the RecyclerView to detect
-    // vertical fling gestures and perform paging. The listener only
-    // intercepts when a fling is detected (flingFlag=true), so normal
-    // taps/long-press gestures are handled by RecyclerView / ViewHolders.
+
         val density = requireContext().resources.displayMetrics.density
         val swipeThreshold = (100 * density) // tuned threshold
         val swipeVelocityThreshold = 800
