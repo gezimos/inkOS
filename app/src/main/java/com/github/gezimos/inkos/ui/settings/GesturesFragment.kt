@@ -112,8 +112,7 @@ class GesturesFragment : Fragment() {
                             },
                             titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else TextUnit.Unspecified
                         )
-                        SolidSeparator(isDark = isDark)
-                        Spacer(modifier = Modifier.height(SettingsTheme.color.horizontalPadding))
+                        
                         if (bottomInsetDp > 0.dp) {
                             Spacer(modifier = Modifier.height(bottomInsetDp))
                         }
@@ -188,8 +187,7 @@ class GesturesFragment : Fragment() {
                             },
                             titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else TextUnit.Unspecified
                         )
-                        SolidSeparator(isDark = isDark)
-                        Spacer(modifier = Modifier.height(SettingsTheme.color.horizontalPadding))
+                        
                         if (bottomInsetDp > 0.dp) Spacer(modifier = Modifier.height(bottomInsetDp))
                     }
                 }

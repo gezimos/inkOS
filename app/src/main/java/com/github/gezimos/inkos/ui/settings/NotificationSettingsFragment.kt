@@ -109,8 +109,6 @@ class NotificationSettingsFragment : Fragment() {
                             },
                             titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else androidx.compose.ui.unit.TextUnit.Unspecified
                         )
-                        SettingsComposable.SolidSeparator(isDark = isDark)
-                        Spacer(modifier = Modifier.height(SettingsTheme.color.horizontalPadding))
                     }
                 }
             }
@@ -177,8 +175,6 @@ class NotificationSettingsFragment : Fragment() {
                             },
                             titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else androidx.compose.ui.unit.TextUnit.Unspecified
                         )
-                        SettingsComposable.SolidSeparator(isDark = isDark)
-                        Spacer(modifier = Modifier.height(SettingsTheme.color.horizontalPadding))
                     }
                 }
             }

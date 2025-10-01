@@ -112,8 +112,7 @@ class FeaturesFragment : Fragment() {
                             },
                             titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else TextUnit.Unspecified
                         )
-                        SolidSeparator(isDark = isDark)
-                        Spacer(modifier = Modifier.height(SettingsTheme.color.horizontalPadding))
+                        
                     }
                 }
             }
@@ -179,8 +178,7 @@ class FeaturesFragment : Fragment() {
                             },
                             titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else TextUnit.Unspecified
                         )
-                        SolidSeparator(isDark = isDark)
-                        Spacer(modifier = Modifier.height(SettingsTheme.color.horizontalPadding))
+                        
                     }
                 }
             }
