@@ -66,6 +66,7 @@ class AppDrawerFragment : Fragment() {
     private var isInitializing = true
 
     private var appDrawerPrefListener: SharedPreferences.OnSharedPreferenceChangeListener? = null
+    private val flingDetected = java.util.concurrent.atomic.AtomicBoolean(false)
 
     // Uninstall launcher and package tracking
     private var pendingUninstallPackage: String? = null
@@ -329,11 +330,11 @@ class AppDrawerFragment : Fragment() {
 
         // Observe runtime changes to app text size or padding and recompute pages
         try {
-            val repopulateObserver: (Any?) -> Unit = { _ ->
-                if (this::adapter.isInitialized) populateAppList(fullAppsList, adapter)
+            listOf(viewModel.appSize, viewModel.textPaddingSize).forEach { liveData ->
+                liveData.observe(viewLifecycleOwner) {
+                    if (this::adapter.isInitialized) populateAppList(fullAppsList, adapter)
+                }
             }
-            viewModel.appSize.observe(viewLifecycleOwner, repopulateObserver)
-            viewModel.textPaddingSize.observe(viewLifecycleOwner, repopulateObserver)
         } catch (_: Exception) {}
 
         // Register SharedPreferences listener for app-drawer-specific keys
@@ -391,7 +392,6 @@ class AppDrawerFragment : Fragment() {
     // Lowered thresholds so vertical swipes are easier to trigger.
     val flingThreshold = (48 * density)
     val flingVelocity = 600
-    val flingDetected = java.util.concurrent.atomic.AtomicBoolean(false)
 
     val overlayDetector = GestureDetector(requireContext(), object : GestureDetector.SimpleOnGestureListener() {
         override fun onDown(e: MotionEvent): Boolean = true
@@ -453,69 +453,11 @@ class AppDrawerFragment : Fragment() {
     })
 
     binding.touchArea.setOnTouchListener { v, event ->
-        // Let detector inspect the event first to find flings
         overlayDetector.onTouchEvent(event)
 
-        if (flingDetected.get()) {
-            // We handled a fling — consume the event and reset flag on UP/CANCEL.
-            if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
-                flingDetected.set(false)
-            }
-            true
-        } else {
-            // Forward the MotionEvent to the RecyclerView so taps/long-press
-            // are received by items. Translate coordinates from the overlay
-            // (screen) to the RecyclerView local coordinates.
-            val rv = binding.recyclerView
-            val rvLocation = IntArray(2)
-            rv.getLocationOnScreen(rvLocation)
-
-            var handledByRecycler = false
-            try {
-                val forwarded = MotionEvent.obtain(event)
-                // Compute overlay (touchArea) location on screen so we can convert
-                // overlay-local coordinates into RecyclerView-local coordinates.
-                val overlayLocation = IntArray(2)
-                try { v.getLocationOnScreen(overlayLocation) } catch (_: Exception) { overlayLocation[0] = 0; overlayLocation[1] = 0 }
-                // Offset forwarded event by (overlayOnScreen - rvOnScreen) so forwarded.x == rawX - rvX
-                forwarded.offsetLocation(
-                    (overlayLocation[0] - rvLocation[0]).toFloat(),
-                    (overlayLocation[1] - rvLocation[1]).toFloat()
-                )
-                handledByRecycler = try {
-                    rv.dispatchTouchEvent(forwarded)
-                } catch (_: IllegalArgumentException) {
-                    // Some devices may still be unhappy; fall back below
-                    false
-                }
-                forwarded.recycle()
-            } catch (_: IllegalArgumentException) {
-                // Worst-case fallback: send a simple ACTION_CANCEL to clear touch state
-                try {
-                    val cancel = MotionEvent.obtain(
-                        event.downTime,
-                        event.eventTime,
-                        MotionEvent.ACTION_CANCEL,
-                        0f,
-                        0f,
-                        0
-                    )
-                    rv.dispatchTouchEvent(cancel)
-                    cancel.recycle()
-                } catch (_: Exception) {}
-                handledByRecycler = false
-            }
-
-            // Call performClick when touch is completed
-            if (event.actionMasked == MotionEvent.ACTION_UP && !handledByRecycler) {
-                @Suppress("ClickableViewAccessibility")
-                v.performClick()
-            }
-
-            // If recycler handled it, return true to indicate we forwarded
-            // and it's handled. Otherwise return false to allow normal
-            // propagation.
-            handledByRecycler
+        when {
+            flingDetected.get() -> handleFlingTouch(event)
+            else -> forwardTouchToRecyclerView(v, event)
         }
     }
 
@@ -584,6 +526,56 @@ class AppDrawerFragment : Fragment() {
     private var lastAppTextSize = -1
     private var lastAppTextPadding = -1
     private var cachedPages: List<List<AppListItem>> = emptyList()
+
+    private fun handleFlingTouch(event: MotionEvent): Boolean {
+        if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
+            flingDetected.set(false)
+        }
+        return true
+    }
+
+    private fun forwardTouchToRecyclerView(overlay: View, event: MotionEvent): Boolean {
+        val rv = binding.recyclerView
+        val rvLocation = IntArray(2)
+        rv.getLocationOnScreen(rvLocation)
+
+        val handledByRecycler = forwardEventToRecycler(overlay, event, rv, rvLocation)
+        
+        if (event.actionMasked == MotionEvent.ACTION_UP && !handledByRecycler) {
+            overlay.performClick()
+        }
+        
+        return handledByRecycler
+    }
+
+    private fun forwardEventToRecycler(overlay: View, event: MotionEvent, rv: RecyclerView, rvLocation: IntArray): Boolean {
+        return try {
+            val overlayLocation = IntArray(2)
+            overlay.getLocationOnScreen(overlayLocation)
+            
+            val forwarded = MotionEvent.obtain(event).apply {
+                offsetLocation(
+                    (overlayLocation[0] - rvLocation[0]).toFloat(),
+                    (overlayLocation[1] - rvLocation[1]).toFloat()
+                )
+            }
+            
+            val handled = rv.dispatchTouchEvent(forwarded)
+            forwarded.recycle()
+            handled
+        } catch (_: Exception) {
+            sendCancelEventToRecycler(event, rv)
+            false
+        }
+    }
+
+    private fun sendCancelEventToRecycler(event: MotionEvent, rv: RecyclerView) {
+        try {
+            val cancel = MotionEvent.obtain(event.downTime, event.eventTime, MotionEvent.ACTION_CANCEL, 0f, 0f, 0)
+            rv.dispatchTouchEvent(cancel)
+            cancel.recycle()
+        } catch (_: Exception) {}
+    }
 
     private fun clearMeasurementCache() {
         lastRecyclerHeight = 0
