@@ -43,6 +43,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -57,7 +58,6 @@ import android.view.KeyEvent
 import com.github.gezimos.common.showShortToast
 import androidx.lifecycle.Observer
 import androidx.navigation.fragment.findNavController
-// import coil.compose.AsyncImage (removed)
 import com.github.gezimos.inkos.data.Prefs
 import com.github.gezimos.inkos.services.NotificationManager
 import com.github.gezimos.inkos.helper.KeyMapperHelper
@@ -688,6 +688,8 @@ class NotificationsFragment : Fragment() {
                     fontSize = titleFontSize * 1.2f, // Increased name size to 1.2x
                     fontWeight = FontWeight.Bold,
                     fontFamily = notifFontFamily,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
 
