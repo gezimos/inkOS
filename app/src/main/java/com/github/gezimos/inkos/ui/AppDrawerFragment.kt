@@ -594,59 +594,47 @@ class AppDrawerFragment : Fragment() {
     private var lastAppTextPadding = -1
     private var cachedPages: List<List<AppListItem>> = emptyList()
 
+    private fun clearMeasurementCache() {
+        lastRecyclerHeight = 0
+        lastAppTextSize = -1
+        lastAppTextPadding = -1
+        cachedPages = emptyList()
+    }
+
     private fun populateAppList(apps: List<AppListItem>, appAdapter: AppDrawerAdapter) {
-    // If view is destroyed, avoid scheduling any work that touches binding
-    if (!isAdded || _binding == null) return
-    binding.recyclerView.layoutAnimation = null
-    // Ensure the full app list is sorted alphabetically by custom label (if present)
-    // or by the normal label. Adapter-side sorting exists, but paging is computed
-    // from the fragment's `fullAppsList`, so we must sort here to ensure pages
-    // (including HiddenApps mode) are alphabetically ordered.
-    // Sort using AppListItem's Comparable which uses the shared collator
-    // configured to ignore diacritics and case differences.
-    fullAppsList = apps.sorted()
-    
-    // Clear cached pages when the full list changes to force recalculation
-    cachedPages = emptyList()
-    
-    // Reset selection to the first item when app list changes
-    selectedItemIndex = 0
-    // Use a local reference to binding to reduce nullable access inside lambdas
-    val b = _binding ?: return
-    // Use double post() to ensure RecyclerView has completed layout
-    // before measuring - this is critical after text changes (rename)
-    b.recyclerView.post {
+        if (!isAdded || _binding == null) return
+        binding.recyclerView.layoutAnimation = null
+            fullAppsList = apps.sorted()
+        cachedPages = emptyList()
+        selectedItemIndex = 0
+        
+        val b = _binding ?: return
+        b.recyclerView.post {
         b.recyclerView.post {
             val recyclerHeight = binding.recyclerView.height
 
-            // Read prefs-derived visual values that affect item height (app-drawer specific)
             val prefs = Prefs(requireContext())
             val appTextSize = prefs.appDrawerSize
             val appTextPadding = prefs.appDrawerGap
 
-            // If these values changed since last measurement, force re-measure
             val needMeasure = (lastAppTextSize != appTextSize) || (lastAppTextPadding != appTextPadding) || (recyclerHeight != lastRecyclerHeight)
 
             var itemHeight = resources.getDimensionPixelSize(R.dimen.app_drawer_item_height)
 
             if (needMeasure && recyclerHeight > 0) {
-                // Estimate item height using TextPaint and font metrics instead of inflating a view.
                 try {
                     val textPaint = android.text.TextPaint()
-                    // textSize in prefs is provided as 'sp' numeric; set in pixels via scaledDensity
                     @Suppress("DEPRECATION")
                     val scaled = resources.displayMetrics.scaledDensity
                     textPaint.textSize = appTextSize * scaled
                     val fm = textPaint.fontMetrics
                     val textHeight = (Math.ceil((fm.descent - fm.ascent).toDouble()).toInt())
-                    // Add vertical padding from prefs (assumed px)
                     val total = textHeight + (2 * appTextPadding)
                     if (total > 0) itemHeight = total
                 } catch (_: Exception) {
                     itemHeight = resources.getDimensionPixelSize(R.dimen.app_drawer_item_height)
                 }
 
-                // Update cached prefs values
                 lastAppTextSize = appTextSize
                 lastAppTextPadding = appTextPadding
                 lastRecyclerHeight = recyclerHeight
@@ -661,24 +649,18 @@ class AppDrawerFragment : Fragment() {
                     8 // fallback
                 }
 
-                // Configure RecyclerView caching for faster page swaps
                 try {
                     binding.recyclerView.setItemViewCacheSize(appsPerPage + 1)
-                    // If item heights are stable, enable fixed size optimizations
                     binding.recyclerView.setHasFixedSize(true)
                 } catch (_: Exception) {}
             }
 
             totalPages = ((fullAppsList.size + appsPerPage - 1) / appsPerPage).coerceAtLeast(1)
-            // Keep current page if possible, otherwise move to last valid page
             if (currentPage >= totalPages) {
                 currentPage = (totalPages - 1).coerceAtLeast(0)
             }
-            // Force update the displayed page after a full list change
             lastDisplayedPage = -1
 
-            // Compute page slices off the UI thread to avoid stalls on large app lists
-            // Use the viewLifecycleOwner's scope so work is cancelled when view is destroyed.
             viewLifecycleOwner.lifecycleScope.launch(Dispatchers.Default) {
                 val pages = if (appsPerPage > 0 && fullAppsList.isNotEmpty()) {
                     (0 until totalPages).map { pageIndex ->
@@ -690,7 +672,6 @@ class AppDrawerFragment : Fragment() {
                     emptyList()
                 }
                 withContext(Dispatchers.Main) {
-                    // UI may have been destroyed while computing pages
                     if (!isAdded || _binding == null) return@withContext
                     cachedPages = pages
                     updatePagedList(fullAppsList, appAdapter)
@@ -710,12 +691,9 @@ class AppDrawerFragment : Fragment() {
             if (apps.isNotEmpty()) apps.subList(startIdx, endIdx) else emptyList()
         }
 
-        // Always update the adapter because the page content may have changed
-        // (e.g., after rename, hide/show, or uninstall) even if we're on the same page number
         appAdapter.setPageAppsWithDiff(pageApps)
         lastDisplayedPage = currentPage
 
-        // Reveal the RecyclerView once the first page has been applied.
         if (binding.recyclerView.visibility != View.VISIBLE) binding.recyclerView.visibility = View.VISIBLE
         binding.listEmptyHint.visibility = if (pageApps.isEmpty()) View.VISIBLE else View.GONE
         
@@ -724,10 +702,7 @@ class AppDrawerFragment : Fragment() {
             selectedItemIndex = kotlin.math.max(0, pageApps.size - 1)
         }
         
-        // Only auto-focus for regular LaunchApp mode, not for SetHomeApp or other special modes
-        // This prevents interference with touch-based selection in SetHomeApp mode
         if (flag == AppDrawerFlag.LaunchApp) {
-            // Focus the selected item after a brief delay to ensure RecyclerView is ready
             binding.recyclerView.post {
                 focusSelectedItem()
             }
@@ -770,7 +745,7 @@ class AppDrawerFragment : Fragment() {
     private fun setupPagingListeners() {
 
         val density = requireContext().resources.displayMetrics.density
-        val swipeThreshold = (100 * density) // tuned threshold
+        val swipeThreshold = (100 * density)
         val swipeVelocityThreshold = 800
 
         val flingFlag = java.util.concurrent.atomic.AtomicBoolean(false)
@@ -789,7 +764,6 @@ class AppDrawerFragment : Fragment() {
                     }
                     updatePagedList(fullAppsList, adapter)
                     updatePageIndicator()
-                    // Haptic feedback on page change
                     vibratePaging()
                     return true
                 }
@@ -799,7 +773,6 @@ class AppDrawerFragment : Fragment() {
 
         val itemTouchListener = object : RecyclerView.OnItemTouchListener {
             override fun onInterceptTouchEvent(rv: RecyclerView, e: MotionEvent): Boolean {
-                // Feed the detector so it can set flingFlag when a fling is detected.
                 gestureDetector.onTouchEvent(e)
 
                 return when (e.actionMasked) {
@@ -818,24 +791,18 @@ class AppDrawerFragment : Fragment() {
             override fun onRequestDisallowInterceptTouchEvent(disallowIntercept: Boolean) {}
         }
 
-        // Remove previous listeners of same type to avoid duplicates
         try { binding.recyclerView.removeOnItemTouchListener(itemTouchListener) } catch (_: Exception) {}
         binding.recyclerView.addOnItemTouchListener(itemTouchListener)
 
-        // Move volume key listener to main layout to avoid conflicts with touchArea overlay
         binding.mainLayout.isFocusableInTouchMode = true
         binding.mainLayout.requestFocus()
         binding.mainLayout.setOnKeyListener { _, keyCode, event ->
-            // Ignore key events for a short period after opening to prevent
-            // interference from the key event that triggered opening the drawer
-            // For SetHomeApp mode, ignore all keys during initialization to prevent auto-selection
             if (isInitializing) {
                 return@setOnKeyListener true
             }
             
             val action = KeyMapperHelper.mapAppDrawerKey(prefs, keyCode, event)
             when (action) {
-                // Let Activity handle PageUp/PageDown (volume keys) so navigation is centralized.
                 KeyMapperHelper.AppDrawerKeyAction.PageUp -> {
                     return@setOnKeyListener false
                 }
@@ -861,11 +828,8 @@ class AppDrawerFragment : Fragment() {
                 else -> false
             }
         }
-        // Ensure zero animations
         binding.recyclerView.layoutAnimation = null
         
-        // Reset initialization flag after a short delay to allow key handling
-        // Use longer delay for SetHomeApp mode to prevent auto-selection from long press
         val delay = if (flag == AppDrawerFlag.SetHomeApp) 800 else 300
         binding.root.postDelayed({
             isInitializing = false
@@ -874,10 +838,8 @@ class AppDrawerFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
-        // Register Activity-level page navigation handler so volume keys are forwarded
         val act = activity as? com.github.gezimos.inkos.MainActivity ?: return
         act.pageNavigationHandler = object : com.github.gezimos.inkos.MainActivity.PageNavigationHandler {
-            // AppDrawer wants to keep DPAD behavior local (per-item selection), so do not handle DPAD as pages
             override val handleDpadAsPage: Boolean = false
 
             override fun pageUp() {
@@ -916,7 +878,6 @@ class AppDrawerFragment : Fragment() {
         if (!::prefs.isInitialized) return
         if (!prefs.useVibrationForPaging) return
         try {
-            // Use VibrationEffect (API 26+)
             val effect = android.os.VibrationEffect.createOneShot(50, android.os.VibrationEffect.DEFAULT_AMPLITUDE)
             vibrator?.vibrate(effect)
         } catch (_: Exception) {}
@@ -969,29 +930,18 @@ class AppDrawerFragment : Fragment() {
                 intent.data = "package:$appPackage".toUri()
                 pendingUninstallPackage = appPackage
                 uninstallLauncher.launch(intent)
-                // Do NOT refresh here; refresh will happen in the result callback
             }
         }
 
     private fun appRenameListener(): (String, String) -> Unit = { packageName, newName ->
-        // Clear cached measurements to force re-calculation after rename
-        lastRecyclerHeight = 0
-        lastAppTextSize = -1
-        lastAppTextPadding = -1
-        cachedPages = emptyList()
+        clearMeasurementCache()
         viewModel.renameApp(packageName, newName, flag)
-        // Do NOT call adapter.notifyDataSetChanged() here - let the LiveData observer
-        // handle the refresh after the ViewModel updates the app list with correct data
     }
 
 
     private fun appShowHideListener(): (flag: AppDrawerFlag, appListItem: AppListItem) -> Unit =
         { flag, appModel ->
-            // Clear cached measurements to force re-calculation after hide/show
-            lastRecyclerHeight = 0
-            lastAppTextSize = -1
-            lastAppTextPadding = -1
-            cachedPages = emptyList()
+            clearMeasurementCache()
             viewModel.hideOrShowApp(flag, appModel)
             if (flag == AppDrawerFlag.HiddenApps && Prefs(requireContext()).hiddenApps.isEmpty()) {
                 findNavController().popBackStack()
@@ -1010,24 +960,18 @@ class AppDrawerFragment : Fragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
-        // Cancel any running background work tied to the adapter so it won't
-        // try to touch views after the view is destroyed. The adapter's
-        // instance-scoped job ensures cancelling only affects this adapter.
         try {
-            if (this::adapter.isInitialized) {
+            if (::adapter.isInitialized) {
                 adapter.cancelBackgroundWork()
-                // Detach adapter from RecyclerView to avoid leaks.
-                try { binding.recyclerView.adapter = null } catch (_: Exception) {}
+                binding.recyclerView.adapter = null
             }
         } catch (_: Exception) {}
-        // Unregister SharedPreferences listener
+        
         try {
-            val shared = prefs.sharedPrefs
-            appDrawerPrefListener?.let { shared.unregisterOnSharedPreferenceChangeListener(it) }
+            appDrawerPrefListener?.let { prefs.sharedPrefs.unregisterOnSharedPreferenceChangeListener(it) }
             appDrawerPrefListener = null
         } catch (_: Exception) {}
 
-        // Clear binding reference to avoid leaking the view.
         _binding = null
     }
 }
