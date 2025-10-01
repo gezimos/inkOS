@@ -466,8 +466,7 @@ class NotificationsFragment : Fragment() {
                             notif = notif,
                             notifFontFamily = notifFontFamily,
                             titleFontSize = notifTextSize, // Use body font size for sender/group name
-                            descriptionFontSize = notifTextSize,
-                            isDark = isDark
+                            descriptionFontSize = notifTextSize
                         )
                     }
                 }
@@ -578,17 +577,12 @@ class NotificationsFragment : Fragment() {
     private fun vibratePaging() {
         if (prefs.useVibrationForPaging) {
             try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    vibrator.vibrate(
-                        android.os.VibrationEffect.createOneShot(
-                            30,
-                            android.os.VibrationEffect.DEFAULT_AMPLITUDE
-                        )
+                vibrator.vibrate(
+                    android.os.VibrationEffect.createOneShot(
+                        30,
+                        android.os.VibrationEffect.DEFAULT_AMPLITUDE
                     )
-                } else {
-                    @Suppress("DEPRECATION")
-                    vibrator.vibrate(30)
-                }
+                )
             } catch (_: Exception) {
             }
         }
@@ -637,8 +631,7 @@ class NotificationsFragment : Fragment() {
         notif: NotificationManager.ConversationNotification,
         notifFontFamily: FontFamily,
         titleFontSize: TextUnit,
-        descriptionFontSize: TextUnit,
-        isDark: Boolean
+        descriptionFontSize: TextUnit
     ) {
         val context = requireContext()
         
