@@ -43,9 +43,13 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.github.gezimos.inkos.R
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.layout.ContentScale
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.Fragment
@@ -408,6 +412,16 @@ class NotificationsFragment : Fragment() {
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    // Show decorative panda drawable above the empty state text
+                    androidx.compose.foundation.Image(
+                        painter = painterResource(id = R.drawable.panda),
+                        contentDescription = null, // decorative
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier
+                            .size(100.dp)
+                            .padding(bottom = 12.dp)
+                    )
+
                     Text(
                         text = "No notifications",
                         fontSize = notifTextSize,
