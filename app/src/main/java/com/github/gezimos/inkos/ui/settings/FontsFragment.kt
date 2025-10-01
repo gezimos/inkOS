@@ -51,7 +51,6 @@ import com.github.gezimos.inkos.helper.isSystemInDarkMode
 import com.github.gezimos.inkos.helper.utils.EinkScrollBehavior
 import com.github.gezimos.inkos.style.SettingsTheme
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.DashedSeparator
-import com.github.gezimos.inkos.ui.compose.SettingsComposable.DashedSeparator
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.PageHeader
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsSelect
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsSwitch
@@ -66,21 +65,6 @@ class FontsFragment : Fragment() {
     private lateinit var dialogBuilder: DialogManager
     private val PICK_FONT_FILE_REQUEST_CODE = 1001
     private var onCustomFontSelected: ((Typeface, String) -> Unit)? = null
-
-    private fun getCurrentPageIndex(
-        scrollY: Int,
-        viewportHeight: Int,
-        contentHeight: Int,
-        pageCount: Int
-    ): Int {
-        if (contentHeight <= viewportHeight) return 0
-        val overlap = (viewportHeight * 0.2).toInt()
-        val scrollStep = viewportHeight - overlap
-        val maxScroll = (contentHeight - viewportHeight).coerceAtLeast(1)
-        val clampedScrollY = scrollY.coerceIn(0, maxScroll)
-        val page = Math.round(clampedScrollY.toFloat() / scrollStep)
-        return page.coerceIn(0, pageCount - 1)
-    }
 
     override fun onCreateView(
         inflater: LayoutInflater,

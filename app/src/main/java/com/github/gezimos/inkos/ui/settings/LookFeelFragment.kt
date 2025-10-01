@@ -58,7 +58,6 @@ import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsSelect
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsSelectWithColorPreview
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsSwitch
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsTitle
-import com.github.gezimos.inkos.ui.compose.SettingsComposable.SolidSeparator
 import com.github.gezimos.inkos.ui.dialogs.DialogManager
 
 class LookFeelFragment : Fragment() {
@@ -291,7 +290,7 @@ class LookFeelFragment : Fragment() {
             SettingsSelect(
                 title = stringResource(id = R.string.theme_mode),
                 option = when (selectedTheme.value) {
-                    Constants.Theme.System -> "System"
+                    System -> "System"
                     Constants.Theme.Light -> "Light"
                     Constants.Theme.Dark -> "Dark"
                 },
