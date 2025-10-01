@@ -42,7 +42,6 @@ import com.github.gezimos.inkos.helper.utils.PrivateSpaceManager
 import com.github.gezimos.inkos.listener.DeviceAdmin
 import com.github.gezimos.inkos.style.SettingsTheme
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.DashedSeparator
-import com.github.gezimos.inkos.ui.compose.SettingsComposable.FullLineSeparator
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.PageHeader
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsHomeItem
 
@@ -233,7 +232,7 @@ class SettingsFragment : Fragment() {
         Column(
             modifier = Modifier.fillMaxWidth()
         ) {
-            FullLineSeparator(isDark = isDark)
+            DashedSeparator(isDark = isDark)
             SettingsHomeItem(
                 title = stringResource(R.string.settings_home_title),
                 titleFontSize = titleFontSize,

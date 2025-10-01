@@ -45,7 +45,6 @@ import com.github.gezimos.inkos.helper.utils.AppReloader
 import com.github.gezimos.inkos.listener.DeviceAdmin
 import com.github.gezimos.inkos.style.SettingsTheme
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.DashedSeparator
-import com.github.gezimos.inkos.ui.compose.SettingsComposable.FullLineSeparator
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.PageHeader
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsHomeItem
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsSelect
@@ -222,7 +221,7 @@ class AdvancedFragment : Fragment() {
             var toggledAppsLocked by remember { mutableStateOf(prefs.homeLocked) }
             var toggledSettingsLocked by remember { mutableStateOf(prefs.settingsLocked) }
             var toggledLongPressAppInfo by remember { mutableStateOf(prefs.longPressAppInfoEnabled) }
-            FullLineSeparator(isDark = isDark)
+            DashedSeparator(isDark = isDark)
             SettingsSwitch(
                 text = stringResource(R.string.lock_home_apps),
                 fontSize = titleFontSize,

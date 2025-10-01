@@ -38,7 +38,7 @@ import com.github.gezimos.inkos.helper.isSystemInDarkMode
 import com.github.gezimos.inkos.listener.DeviceAdmin
 import com.github.gezimos.inkos.style.SettingsTheme
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.DashedSeparator
-import com.github.gezimos.inkos.ui.compose.SettingsComposable.FullLineSeparator
+import com.github.gezimos.inkos.ui.compose.SettingsComposable.DashedSeparator
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.PageHeader
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsSelect
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsSwitch
@@ -215,13 +215,13 @@ class FeaturesFragment : Fragment() {
         var selectedBottomWidgetMargin = remember { mutableStateOf(prefs.bottomWidgetMargin) }
         // Remove verticalScroll and isDark param, handled by parent ComposeView
         Column(modifier = Modifier.fillMaxWidth()) {
-            FullLineSeparator(isDark)
+            DashedSeparator(isDark)
             // --- Layout & Positioning (moved) ---
             SettingsTitle(
                 text = stringResource(R.string.layout_positioning),
                 fontSize = titleFontSize,
             )
-            FullLineSeparator(isDark)
+            DashedSeparator(isDark)
             SettingsSelect(
                 title = stringResource(R.string.app_padding_size),
                 option = selectedPaddingSize.value.toString(),
@@ -308,13 +308,13 @@ class FeaturesFragment : Fragment() {
                 },
                 titleFontSize = titleFontSize
             )
-            FullLineSeparator(isDark)
+            DashedSeparator(isDark)
             // Home Apps Section
             SettingsTitle(
                 text = stringResource(R.string.home_apps),
                 fontSize = titleFontSize,
             )
-            FullLineSeparator(isDark)
+            DashedSeparator(isDark)
             SettingsSelect(
                 title = stringResource(R.string.apps_on_home_screen),
                 option = selectedHomeAppsNum.toString(),
@@ -383,12 +383,12 @@ class FeaturesFragment : Fragment() {
                 }
             )
             // Top Widgets Section
-            FullLineSeparator(isDark = isDark)
+            DashedSeparator(isDark = isDark)
             SettingsTitle(
                 text = stringResource(R.string.top_widgets),
                 fontSize = titleFontSize,
             )
-            FullLineSeparator(isDark)
+            DashedSeparator(isDark)
             SettingsSwitch(
                 text = stringResource(R.string.show_clock),
                 fontSize = titleFontSize,
@@ -428,12 +428,12 @@ class FeaturesFragment : Fragment() {
                 )
             }
             // Bottom Widgets Section
-            FullLineSeparator(isDark = isDark)
+            DashedSeparator(isDark = isDark)
             SettingsTitle(
                 text = stringResource(R.string.bottom_widgets),
                 fontSize = titleFontSize,
             )
-            FullLineSeparator(isDark)
+            DashedSeparator(isDark)
             SettingsSwitch(
                 text = stringResource(R.string.show_audio_widget),
                 fontSize = titleFontSize,
@@ -473,14 +473,14 @@ class FeaturesFragment : Fragment() {
                     }
                 )
             }
-            FullLineSeparator(isDark)
+            DashedSeparator(isDark)
 
             // --- Others Section ---
             SettingsTitle(
                 text = "Other Functions",
                 fontSize = titleFontSize,
             )
-            FullLineSeparator(isDark)
+            DashedSeparator(isDark)
             SettingsSwitch(
                 text = stringResource(R.string.extend_home_apps_area),
                 fontSize = titleFontSize,
@@ -490,7 +490,7 @@ class FeaturesFragment : Fragment() {
                     prefs.extendHomeAppsArea = toggledExtendHomeAppsArea.value
                 }
             )
-            FullLineSeparator(isDark)
+            DashedSeparator(isDark)
         }
     }
 

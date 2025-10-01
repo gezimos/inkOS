@@ -58,7 +58,7 @@ import com.github.gezimos.inkos.data.Prefs
 import com.github.gezimos.inkos.services.NotificationManager
 import com.github.gezimos.inkos.helper.KeyMapperHelper
 import com.github.gezimos.inkos.style.SettingsTheme
-import com.github.gezimos.inkos.ui.compose.SettingsComposable.FullLineSeparator
+import com.github.gezimos.inkos.ui.compose.SettingsComposable.DashedSeparator
 import kotlinx.coroutines.launch
 
 class NotificationsFragment : Fragment() {
@@ -664,7 +664,7 @@ class NotificationsFragment : Fragment() {
         val message = remember(notif.message) {
             if (notif.message.isNullOrBlank()) "Notification received" else notif.message
         }
-        FullLineSeparator(isDark = isDark)
+    DashedSeparator(isDark = isDark)
 
         Column(
             modifier = Modifier.fillMaxWidth()
@@ -684,7 +684,7 @@ class NotificationsFragment : Fragment() {
                 )
             }
 
-            FullLineSeparator(isDark = isDark)
+            DashedSeparator(isDark = isDark)
             Spacer(modifier = Modifier.height(8.dp))
 
             Row(
@@ -713,8 +713,8 @@ class NotificationsFragment : Fragment() {
             }
 
             Spacer(modifier = Modifier.height(8.dp))
-            // Separator: no extra padding, already handled in FullLineSeparator
-            FullLineSeparator(isDark = isDark)
+            // Separator: no extra padding, already handled in DashedSeparator
+            DashedSeparator(isDark = isDark)
             Spacer(modifier = Modifier.height(24.dp))
 
             Text(

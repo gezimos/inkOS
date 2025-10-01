@@ -33,7 +33,7 @@ import com.github.gezimos.inkos.helper.getHexForOpacity
 import com.github.gezimos.inkos.helper.isSystemInDarkMode
 import com.github.gezimos.inkos.style.SettingsTheme
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.DashedSeparator
-import com.github.gezimos.inkos.ui.compose.SettingsComposable.FullLineSeparator
+import com.github.gezimos.inkos.ui.compose.SettingsComposable.DashedSeparator
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.PageHeader
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsHomeItem
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsSelect
@@ -153,7 +153,7 @@ class DrawerFragment : Fragment() {
     var toggledAppDrawerPager by remember { mutableStateOf(prefs.appDrawerPager) }
 
         Column {
-            FullLineSeparator(isDark)
+            DashedSeparator(isDark)
 
             SettingsHomeItem(
                 title = "App Drawer",
@@ -180,13 +180,13 @@ class DrawerFragment : Fragment() {
                     )
                 }
             )
-            FullLineSeparator(isDark)
+            DashedSeparator(isDark)
 
             SettingsTitle(
                 text = stringResource(R.string.customizations),
                 fontSize = titleFontSize,
             )
-            FullLineSeparator(isDark)
+            DashedSeparator(isDark)
 
             SettingsSelect(
                 title = stringResource(R.string.app_size),
@@ -255,7 +255,7 @@ class DrawerFragment : Fragment() {
                     prefs.appDrawerPager = toggledAppDrawerPager
                 }
             )
-            FullLineSeparator(isDark = isDark)
+            DashedSeparator(isDark = isDark)
         }
     }
 

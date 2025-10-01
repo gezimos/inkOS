@@ -263,7 +263,7 @@ class NotificationSettingsFragment : Fragment() {
         }
 
         Column(modifier = Modifier.fillMaxWidth()) {
-            SettingsComposable.FullLineSeparator(isDark = isDark)
+        SettingsComposable.DashedSeparator(isDark = isDark)
             // Push Notifications master switch
             SettingsComposable.SettingsSwitch(
                 text = stringResource(R.string.push_notifications),
@@ -271,12 +271,12 @@ class NotificationSettingsFragment : Fragment() {
                 defaultState = pushNotificationsEnabled,
                 onCheckedChange = { onPushNotificationsToggle(!pushNotificationsEnabled) }
             )
-            SettingsComposable.FullLineSeparator(isDark = isDark)
+            SettingsComposable.DashedSeparator(isDark = isDark)
             SettingsComposable.SettingsTitle(
                 text = stringResource(R.string.notification_home),
                 fontSize = titleFontSize
             )
-            SettingsComposable.FullLineSeparator(isDark = isDark)
+            SettingsComposable.DashedSeparator(isDark = isDark)
             // Notification Badge
             SettingsComposable.SettingsSwitch(
                 text = stringResource(R.string.show_notification_badge),
@@ -347,13 +347,13 @@ class NotificationSettingsFragment : Fragment() {
                     )
                 }
             }
-            SettingsComposable.FullLineSeparator(isDark = isDark)
+            SettingsComposable.DashedSeparator(isDark = isDark)
             // Chat section
             SettingsComposable.SettingsTitle(
                 text = stringResource(R.string.chat_notifications_section),
                 fontSize = titleFontSize
             )
-            SettingsComposable.FullLineSeparator(isDark = isDark)
+            SettingsComposable.DashedSeparator(isDark = isDark)
             SettingsComposable.SettingsSwitch(
                 text = stringResource(R.string.show_sender_name),
                 fontSize = titleFontSize,
@@ -406,13 +406,13 @@ class NotificationSettingsFragment : Fragment() {
                 },
                 enabled = pushNotificationsEnabled
             )
-            SettingsComposable.FullLineSeparator(isDark = isDark)
+            SettingsComposable.DashedSeparator(isDark = isDark)
             // Filter section
             SettingsComposable.SettingsTitle(
                 text = stringResource(R.string.notifications_window_title),
                 fontSize = titleFontSize
             )
-            SettingsComposable.FullLineSeparator(isDark = isDark)
+            SettingsComposable.DashedSeparator(isDark = isDark)
             // use the outer `notificationsEnabled` declared above instead of redeclaring
             val allowlistState = allowlist // for recomposition
             var showAllowlistDialog by remember { mutableStateOf(false) }
@@ -460,7 +460,7 @@ class NotificationSettingsFragment : Fragment() {
                     )
                 }
             }
-            SettingsComposable.FullLineSeparator(isDark = isDark)
+            SettingsComposable.DashedSeparator(isDark = isDark)
         }
     }
 

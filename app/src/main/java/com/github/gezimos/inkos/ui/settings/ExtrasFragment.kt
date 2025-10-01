@@ -30,7 +30,7 @@ import com.github.gezimos.inkos.data.Prefs
 import com.github.gezimos.inkos.helper.utils.EinkScrollBehavior
 import com.github.gezimos.inkos.style.SettingsTheme
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.DashedSeparator
-import com.github.gezimos.inkos.ui.compose.SettingsComposable.FullLineSeparator
+import com.github.gezimos.inkos.ui.compose.SettingsComposable.DashedSeparator
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.PageHeader
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsSelect
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsSwitch
@@ -183,12 +183,12 @@ class ExtrasFragment : Fragment() {
         val einkHelperEnabled = remember { mutableStateOf(prefs.einkHelperEnabled) }
         val navController = findNavController()
         Column(modifier = Modifier.fillMaxSize()) {
-            FullLineSeparator(isDark)
+            DashedSeparator(isDark)
             SettingsTitle(
                 text = stringResource(R.string.eink_auto_mode),
                 fontSize = titleFontSize,
             )
-            FullLineSeparator(isDark)
+            DashedSeparator(isDark)
             SettingsSwitch(
                 text = stringResource(R.string.eink_auto_mode),
                 fontSize = titleFontSize,
@@ -199,12 +199,12 @@ class ExtrasFragment : Fragment() {
                     requireActivity().recreate()
                 }
             )
-            FullLineSeparator(isDark)
+            DashedSeparator(isDark)
             SettingsTitle(
                 text = "Extra Features",
                 fontSize = titleFontSize,
             )
-            FullLineSeparator(isDark)
+            DashedSeparator(isDark)
             SettingsSwitch(
                 text = "Auto E-Ink Refresh",
                 fontSize = titleFontSize,

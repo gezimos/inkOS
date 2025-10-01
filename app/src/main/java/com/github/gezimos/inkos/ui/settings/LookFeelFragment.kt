@@ -53,7 +53,6 @@ import com.github.gezimos.inkos.helper.showStatusBar
 import com.github.gezimos.inkos.listener.DeviceAdmin
 import com.github.gezimos.inkos.style.SettingsTheme
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.DashedSeparator
-import com.github.gezimos.inkos.ui.compose.SettingsComposable.FullLineSeparator
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.PageHeader
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsSelect
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsSelectWithColorPreview
@@ -188,9 +187,6 @@ class LookFeelFragment : Fragment() {
                         },
                         titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else TextUnit.Unspecified
                     )
-                    SolidSeparator(isDark = isDark)
-                    Spacer(modifier = Modifier.height(SettingsTheme.color.horizontalPadding))
-                    // (No bottomInsetDp here)
                 }
             }
         }
@@ -286,14 +282,14 @@ class LookFeelFragment : Fragment() {
         Constants.updateMaxHomePages(requireContext())
         Column(modifier = Modifier.fillMaxSize()) {
             // Theme Mode
-            FullLineSeparator(isDark)
+            DashedSeparator(isDark)
 
             // Visibility & Display
             SettingsTitle(
                 text = stringResource(R.string.visibility_display),
                 fontSize = titleFontSize,
             )
-            FullLineSeparator(isDark)
+            DashedSeparator(isDark)
             SettingsSelect(
                 title = stringResource(id = R.string.theme_mode),
                 option = when (selectedTheme.value) {
@@ -383,13 +379,13 @@ class LookFeelFragment : Fragment() {
                 }
             )
 
-            FullLineSeparator(isDark)
+            DashedSeparator(isDark)
             // Background Images
             SettingsTitle(
                 text = "Background Images",
                 fontSize = titleFontSize,
             )
-            FullLineSeparator(isDark)
+            DashedSeparator(isDark)
 
             SettingsSelect(
                 title = "Home Image",
@@ -438,7 +434,7 @@ class LookFeelFragment : Fragment() {
 
 
         // Element Colors
-        FullLineSeparator(isDark)
+    DashedSeparator(isDark)
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
@@ -484,7 +480,7 @@ class LookFeelFragment : Fragment() {
                     }
             )
         }
-        FullLineSeparator(isDark)
+    DashedSeparator(isDark)
         val hexBackgroundColor =
             String.format("#%06X", (0xFFFFFF and selectedBackgroundColor.value))
         SettingsSelectWithColorPreview(
@@ -615,7 +611,7 @@ class LookFeelFragment : Fragment() {
                 )
             }
         )
-        FullLineSeparator(isDark)
+    DashedSeparator(isDark)
 
 
     }

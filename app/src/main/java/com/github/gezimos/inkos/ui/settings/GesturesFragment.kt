@@ -43,7 +43,6 @@ import com.github.gezimos.inkos.helper.utils.EinkScrollBehavior
 import com.github.gezimos.inkos.helper.utils.PrivateSpaceManager
 import com.github.gezimos.inkos.style.SettingsTheme
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.DashedSeparator
-import com.github.gezimos.inkos.ui.compose.SettingsComposable.FullLineSeparator
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.PageHeader
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.PageIndicator
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsSelect
@@ -345,12 +344,12 @@ class GesturesFragment : Fragment() {
     val appLabelSwipeLeftAction = getOpenAppLabel(prefs.appSwipeLeft.activityLabel)
     val appLabelSwipeRightAction = getOpenAppLabel(prefs.appSwipeRight.activityLabel)
         Column(modifier = Modifier.fillMaxSize()) {
-            FullLineSeparator(isDark)
+            DashedSeparator(isDark)
             SettingsTitle(
                 text = stringResource(R.string.tap_click_actions),
                 fontSize = titleFontSize,
             )
-            FullLineSeparator(isDark)
+            DashedSeparator(isDark)
             SettingsSelect(
                 title = "${stringResource(R.string.double_tap)} (2)",
                 option = if (selectedDoubleTapAction == Action.OpenApp) {
@@ -498,12 +497,12 @@ class GesturesFragment : Fragment() {
                     )
                 }
             )
-            FullLineSeparator(isDark)
+            DashedSeparator(isDark)
             SettingsTitle(
                 text = stringResource(R.string.swipe_movement),
                 fontSize = titleFontSize,
             )
-            FullLineSeparator(isDark)
+            DashedSeparator(isDark)
             SettingsSelect(
                 title = "${stringResource(R.string.swipe_left_app)} (>)",
                 option = when (selectedSwipeLeftAction) {

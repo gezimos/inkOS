@@ -51,7 +51,7 @@ import com.github.gezimos.inkos.helper.isSystemInDarkMode
 import com.github.gezimos.inkos.helper.utils.EinkScrollBehavior
 import com.github.gezimos.inkos.style.SettingsTheme
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.DashedSeparator
-import com.github.gezimos.inkos.ui.compose.SettingsComposable.FullLineSeparator
+import com.github.gezimos.inkos.ui.compose.SettingsComposable.DashedSeparator
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.PageHeader
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsSelect
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsSwitch
@@ -288,7 +288,7 @@ class FontsFragment : Fragment() {
         // Use Column instead of LazyColumn (let parent NestedScrollView handle scrolling)
         Column(modifier = Modifier.fillMaxWidth()) {
             // --- Universal Custom Font Section (top, with Reset All on right) ---
-            FullLineSeparator(isDark = isDark)
+            DashedSeparator(isDark = isDark)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -363,7 +363,7 @@ class FontsFragment : Fragment() {
                         }
                 )
             }
-            FullLineSeparator(isDark)
+            DashedSeparator(isDark)
             SettingsSwitch(
                 text = stringResource(R.string.universal_custom_font),
                 fontSize = titleFontSize,
@@ -458,7 +458,7 @@ class FontsFragment : Fragment() {
                 },
                 enabled = prefs.universalFontEnabled
             )
-            FullLineSeparator(isDark)
+            DashedSeparator(isDark)
             SettingsSelect(
                 title = stringResource(R.string.settings_font_section),
                 option = getFontDisplayName(settingsFontState, "settings"),
@@ -500,12 +500,12 @@ class FontsFragment : Fragment() {
             )
 
             // --- Home Fonts Section ---
-            FullLineSeparator(isDark)
+            DashedSeparator(isDark)
             SettingsTitle(
                 text = "Home Fonts",
                 fontSize = titleFontSize
             )
-            FullLineSeparator(isDark)
+            DashedSeparator(isDark)
 
             // Apps Font
             SettingsSelect(
@@ -565,7 +565,7 @@ class FontsFragment : Fragment() {
                     prefs.allCapsApps = nextMode == 2
                 }
             )
-            FullLineSeparator(isDark)
+            DashedSeparator(isDark)
 
             // Clock Font
             SettingsSelect(
@@ -608,7 +608,7 @@ class FontsFragment : Fragment() {
                     )
                 }
             )
-            FullLineSeparator(isDark)
+            DashedSeparator(isDark)
             // Date Font
             SettingsSelect(
                 title = stringResource(R.string.date_font),
@@ -650,7 +650,7 @@ class FontsFragment : Fragment() {
                     )
                 }
             )
-            FullLineSeparator(isDark)
+            DashedSeparator(isDark)
 
             // Battery Font
             SettingsSelect(
@@ -693,7 +693,7 @@ class FontsFragment : Fragment() {
                     )
                 }
             )
-            FullLineSeparator(isDark)
+            DashedSeparator(isDark)
 
             // Quote Font Section
             SettingsSelect(
@@ -736,13 +736,13 @@ class FontsFragment : Fragment() {
                     )
                 }
             )
-            FullLineSeparator(isDark)
+            DashedSeparator(isDark)
 
             SettingsTitle(
                 text = "Label Notifications",
                 fontSize = titleFontSize
             )
-            FullLineSeparator(isDark)
+            DashedSeparator(isDark)
             SettingsSelect(
                 title = "Label Notifications Font",
                 option = if (labelnotificationsFontState == Constants.FontFamily.Custom)
@@ -787,13 +787,13 @@ class FontsFragment : Fragment() {
                     )
                 }
             )
-            FullLineSeparator(isDark)
+            DashedSeparator(isDark)
 
             SettingsTitle(
                 text = "Notifications Window",
                 fontSize = titleFontSize
             )
-            FullLineSeparator(isDark)
+            DashedSeparator(isDark)
             SettingsSelect(
                 title = "Window Title",
                 option = notificationsTitle,
@@ -907,7 +907,7 @@ class FontsFragment : Fragment() {
                     )
                 }
             )
-            FullLineSeparator(isDark)
+            DashedSeparator(isDark)
             Spacer(modifier = Modifier.height(24.dp))
         }
     }
