@@ -360,36 +360,28 @@ class AppDrawerFragment : Fragment() {
             appDrawerPrefListener?.let { shared.registerOnSharedPreferenceChangeListener(it) }
         } catch (_: Exception) {}
 
-    // Use a LayoutManager that disables vertical scrolling so a "page"
-    // can't be scrolled internally when font sizes or item heights grow.
-    binding.recyclerView.layoutManager = object : LinearLayoutManager(requireContext()) {
-        override fun canScrollVertically(): Boolean = false
+    // Setup RecyclerView for paging (disable scrolling and animations)
+    binding.recyclerView.apply {
+        layoutManager = object : LinearLayoutManager(requireContext()) {
+            override fun canScrollVertically() = false
+        }
+        adapter = appAdapter
+        itemAnimator = null
+        visibility = View.INVISIBLE
+        isNestedScrollingEnabled = false
+        overScrollMode = View.OVER_SCROLL_NEVER
+        layoutAnimation = null
     }
-    binding.recyclerView.adapter = appAdapter
-    // Disable RecyclerView item animator to prevent DiffUtil from animating
-    // item moves/changes — we prefer instant page swaps for the drawer.
-    binding.recyclerView.itemAnimator = null
-    // Keep the RecyclerView invisible until the first paged list is computed
-    // to avoid a flash where all apps appear then split into pages.
-    binding.recyclerView.visibility = View.INVISIBLE
-    // Disable all scrolling and animations
-    binding.recyclerView.isNestedScrollingEnabled = false
-    binding.recyclerView.overScrollMode = View.OVER_SCROLL_NEVER
-    binding.recyclerView.layoutAnimation = null
-    // touchArea is a visual overlay used for swipe gestures and page UI.
-    // We'll let it sit on top (bringToFront) but implement an explicit
-    // onTouch handler that only consumes vertical flings (paging). All
-    // other touch events (taps, long-press) are forwarded to the
-    // RecyclerView so item clicks and context menus work as expected.
-    binding.touchArea.bringToFront()
-    binding.touchArea.isClickable = true
-    binding.touchArea.isFocusable = false
 
-    // Create a small gesture detector used only to detect vertical flings
-    // for page navigation. It sets a flag when a fling is detected and
-    // performs the page change immediately.
+    // Setup touch overlay for fling gestures
+    binding.touchArea.apply {
+        bringToFront()
+        isClickable = true
+        isFocusable = false
+    }
+
+    // Gesture detector for vertical/horizontal flings
     val density = requireContext().resources.displayMetrics.density
-    // Lowered thresholds so vertical swipes are easier to trigger.
     val flingThreshold = (48 * density)
     val flingVelocity = 600
 
@@ -399,19 +391,20 @@ class AppDrawerFragment : Fragment() {
         override fun onFling(e1: MotionEvent?, e2: MotionEvent, velocityX: Float, velocityY: Float): Boolean {
             val diffY = e2.y - (e1?.y ?: e2.y)
             val diffX = e2.x - (e1?.x ?: e2.x)
-            // Only treat horizontal fling as back when the gesture STARTS near the left or right edge of the screen
-            val startX = e1?.x ?: e2.x
-            val screenWidth = resources.displayMetrics.widthPixels
-            val edgeThresholdPx = (48 * density) // 48dp edge region
+            
+            // Horizontal fling from edge = back navigation
             if (kotlin.math.abs(diffX) > flingThreshold && kotlin.math.abs(velocityX) > flingVelocity) {
+                val startX = e1?.x ?: e2.x
+                val screenWidth = resources.displayMetrics.widthPixels
+                val edgeThresholdPx = (48 * density)
                 if (startX <= edgeThresholdPx || startX >= (screenWidth - edgeThresholdPx)) {
-                    try {
-                        findNavController().popBackStack()
-                    } catch (_: Exception) {}
+                    try { findNavController().popBackStack() } catch (_: Exception) {}
                     vibratePaging()
                     return true
                 }
             }
+            
+            // Vertical fling = page navigation
             if (kotlin.math.abs(diffY) > flingThreshold && kotlin.math.abs(velocityY) > flingVelocity) {
                 flingDetected.set(true)
                 if (diffY < 0) {
@@ -421,30 +414,20 @@ class AppDrawerFragment : Fragment() {
                 }
                 updatePagedList(fullAppsList, adapter)
                 updatePageIndicator()
-                // Provide haptic feedback when the page changes (user-configurable)
                 vibratePaging()
-                // Clear RecyclerView's touch state so the next tap registers
-                // immediately (sends an ACTION_CANCEL with coordinates
-                // translated into RecyclerView's local space).
+                
+                // Clear RecyclerView touch state for next tap
                 try {
                     val rv = binding.recyclerView
                     val rvLoc = IntArray(2)
                     rv.getLocationOnScreen(rvLoc)
                     val rawX = if (e2.rawX.isNaN()) e2.x else e2.rawX
                     val rawY = if (e2.rawY.isNaN()) e2.y else e2.rawY
-                    val cancel = MotionEvent.obtain(
-                        e2.downTime,
-                        e2.eventTime,
-                        MotionEvent.ACTION_CANCEL,
-                        rawX - rvLoc[0],
-                        rawY - rvLoc[1],
-                        0
-                    )
+                    val cancel = MotionEvent.obtain(e2.downTime, e2.eventTime, MotionEvent.ACTION_CANCEL, rawX - rvLoc[0], rawY - rvLoc[1], 0)
                     rv.dispatchTouchEvent(cancel)
                     cancel.recycle()
                 } catch (_: Exception) {}
-
-                // Reset the fling flag so further taps are forwarded normally
+                
                 flingDetected.set(false)
                 return true
             }
