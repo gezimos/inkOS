@@ -77,6 +77,11 @@ class AppDrawerFragment : Fragment() {
     private val uninstallLauncher =
         registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) { result ->
             if (pendingUninstallPackage != null) {
+                // Clear cached measurements to force re-calculation after uninstall
+                lastRecyclerHeight = 0
+                lastAppTextSize = -1
+                lastAppTextPadding = -1
+                cachedPages = emptyList()
                 viewModel.refreshAppListAfterUninstall(includeHiddenApps = false)
                 pendingUninstallPackage = null
             }
@@ -656,13 +661,18 @@ class AppDrawerFragment : Fragment() {
     // configured to ignore diacritics and case differences.
     fullAppsList = apps.sorted()
     
+    // Clear cached pages when the full list changes to force recalculation
+    cachedPages = emptyList()
+    
     // Reset selection to the first item when app list changes
     selectedItemIndex = 0
     // Use a local reference to binding to reduce nullable access inside lambdas
     val b = _binding ?: return
+    // Use double post() to ensure RecyclerView has completed layout
+    // before measuring - this is critical after text changes (rename)
     b.recyclerView.post {
+        b.recyclerView.post {
             val recyclerHeight = binding.recyclerView.height
-            val margin = resources.getDimensionPixelSize(R.dimen.app_drawer_vertical_padding)
 
             // Read prefs-derived visual values that affect item height (app-drawer specific)
             val prefs = Prefs(requireContext())
@@ -696,8 +706,12 @@ class AppDrawerFragment : Fragment() {
                 lastAppTextPadding = appTextPadding
                 lastRecyclerHeight = recyclerHeight
 
+                // RecyclerView is constrained between guidelines (5%-95% of screen),
+                // so its full height is available. Add small buffer (1% of height) to ensure
+                // last item doesn't get clipped at bottom due to rounding or padding differences.
+                val safeHeight = (recyclerHeight * 0.99).toInt()
                 appsPerPage = if (itemHeight > 0) {
-                    ((recyclerHeight - 2 * margin) / itemHeight).coerceAtLeast(1)
+                    (safeHeight / itemHeight).coerceAtLeast(1)
                 } else {
                     8 // fallback
                 }
@@ -711,7 +725,10 @@ class AppDrawerFragment : Fragment() {
             }
 
             totalPages = ((fullAppsList.size + appsPerPage - 1) / appsPerPage).coerceAtLeast(1)
-            currentPage = 0
+            // Keep current page if possible, otherwise move to last valid page
+            if (currentPage >= totalPages) {
+                currentPage = (totalPages - 1).coerceAtLeast(0)
+            }
             // Force update the displayed page after a full list change
             lastDisplayedPage = -1
 
@@ -736,6 +753,7 @@ class AppDrawerFragment : Fragment() {
                 }
             }
         }
+        }
     }
 
     private fun updatePagedList(apps: List<AppListItem>, appAdapter: AppDrawerAdapter) {
@@ -746,16 +764,10 @@ class AppDrawerFragment : Fragment() {
             val endIdx = (startIdx + appsPerPage).coerceAtMost(apps.size)
             if (apps.isNotEmpty()) apps.subList(startIdx, endIdx) else emptyList()
         }
-        // Avoid reapplying the same page repeatedly
-        if (currentPage == lastDisplayedPage) {
-            // Still ensure list-empty hint/visibility are correct
-            binding.listEmptyHint.visibility = if (pageApps.isEmpty()) View.VISIBLE else View.GONE
-            if (binding.recyclerView.visibility != View.VISIBLE) binding.recyclerView.visibility = View.VISIBLE
-            return
-        }
 
-    // Use DiffUtil-backed update to minimize UI work
-    appAdapter.setPageAppsWithDiff(pageApps)
+        // Always update the adapter because the page content may have changed
+        // (e.g., after rename, hide/show, or uninstall) even if we're on the same page number
+        appAdapter.setPageAppsWithDiff(pageApps)
         lastDisplayedPage = currentPage
 
         // Reveal the RecyclerView once the first page has been applied.
@@ -1017,14 +1029,24 @@ class AppDrawerFragment : Fragment() {
         }
 
     private fun appRenameListener(): (String, String) -> Unit = { packageName, newName ->
+        // Clear cached measurements to force re-calculation after rename
+        lastRecyclerHeight = 0
+        lastAppTextSize = -1
+        lastAppTextPadding = -1
+        cachedPages = emptyList()
         viewModel.renameApp(packageName, newName, flag)
-        @Suppress("NotifyDataSetChanged")
-        adapter.notifyDataSetChanged()
+        // Do NOT call adapter.notifyDataSetChanged() here - let the LiveData observer
+        // handle the refresh after the ViewModel updates the app list with correct data
     }
 
 
     private fun appShowHideListener(): (flag: AppDrawerFlag, appListItem: AppListItem) -> Unit =
         { flag, appModel ->
+            // Clear cached measurements to force re-calculation after hide/show
+            lastRecyclerHeight = 0
+            lastAppTextSize = -1
+            lastAppTextPadding = -1
+            cachedPages = emptyList()
             viewModel.hideOrShowApp(flag, appModel)
             if (flag == AppDrawerFlag.HiddenApps && Prefs(requireContext()).hiddenApps.isEmpty()) {
                 findNavController().popBackStack()

@@ -57,7 +57,7 @@
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:background="?attr/primaryShadeDarkColor"
-        android:clipChildren="false"
+        android:clipChildren="true"
         android:clipToPadding="false"
         android:paddingHorizontal="20dp"
         android:overScrollMode="never"
