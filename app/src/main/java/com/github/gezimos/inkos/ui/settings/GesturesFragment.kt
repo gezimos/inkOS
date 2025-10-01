@@ -337,12 +337,13 @@ class GesturesFragment : Fragment() {
                 requireContext()
             )
         }.toTypedArray()
-    val appLabelDoubleTapAction = getOpenAppLabel(prefs.appDoubleTap.activityLabel)
-    val appLabelClickClockAction = getOpenAppLabel(prefs.appClickClock.activityLabel)
-    val appLabelClickDateAction = getOpenAppLabel(prefs.appClickDate.activityLabel)
-    val appLabelQuoteAction = getOpenAppLabel(prefs.appQuoteWidget.activityLabel)
-    val appLabelSwipeLeftAction = getOpenAppLabel(prefs.appSwipeLeft.activityLabel)
-    val appLabelSwipeRightAction = getOpenAppLabel(prefs.appSwipeRight.activityLabel)
+        val appLabelDoubleTapAction = getOpenAppLabel(prefs.appDoubleTap.activityLabel)
+        val appLabelClickClockAction = getOpenAppLabel(prefs.appClickClock.activityLabel)
+        val appLabelClickDateAction = getOpenAppLabel(prefs.appClickDate.activityLabel)
+        val appLabelQuoteAction = getOpenAppLabel(prefs.appQuoteWidget.activityLabel)
+        val appLabelSwipeLeftAction = getOpenAppLabel(prefs.appSwipeLeft.activityLabel)
+        val appLabelSwipeRightAction = getOpenAppLabel(prefs.appSwipeRight.activityLabel)
+
         Column(modifier = Modifier.fillMaxSize()) {
             DashedSeparator(isDark)
             SettingsTitle(
