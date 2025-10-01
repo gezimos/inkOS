@@ -107,7 +107,7 @@ object SettingsComposable {
                 modifier = Modifier.weight(1f),
                 contentAlignment = Alignment.Center
             ) {
-                SettingsTitle(
+                SettingsHeaderTitle(
                     text = title,
                     fontSize = titleFontSize,
                 )
@@ -235,6 +235,34 @@ object SettingsComposable {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
+                text = "• ${text.uppercase()}",
+                style = SettingsTheme.typography.header,
+                fontSize = effectiveFontSize,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(start = SettingsTheme.color.horizontalPadding)
+            )
+        }
+    }
+
+    @Composable
+    fun SettingsHeaderTitle(
+        text: String,
+        modifier: Modifier = Modifier,
+        fontSize: TextUnit = TextUnit.Unspecified
+    ) {
+        // Same height as SettingsSwitch/Select but without the bullet prefix
+        val effectiveFontSize = if (fontSize.isSpecified) {
+            (fontSize.value * 0.8).sp
+        } else {
+            14.sp // fallback to a small size
+        }
+        Row(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
                 text = text.uppercase(),
                 style = SettingsTheme.typography.header,
                 fontSize = effectiveFontSize,
@@ -243,6 +271,8 @@ object SettingsComposable {
             )
         }
     }
+
+    
 
     @Composable
     fun SettingsItem(
