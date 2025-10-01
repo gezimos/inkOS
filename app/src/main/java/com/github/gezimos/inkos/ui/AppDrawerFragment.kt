@@ -525,11 +525,6 @@ class AppDrawerFragment : Fragment() {
             val rvLocation = IntArray(2)
             rv.getLocationOnScreen(rvLocation)
 
-            val rawX = event.rawX
-            val rawY = event.rawY
-            val translatedX = rawX - rvLocation[0]
-            val translatedY = rawY - rvLocation[1]
-
             var handledByRecycler = false
             try {
                 val forwarded = MotionEvent.obtain(event)
@@ -544,12 +539,12 @@ class AppDrawerFragment : Fragment() {
                 )
                 handledByRecycler = try {
                     rv.dispatchTouchEvent(forwarded)
-                } catch (iae: IllegalArgumentException) {
+                } catch (_: IllegalArgumentException) {
                     // Some devices may still be unhappy; fall back below
                     false
                 }
                 forwarded.recycle()
-            } catch (iae: IllegalArgumentException) {
+            } catch (_: IllegalArgumentException) {
                 // Worst-case fallback: send a simple ACTION_CANCEL to clear touch state
                 try {
                     val cancel = MotionEvent.obtain(
@@ -568,6 +563,7 @@ class AppDrawerFragment : Fragment() {
 
             // Call performClick when touch is completed
             if (event.actionMasked == MotionEvent.ACTION_UP && !handledByRecycler) {
+                @Suppress("ClickableViewAccessibility")
                 v.performClick()
             }
 
