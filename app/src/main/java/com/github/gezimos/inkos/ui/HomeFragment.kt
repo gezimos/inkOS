@@ -98,6 +98,10 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
     private var cachedTotalPages = 0
     private var cachedAppsPerPage = 0
 
+    // Cached app views to reduce iteration overhead
+    private val appViews: List<TextView>
+        get() = binding.homeAppsLayout.children.filterIsInstance<TextView>().toList()
+
     // Add a BroadcastReceiver for user present (unlock)
     private var userPresentReceiver: android.content.BroadcastReceiver? = null
 
@@ -481,6 +485,21 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
     val act = activity as? com.github.gezimos.inkos.MainActivity
     if (act?.pageNavigationHandler != null) act.pageNavigationHandler = null
     if (act?.fragmentKeyHandler != null) act.fragmentKeyHandler = null
+    }
+
+    // Batch update method to reduce iteration overhead
+    private fun updateAllAppProperties(
+        color: Int? = null,
+        font: android.graphics.Typeface? = null,
+        padding: Int? = null,
+        size: Float? = null
+    ) {
+        appViews.forEach { view ->
+            color?.let { view.setTextColor(it); view.setHintTextColor(it) }
+            font?.let { view.typeface = it }
+            padding?.let { view.setPadding(0, it, 0, it) }
+            size?.let { view.textSize = it }
+        }
     }
 
     private fun refreshCachedCalculations() {
@@ -909,12 +928,7 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
                 // Optionally, trigger theme change if needed
             }
             appColor.observe(viewLifecycleOwner) { color ->
-                binding.homeAppsLayout.children.forEach { view ->
-                    if (view is TextView) {
-                        view.setTextColor(color)
-                        view.setHintTextColor(color)
-                    }
-                }
+                updateAllAppProperties(color = color)
                 // Refresh page indicators to apply new color
                 updateAppsVisibility(prefs.homePagesNum)
             }
@@ -955,11 +969,7 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
                 binding.quote.text = text
             }
             appsFont.observe(viewLifecycleOwner) { font ->
-                binding.homeAppsLayout.children.forEach { view ->
-                    if (view is TextView) {
-                        view.typeface = cachedAppFont
-                    }
-                }
+                updateAllAppProperties(font = cachedAppFont)
             }
             clockFont.observe(viewLifecycleOwner) { font ->
                 binding.clock.typeface = cachedClockFont
@@ -969,18 +979,10 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
                 binding.quote.typeface = cachedQuoteFont
             }
             textPaddingSize.observe(viewLifecycleOwner) { padding ->
-                binding.homeAppsLayout.children.forEach { view ->
-                    if (view is TextView) {
-                        view.setPadding(0, padding, 0, padding)
-                    }
-                }
+                updateAllAppProperties(padding = padding)
             }
             appSize.observe(viewLifecycleOwner) { size ->
-                binding.homeAppsLayout.children.forEach { view ->
-                    if (view is TextView) {
-                        view.textSize = size.toFloat()
-                    }
-                }
+                updateAllAppProperties(size = size.toFloat())
             }
             clockSize.observe(viewLifecycleOwner) { size ->
                 binding.clock.textSize = size.toFloat()
