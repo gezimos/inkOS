@@ -85,7 +85,7 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
     private lateinit var viewModel: MainViewModel
     private lateinit var deviceManager: DevicePolicyManager
     private lateinit var batteryReceiver: BatteryReceiver
-    private lateinit var biometricHelper: BiometricHelper
+    private val biometricHelper by lazy { BiometricHelper(this) }
     private lateinit var vibrator: Vibrator
 
     private var _binding: FragmentHomeBinding? = null
@@ -100,6 +100,20 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
 
     // Add a BroadcastReceiver for user present (unlock)
     private var userPresentReceiver: android.content.BroadcastReceiver? = null
+
+    // Lazy-loaded font cache to reduce font loading overhead
+    private val cachedAppFont by lazy { 
+        prefs.getFontForContext("apps").getFont(requireContext(), prefs.getCustomFontPathForContext("apps"))
+    }
+    private val cachedClockFont by lazy { 
+        prefs.getFontForContext("clock").getFont(requireContext(), prefs.getCustomFontPathForContext("clock"))
+    }
+    private val cachedDateFont by lazy { 
+        prefs.getFontForContext("date").getFont(requireContext(), prefs.getCustomFontPathForContext("date"))
+    }
+    private val cachedQuoteFont by lazy { 
+        prefs.getFontForContext("quote").getFont(requireContext(), prefs.getCustomFontPathForContext("quote"))
+    }
 
     override fun onDestroyView() {
         super.onDestroyView()
@@ -122,7 +136,6 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        biometricHelper = BiometricHelper(this)
 
         // Always hide keyboard and clear focus when entering HomeFragment
         hideKeyboard()
@@ -139,16 +152,17 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
         @Suppress("DEPRECATION")
         vibrator = context?.getSystemService(VIBRATOR_SERVICE) as Vibrator
 
-        // Validate background image URI permissions before attempting to load
-        BackgroundImageHelper.validateBackgroundImageUri(requireContext(), prefs)
-        setupBackgroundImage()
+        // Defer heavy operations to after initial render
+        view.post {
+            setupBackgroundImageLazy()
+        }
 
         initObservers()
         initClickListeners()
         initSwipeTouchListener()
 
-    // Apply Y-offset from preferences to position home apps container
-    applyHomeAppsYOffset()
+        // Apply Y-offset from preferences to position home apps container
+        applyHomeAppsYOffset()
 
         // Initialize date display
         updateDateDisplay()
@@ -643,20 +657,17 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
             clock.setTextColor(prefs.clockColor)
             binding.quote.setTextColor(prefs.quoteColor)
             binding.quote.text = prefs.quoteText
-            binding.quote.typeface = prefs.getFontForContext("quote")
-                .getFont(requireContext(), prefs.getCustomFontPathForContext("quote"))
+            binding.quote.typeface = cachedQuoteFont
             root.findViewById<TextView>(R.id.date)?.setTextColor(prefs.dateColor)
             applyAudioWidgetColor(prefs.audioWidgetColor)
 
             homeAppsLayout.children.forEach { view ->
                 if (view is TextView) {
                     view.setTextColor(prefs.appColor)
-                    view.typeface = prefs.getFontForContext("apps")
-                        .getFont(requireContext(), prefs.getCustomFontPathForContext("apps"))
+                    view.typeface = cachedAppFont
                 }
             }
-            clock.typeface = prefs.getFontForContext("clock")
-                .getFont(requireContext(), prefs.getCustomFontPathForContext("clock"))
+            clock.typeface = cachedClockFont
 
 
         }
@@ -673,8 +684,7 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
                     prefs.smallCapsApps -> displayText.lowercase()
                     else -> displayText
                 }
-                view.typeface = prefs.getFontForContext("apps")
-                    .getFont(requireContext(), prefs.getCustomFontPathForContext("apps"))
+                view.typeface = cachedAppFont
             }
         }
     }
@@ -947,19 +957,16 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
             appsFont.observe(viewLifecycleOwner) { font ->
                 binding.homeAppsLayout.children.forEach { view ->
                     if (view is TextView) {
-                        view.typeface = prefs.getFontForContext("apps")
-                            .getFont(requireContext(), prefs.getCustomFontPathForContext("apps"))
+                        view.typeface = cachedAppFont
                     }
                 }
             }
             clockFont.observe(viewLifecycleOwner) { font ->
-                binding.clock.typeface = prefs.getFontForContext("clock")
-                    .getFont(requireContext(), prefs.getCustomFontPathForContext("clock"))
+                binding.clock.typeface = cachedClockFont
             }
             // batteryFont observer removed
             quoteFont.distinctUntilChanged().observe(viewLifecycleOwner) { font ->
-                binding.quote.typeface = prefs.getFontForContext("quote")
-                    .getFont(requireContext(), prefs.getCustomFontPathForContext("quote"))
+                binding.quote.typeface = cachedQuoteFont
             }
             textPaddingSize.observe(viewLifecycleOwner) { padding ->
                 binding.homeAppsLayout.children.forEach { view ->
@@ -1330,8 +1337,7 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
                     setTextColor(prefs.appColor)
 
                     // Apply apps font
-                    typeface = prefs.getFontForContext("apps")
-                        .getFont(context, prefs.getCustomFontPathForContext("apps"))
+                    typeface = cachedAppFont
 
                     tag = appModel.activityPackage // Assign unique tag
                 }
@@ -1544,7 +1550,13 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
     }
 
     fun setupBackgroundImage() {
-    BackgroundImageHelper.setupBackgroundImage(requireContext(), prefs, viewModel, binding.root as ViewGroup)
+        BackgroundImageHelper.setupBackgroundImage(requireContext(), prefs, viewModel, binding.root as ViewGroup)
+    }
+
+    // Lazy background image setup to defer heavy operations
+    private fun setupBackgroundImageLazy() {
+        BackgroundImageHelper.validateBackgroundImageUri(requireContext(), prefs)
+        setupBackgroundImage()
     }
 
     // Apply the Home Apps Y-offset preference by adjusting top padding of the main container.
@@ -1579,64 +1591,66 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
         val showDate = prefs.showDate
         val clockView = binding.root.findViewById<TextView>(R.id.clock)
         val dateView = binding.root.findViewById<TextView>(R.id.date)
+        
         // Redundant safeguard: ensure date click listener is set even if view is recreated
         dateView?.setOnClickListener(this@HomeFragment)
-        val density = requireContext().resources.displayMetrics.density
-        val clockLayoutParams = clockView.layoutParams as? LinearLayout.LayoutParams
-        val dateLayoutParams = dateView.layoutParams as? LinearLayout.LayoutParams
-
+        
         // Update bottom widget margin for bottom widgets wrapper
         applyBottomWidgetMargin()
-
-        if (showClock && showDate) {
-            clockView.visibility = View.VISIBLE
-            dateView.visibility = View.VISIBLE
-
-            // Apply font and size from prefs
-            dateView.textSize = prefs.dateSize.toFloat()
-            dateView.typeface = prefs.getFontForContext("date")
-                .getFont(requireContext(), prefs.getCustomFontPathForContext("date"))
-            // Margin: only clock gets top margin, date gets 0
-            if (clockLayoutParams != null) {
-                clockLayoutParams.topMargin = (prefs.topWidgetMargin * density).toInt()
-                clockView.layoutParams = clockLayoutParams
+        
+        // Use lookup for the 4 visibility states
+        when {
+            showClock && showDate -> {
+                setViewsVisibility(clockView to View.VISIBLE, dateView to View.VISIBLE)
+                configureDateView(dateView)
+                setTopMargin(clockView, prefs.topWidgetMargin)
+                setTopMargin(dateView, 0)
+                triggerBatteryUpdate()
             }
-            if (dateLayoutParams != null) {
-                dateLayoutParams.topMargin = 0
-                dateView.layoutParams = dateLayoutParams
+            showClock -> {
+                setViewsVisibility(clockView to View.VISIBLE, dateView to View.GONE)
+                setTopMargin(clockView, prefs.topWidgetMargin)
             }
-
-            // Trigger battery receiver to update date with current battery level
-            val batteryIntent =
-                requireContext().registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
-            batteryIntent?.let { batteryReceiver.onReceive(requireContext(), it) }
-        } else if (showClock) {
-            clockView.visibility = View.VISIBLE
-            dateView.visibility = View.GONE
-            if (clockLayoutParams != null) {
-                clockLayoutParams.topMargin = (prefs.topWidgetMargin * density).toInt()
-                clockView.layoutParams = clockLayoutParams
+            showDate -> {
+                setViewsVisibility(clockView to View.GONE, dateView to View.VISIBLE)
+                configureDateView(dateView)
+                setTopMargin(dateView, prefs.topWidgetMargin)
+                triggerBatteryUpdate()
             }
-        } else if (showDate) {
-            clockView.visibility = View.GONE
-            dateView.visibility = View.VISIBLE
-
-            dateView.textSize = prefs.dateSize.toFloat()
-            dateView.typeface = prefs.getFontForContext("date")
-                .getFont(requireContext(), prefs.getCustomFontPathForContext("date"))
-            if (dateLayoutParams != null) {
-                dateLayoutParams.topMargin = (prefs.topWidgetMargin * density).toInt()
-                dateView.layoutParams = dateLayoutParams
+            else -> {
+                setViewsVisibility(clockView to View.GONE, dateView to View.GONE)
             }
-
-            // Trigger battery receiver to update date with current battery level
-            val batteryIntent =
-                requireContext().registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
-            batteryIntent?.let { batteryReceiver.onReceive(requireContext(), it) }
-        } else {
-            clockView.visibility = View.GONE
-            dateView.visibility = View.GONE
         }
+    }
+    
+    // Helper functions for date display optimization
+    private fun setViewsVisibility(vararg views: Pair<TextView?, Int>) {
+        views.forEach { (view, visibility) ->
+            view?.visibility = visibility
+        }
+    }
+    
+    private fun configureDateView(dateView: TextView?) {
+        dateView?.apply {
+            textSize = prefs.dateSize.toFloat()
+            typeface = cachedDateFont
+        }
+    }
+    
+    private fun setTopMargin(view: TextView?, marginDp: Int) {
+        view?.let {
+            val layoutParams = it.layoutParams as? LinearLayout.LayoutParams
+            layoutParams?.let { params ->
+                val density = requireContext().resources.displayMetrics.density
+                params.topMargin = (marginDp * density).toInt()
+                it.layoutParams = params
+            }
+        }
+    }
+    
+    private fun triggerBatteryUpdate() {
+        val batteryIntent = requireContext().registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        batteryIntent?.let { batteryReceiver.onReceive(requireContext(), it) }
     }
 
     private fun updateMediaPlayerWidget(mediaPlayer: AudioWidgetHelper.MediaPlayerInfo?) {
