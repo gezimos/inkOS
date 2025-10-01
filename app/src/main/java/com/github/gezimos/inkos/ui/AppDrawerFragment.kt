@@ -46,6 +46,7 @@ import com.github.gezimos.inkos.helper.getHexForOpacity
 import com.github.gezimos.inkos.helper.openAppInfo
 import com.github.gezimos.inkos.helper.KeyMapperHelper
 import com.github.gezimos.inkos.helper.SystemShortcutHelper
+import kotlin.math.ceil
 
 class AppDrawerFragment : Fragment() {
 
@@ -272,52 +273,52 @@ class AppDrawerFragment : Fragment() {
                 appDeleteListener(),
                 this.appRenameListener(),
                 appShowHideListener(),
-                appInfoListener(),
-                { keyCode, adapterPos ->
-                    val absolutePos = currentPage * appsPerPage + adapterPos
-                    when (keyCode) {
-                        KeyEvent.KEYCODE_DPAD_DOWN -> {
-                            val pageStart = currentPage * appsPerPage
-                            val pageEnd = (pageStart + appsPerPage).coerceAtMost(fullAppsList.size) - 1
-                            if (absolutePos >= pageEnd) {
-                                if (currentPage < totalPages - 1) {
-                                    currentPage++
-                                    updatePagedList(fullAppsList, adapter)
-                                    updatePageIndicator()
-                                    vibratePaging()
-                                    binding.recyclerView.post {
-                                        focusAdapterPosition(currentPage * appsPerPage)
-                                    }
-                                    return@AppDrawerAdapter true
+                appInfoListener()
+            ) { keyCode, adapterPos ->
+                val absolutePos = currentPage * appsPerPage + adapterPos
+                when (keyCode) {
+                    KeyEvent.KEYCODE_DPAD_DOWN -> {
+                        val pageStart = currentPage * appsPerPage
+                        val pageEnd = (pageStart + appsPerPage).coerceAtMost(fullAppsList.size) - 1
+                        if (absolutePos >= pageEnd) {
+                            if (currentPage < totalPages - 1) {
+                                currentPage++
+                                updatePagedList(fullAppsList, adapter)
+                                updatePageIndicator()
+                                vibratePaging()
+                                binding.recyclerView.post {
+                                    focusAdapterPosition(currentPage * appsPerPage)
                                 }
+                                return@AppDrawerAdapter true
                             }
-                            false
                         }
-
-                        KeyEvent.KEYCODE_DPAD_UP -> {
-                            val pageStart = currentPage * appsPerPage
-                            if (absolutePos == pageStart) {
-                                if (currentPage > 0) {
-                                    currentPage--
-                                    updatePagedList(fullAppsList, adapter)
-                                    updatePageIndicator()
-                                    vibratePaging()
-                                    // focus last item of new page after layout applied
-                                    binding.recyclerView.post {
-                                        val newPageStart = currentPage * appsPerPage
-                                        val newPageEnd = (newPageStart + appsPerPage).coerceAtMost(fullAppsList.size) - 1
-                                        focusAdapterPosition(newPageEnd)
-                                    }
-                                    return@AppDrawerAdapter true
-                                }
-                            }
-                            false
-                        }
-
-                        else -> false
+                        false
                     }
+
+                    KeyEvent.KEYCODE_DPAD_UP -> {
+                        val pageStart = currentPage * appsPerPage
+                        if (absolutePos == pageStart) {
+                            if (currentPage > 0) {
+                                currentPage--
+                                updatePagedList(fullAppsList, adapter)
+                                updatePageIndicator()
+                                vibratePaging()
+                                // focus last item of new page after layout applied
+                                binding.recyclerView.post {
+                                    val newPageStart = currentPage * appsPerPage
+                                    val newPageEnd =
+                                        (newPageStart + appsPerPage).coerceAtMost(fullAppsList.size) - 1
+                                    focusAdapterPosition(newPageEnd)
+                                }
+                                return@AppDrawerAdapter true
+                            }
+                        }
+                        false
+                    }
+
+                    else -> false
                 }
-            )
+            }
         }
         if (appAdapter != null) {
             adapter = appAdapter
@@ -435,6 +436,7 @@ class AppDrawerFragment : Fragment() {
         }
     })
 
+    @Suppress("ClickableViewAccessibility") // performClick() is called in forwardTouchToRecyclerView()
     binding.touchArea.setOnTouchListener { v, event ->
         overlayDetector.onTouchEvent(event)
 
@@ -493,14 +495,6 @@ class AppDrawerFragment : Fragment() {
                 populateAppList(appList, appAdapter)
             }
         })
-    }
-
-    override fun onStart() {
-        super.onStart()
-    }
-
-    override fun onStop() {
-        super.onStop()
     }
 
     private var fullAppsList: List<AppListItem> = emptyList()
@@ -594,7 +588,7 @@ class AppDrawerFragment : Fragment() {
                     val scaled = resources.displayMetrics.scaledDensity
                     textPaint.textSize = appTextSize * scaled
                     val fm = textPaint.fontMetrics
-                    val textHeight = (Math.ceil((fm.descent - fm.ascent).toDouble()).toInt())
+                    val textHeight = (ceil((fm.descent - fm.ascent).toDouble()).toInt())
                     val total = textHeight + (2 * appTextPadding)
                     if (total > 0) itemHeight = total
                 } catch (_: Exception) {
