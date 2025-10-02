@@ -124,6 +124,12 @@ object SystemShortcutHelper {
             targetActivity = "com.android.systemui.settings.brightness.BrightnessDialog",
             intentType = IntentType.SPECIAL
         ),
+        SystemShortcut(
+            packageId = "com.inkos.system.privacy",
+            displayName = "Privacy",
+            targetPackage = "com.android.settings",
+            targetActivity = "com.android.settings.Settings\$PrivacyDashboardActivity"
+        ),
     )
 
     /**
