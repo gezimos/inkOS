@@ -112,7 +112,7 @@ class Prefs(val context: Context) {
     var einkRefreshDelay: Int
         get() = prefs.getInt(
             EINK_REFRESH_DELAY,
-            com.github.gezimos.inkos.data.Constants.DEFAULT_EINK_REFRESH_DELAY
+            Constants.DEFAULT_EINK_REFRESH_DELAY
         )
         set(value) = prefs.edit { putInt(EINK_REFRESH_DELAY, value) }
     var appClickDate: AppListItem
