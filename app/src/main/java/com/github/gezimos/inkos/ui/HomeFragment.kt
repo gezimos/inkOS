@@ -114,15 +114,6 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
     private val cachedAppFont by lazy { 
         prefs.getFontForContext("apps").getFont(requireContext(), prefs.getCustomFontPathForContext("apps"))
     }
-    private val cachedClockFont by lazy { 
-        prefs.getFontForContext("clock").getFont(requireContext(), prefs.getCustomFontPathForContext("clock"))
-    }
-    private val cachedDateFont by lazy { 
-        prefs.getFontForContext("date").getFont(requireContext(), prefs.getCustomFontPathForContext("date"))
-    }
-    private val cachedQuoteFont by lazy { 
-        prefs.getFontForContext("quote").getFont(requireContext(), prefs.getCustomFontPathForContext("quote"))
-    }
 
     override fun onDestroyView() {
         super.onDestroyView()
@@ -681,7 +672,8 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
             clock.setTextColor(prefs.clockColor)
             binding.quote.setTextColor(prefs.quoteColor)
             binding.quote.text = prefs.quoteText
-            binding.quote.typeface = cachedQuoteFont
+            val quoteTypeface = prefs.getFontForContext("quote").getFont(requireContext(), prefs.getCustomFontPathForContext("quote"))
+            binding.quote.typeface = quoteTypeface
             cachedDateView?.setTextColor(prefs.dateColor)
             applyAudioWidgetColor(prefs.audioWidgetColor)
 
@@ -691,7 +683,8 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
                     view.typeface = cachedAppFont
                 }
             }
-            clock.typeface = cachedClockFont
+            val clockTypeface = prefs.getFontForContext("clock").getFont(requireContext(), prefs.getCustomFontPathForContext("clock"))
+            clock.typeface = clockTypeface
 
 
         }
@@ -976,11 +969,13 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
                 updateAllAppProperties(font = cachedAppFont)
             }
             clockFont.observe(viewLifecycleOwner) { font ->
-                binding.clock.typeface = cachedClockFont
+                val typeface = prefs.getFontForContext("clock").getFont(requireContext(), prefs.getCustomFontPathForContext("clock"))
+                binding.clock.typeface = typeface
             }
             // batteryFont observer removed
             quoteFont.distinctUntilChanged().observe(viewLifecycleOwner) { font ->
-                binding.quote.typeface = cachedQuoteFont
+                val typeface = prefs.getFontForContext("quote").getFont(requireContext(), prefs.getCustomFontPathForContext("quote"))
+                binding.quote.typeface = typeface
             }
             textPaddingSize.observe(viewLifecycleOwner) { padding ->
                 updateAllAppProperties(padding = padding)
@@ -1637,7 +1632,8 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
     private fun configureDateView(dateView: TextView?) {
         dateView?.apply {
             textSize = prefs.dateSize.toFloat()
-            typeface = cachedDateFont
+            val typeface = prefs.getFontForContext("date").getFont(requireContext(), prefs.getCustomFontPathForContext("date"))
+            this.typeface = typeface
         }
     }
     
