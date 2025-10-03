@@ -223,8 +223,6 @@ class FontsFragment : Fragment() {
         var appSize by remember { mutableStateOf(prefs.appSize) }
         var clockFontState by remember { mutableStateOf(prefs.clockFont) }
         var clockSize by remember { mutableStateOf(prefs.clockSize) }
-        var batteryFontState by remember { mutableStateOf(prefs.batteryFont) }
-        var batterySize by remember { mutableStateOf(prefs.batterySize) }
         // Home App Type State
         var appNameMode by remember {
             mutableStateOf(
@@ -257,7 +255,6 @@ class FontsFragment : Fragment() {
                 val font = universalFontState
                 appsFontState = font
                 clockFontState = font
-                batteryFontState = font
                 labelnotificationsFontState = font
                 notificationsFontState = font
                 notificationsTitleFontState = font
@@ -303,8 +300,6 @@ class FontsFragment : Fragment() {
                             prefs.removeCustomFontPath("date")
                             prefs.quoteFont = Constants.FontFamily.System
                             prefs.removeCustomFontPath("quote")
-                            prefs.batteryFont = Constants.FontFamily.System
-                            prefs.removeCustomFontPath("battery")
                             prefs.lettersFont = Constants.FontFamily.System
                             prefs.removeCustomFontPath("letters")
                             prefs.lettersTitleFont = Constants.FontFamily.System
@@ -315,7 +310,6 @@ class FontsFragment : Fragment() {
                             prefs.appSize = 32
                             prefs.clockSize = 64
                             prefs.labelnotificationsTextSize = 16
-                            prefs.batterySize = 18
                             prefs.dateSize = 18
                             prefs.quoteSize = 18
                             prefs.lettersTextSize = 18
@@ -329,8 +323,6 @@ class FontsFragment : Fragment() {
                             appSize = 32
                             clockFontState = Constants.FontFamily.System
                             clockSize = 64
-                            batteryFontState = Constants.FontFamily.System
-                            batterySize = 18
                             dateFontState = Constants.FontFamily.System
                             dateSize = 18
                             quoteFontState = Constants.FontFamily.System
@@ -366,7 +358,7 @@ class FontsFragment : Fragment() {
                         prefs.lettersTitleFont = font
                         prefs.dateFont = font
                         prefs.quoteFont = font
-                        prefs.batteryFont = font
+
                         prefs.lettersFont = font
                         if (font == Constants.FontFamily.Custom && fontPath != null) {
                             val keys = listOf(
@@ -380,7 +372,6 @@ class FontsFragment : Fragment() {
                                 "lettersTitle",
                                 "date",
                                 "quote",
-                                "battery",
                                 "letters"
                             )
                             for (key in keys) prefs.setCustomFontPath(key, fontPath)
@@ -413,7 +404,6 @@ class FontsFragment : Fragment() {
                             prefs.lettersTitleFont = newFont
                             prefs.dateFont = newFont
                             prefs.quoteFont = newFont
-                            prefs.batteryFont = newFont
                             prefs.lettersFont = newFont
                             if (newFont == Constants.FontFamily.Custom && fontPath != null) {
                                 val keys = listOf(
@@ -427,7 +417,6 @@ class FontsFragment : Fragment() {
                                     "lettersTitle",
                                     "date",
                                     "quote",
-                                    "battery",
                                     "letters"
                                 )
                                 for (key in keys) prefs.setCustomFontPath(key, fontPath)
@@ -634,48 +623,8 @@ class FontsFragment : Fragment() {
             )
             DashedSeparator()
 
-            // Battery Font
-            SettingsSelect(
-                title = stringResource(R.string.battery_font),
-                option = getFontDisplayName(batteryFontState, "battery"),
-                fontSize = titleFontSize,
-                onClick = {
-                    if (!universalFontEnabledState) {
-                        showFontSelectionDialogWithCustoms(
-                            R.string.battery_font,
-                            "battery"
-                        ) { newFont, customPath ->
-                            prefs.batteryFont = newFont
-                            batteryFontState = newFont
-                            customPath?.let { prefs.setCustomFontPath("battery", it) }
-                        }
-                    }
-                },
-                fontColor = if (!universalFontEnabledState)
-                    SettingsTheme.typography.title.color
-                else Color.Gray,
-                enabled = !universalFontEnabledState
-            )
-            DashedSeparator()
-            SettingsSelect(
-                title = stringResource(R.string.battery_text_size),
-                option = batterySize.toString(),
-                fontSize = titleFontSize,
-                onClick = {
-                    dialogBuilder.showSliderDialog(
-                        context = requireContext(),
-                        title = requireContext().getString(R.string.battery_text_size),
-                        minValue = Constants.MIN_BATTERY_SIZE,
-                        maxValue = Constants.MAX_BATTERY_SIZE,
-                        currentValue = prefs.batterySize,
-                        onValueSelected = { newBatterySize ->
-                            prefs.batterySize = newBatterySize
-                            batterySize = newBatterySize
-                        }
-                    )
-                }
-            )
-            DashedSeparator()
+
+
 
             // Quote Font Section
             SettingsSelect(
@@ -1017,7 +966,6 @@ class FontsFragment : Fragment() {
                             "settings" -> prefs.fontFamily = Constants.FontFamily.System
                             "apps" -> prefs.appsFont = Constants.FontFamily.System
                             "clock" -> prefs.clockFont = Constants.FontFamily.System
-                            "battery" -> prefs.batteryFont = Constants.FontFamily.System
                             "date" -> prefs.dateFont = Constants.FontFamily.System
                             "quote" -> prefs.quoteFont = Constants.FontFamily.System
                             "notification" -> prefs.labelnotificationsFont =

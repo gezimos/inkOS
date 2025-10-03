@@ -48,8 +48,6 @@ object Constants {
     const val THEME_BACKUP_WRITE = 11
     const val THEME_BACKUP_READ = 12
 
-    const val MIN_BATTERY_SIZE = 10
-    const val MAX_BATTERY_SIZE = 40
 
     const val MIN_TEXT_PADDING = 0
     const val MAX_TEXT_PADDING = 80

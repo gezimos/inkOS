@@ -53,7 +53,7 @@ private const val CLICK_CLOCK = "CLICK_CLOCK"
 private const val DOUBLE_TAP = "DOUBLE_TAP"
 private const val APP_SIZE_TEXT = "APP_SIZE_TEXT"
 private const val CLOCK_SIZE_TEXT = "CLOCK_SIZE_TEXT"
-private const val BATTERY_SIZE_TEXT = "BATTERY_SIZE_TEXT"
+
 private const val TEXT_SIZE_SETTINGS = "TEXT_SIZE_SETTINGS"
 private const val TEXT_PADDING_SIZE = "TEXT_PADDING_SIZE"
 private const val SHOW_NOTIFICATION_BADGE = "show_notification_badge"
@@ -217,7 +217,7 @@ class Prefs(val context: Context) {
                 clockFont = font
                 statusFont = font
                 labelnotificationsFont = font
-                batteryFont = font
+
                 fontFamily = font
                 lettersFont = font
                 lettersTitleFont = font
@@ -246,7 +246,7 @@ class Prefs(val context: Context) {
                 clockFont = value
                 statusFont = value
                 labelnotificationsFont = value
-                batteryFont = value
+
                 fontFamily = value
                 lettersFont = value
                 lettersTitleFont = value
@@ -762,15 +762,7 @@ class Prefs(val context: Context) {
         }
         set(value) = prefs.edit { putString(NOTIFICATION_FONT, value.name) }
 
-    var batteryFont: Constants.FontFamily
-        get() = try {
-            Constants.FontFamily.valueOf(
-                prefs.getString(BATTERY_FONT, Constants.FontFamily.System.name)!!
-            )
-        } catch (_: Exception) {
-            Constants.FontFamily.System
-        }
-        set(value) = prefs.edit { putString(BATTERY_FONT, value.name) }
+
 
     var lettersFont: Constants.FontFamily
         get() = try {
@@ -902,15 +894,7 @@ class Prefs(val context: Context) {
         }
         set(value) = prefs.edit { putInt(CLOCK_SIZE_TEXT, value) }
 
-    var batterySize: Int
-        get() {
-            return try {
-                prefs.getInt(BATTERY_SIZE_TEXT, 18)
-            } catch (_: Exception) {
-                18
-            }
-        }
-        set(value) = prefs.edit { putInt(BATTERY_SIZE_TEXT, value) }
+
 
     var settingsSize: Int
         get() {
@@ -1011,7 +995,7 @@ class Prefs(val context: Context) {
             "clock" -> clockFont
             "status" -> statusFont
             "notification" -> labelnotificationsFont
-            "battery" -> batteryFont
+
             "quote" -> quoteFont
             "letters" -> lettersFont
             "lettersTitle" -> lettersTitleFont
@@ -1080,7 +1064,7 @@ class Prefs(val context: Context) {
     }
 
     companion object {
-        private const val BATTERY_FONT = "battery_font"
+
         private const val LETTERS_FONT = "letters_font"
         private const val LETTERS_TEXT_SIZE = "letters_text_size"
         private const val LETTERS_TITLE = "letters_title"

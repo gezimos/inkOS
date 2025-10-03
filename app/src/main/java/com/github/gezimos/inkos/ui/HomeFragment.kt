@@ -110,10 +110,6 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
     // Add a BroadcastReceiver for user present (unlock)
     private var userPresentReceiver: android.content.BroadcastReceiver? = null
 
-    // Lazy-loaded font cache to reduce font loading overhead
-    private val cachedAppFont by lazy { 
-        prefs.getFontForContext("apps").getFont(requireContext(), prefs.getCustomFontPathForContext("apps"))
-    }
 
     override fun onDestroyView() {
         super.onDestroyView()
@@ -680,7 +676,8 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
             homeAppsLayout.children.forEach { view ->
                 if (view is TextView) {
                     view.setTextColor(prefs.appColor)
-                    view.typeface = cachedAppFont
+                    val appTypeface = prefs.getFontForContext("apps").getFont(requireContext(), prefs.getCustomFontPathForContext("apps"))
+                    view.typeface = appTypeface
                 }
             }
             val clockTypeface = prefs.getFontForContext("clock").getFont(requireContext(), prefs.getCustomFontPathForContext("clock"))
@@ -701,7 +698,8 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
                     prefs.smallCapsApps -> displayText.lowercase()
                     else -> displayText
                 }
-                view.typeface = cachedAppFont
+                val appTypeface = prefs.getFontForContext("apps").getFont(requireContext(), prefs.getCustomFontPathForContext("apps"))
+                view.typeface = appTypeface
             }
         }
     }
@@ -966,7 +964,8 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
                 binding.quote.text = text
             }
             appsFont.observe(viewLifecycleOwner) { font ->
-                updateAllAppProperties(font = cachedAppFont)
+                val typeface = prefs.getFontForContext("apps").getFont(requireContext(), prefs.getCustomFontPathForContext("apps"))
+                updateAllAppProperties(font = typeface)
             }
             clockFont.observe(viewLifecycleOwner) { font ->
                 val typeface = prefs.getFontForContext("clock").getFont(requireContext(), prefs.getCustomFontPathForContext("clock"))
@@ -1338,7 +1337,8 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
                     setTextColor(prefs.appColor)
 
                     // Apply apps font
-                    typeface = cachedAppFont
+                    val appTypeface = prefs.getFontForContext("apps").getFont(requireContext(), prefs.getCustomFontPathForContext("apps"))
+                    typeface = appTypeface
 
                     tag = appModel.activityPackage // Assign unique tag
                 }

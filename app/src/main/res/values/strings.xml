@@ -81,7 +81,7 @@
 
     <string name="app_text_size">App Text Size</string>
     <string name="clock_text_size">Clock Text Size</string>
-    <string name="battery_text_size">Battery Text Size</string>
+
 
     <string name="layout_positioning">Layout &amp; Positioning</string>
 
@@ -122,7 +122,7 @@
 
     <string name="app_notification_font">Badge Noti. Font</string>
 
-    <string name="battery_font">Battery Font</string>
+
     <string name="universal_custom_font">Universal Font</string>
     <string name="universal_custom_font_selector">Universal Font</string>
     <string name="notifications_font">Notifications Font</string>
