@@ -6,8 +6,6 @@
     android:layout_height="match_parent"
     android:animateLayoutChanges="true">
 
-    <!-- Remove the EditText search view if it exists -->
-
     <fragment
         android:id="@+id/nav_host_fragment"
         android:name="androidx.navigation.fragment.NavHostFragment"
