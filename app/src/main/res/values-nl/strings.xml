@@ -1,0 +1,275 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="brightness">Helderheid</string>
+    <string name="app_name_mode">Appnaamtype</string>
+    <string name="app_name_mode_normal">Normaal</string>
+    <string name="app_name_mode_all_caps">HOOFDLETTERS</string>
+    <!-- Base Settings -->
+    <string name="select_app">Selecteer app</string>
+
+    <!-- Strings used for settings menus -->
+    <string name="settings_name">Instellingen</string>
+
+    <string name="settings_home_title">Start</string>
+
+    <string name="settings_look_feel_title">Uiterlijk &amp; Gedrag</string>
+    <string name="use_volume_keys_for_pages">Navigatie met volumetoetsen</string>
+
+    <string name="settings_gestures_title">Gebaren</string>
+
+    <string name="settings_hidden_apps_title">Verborgen apps</string>
+
+
+    <string name="settings_advanced_title">Geavanceerd</string>
+
+    <string name="settings_exit_inkos_title">InkOS afsluiten</string>
+
+
+    <!-- Strings used for features settings -->
+    <string name="theme_mode">Thema-modus</string>
+    <string name="settings_text_size">Tekstgrootte instellingen</string>
+
+    <string name="home_management">Startscherm &amp; Appbeheer</string>
+
+    <string name="lock_home_apps">Startscherm apps vergrendelen</string>
+    <string name="lock_settings">Instellingen vergrendelen</string>
+    <string name="system_shortcuts">Systeemkoppelingen</string>
+    <string name="home_apps">Startscherm apps</string>
+    <string name="apps_on_home_screen">Aantal startscherm apps</string>
+    <string name="pages_on_home_screen">Aantal pagina&#39;s</string>
+    <string name="enable_home_pager">Pagina-indicator inschakelen</string>
+    <string name="home_page_reset">Startschermpagina resetten</string>
+
+
+    <string name="home_widgets">Startscherm widgets</string>
+    <string name="top_widgets">Bovenste widgets</string>
+    <string name="bottom_widgets">Onderste widgets</string>
+    <string name="show_date">Datum weergeven</string>
+    <string name="show_date_battery_combo">Datum + batterij</string>
+    <string name="date_font">Datumlettertype</string>
+    <string name="date_text_size">Datumtekstgrootte</string>
+    <string name="longpress_app_info">Lang indrukken voor app‑info</string>
+    <string name="show_clock">Klok weergeven</string>
+    <string name="show_battery">Batterij weergeven</string>
+    <string name="show_quote">Citaat weergeven</string>
+    <string name="show_audio_widget">Audiowidget weergeven</string>
+    <string name="quote_font">Citaatlettertype</string>
+    <string name="quote_text_size">Citaattekstgrootte</string>
+    <string name="quote_text">Citaattekst</string>
+    <string name="quote_color">Citaatkleur</string>
+    <string name="show_notification_badge">Asterisk-melding</string>
+    <string name="show_notification_text">Meldinglabels</string>
+    <string name="enable_notifications">Meldingsvenster</string>
+    <string name="show_media_playing_indicator">Asterisk bij afspelende media</string>
+    <string name="show_media_playing_name">Naam van afspelende media</string>
+    <string name="show_sender_name">Naam van afzender</string>
+    <string name="show_conversation_group_name">Groepsnaam</string>
+    <string name="show_message">Bericht</string>
+    <string name="clear_conversation_on_app_open">Wissen bij openen app</string>
+    <string name="notifications_window_title">Meldingenvenster</string>
+    <string name="badge_character_limit">Karakterlimiet</string>
+    <string name="push_notifications">Push‑meldingen</string>
+    <string name="chat_notifications_section">Chatmeldingen</string>
+    <string name="home_notifications_allowlist">Toelatingslijst voor startschermmeldingen</string>
+    <string name="notification_permission_enabled">Meldingsmachtiging ingeschakeld</string>
+    <string name="notification_permissions">Meldingsmachtigingen</string>
+    <string name="reset">Resetten</string>
+
+
+    <!-- Strings used for look & feel settings -->
+    <string name="look_feel_settings_title">Uiterlijk &amp; Gedrag</string>
+
+    <string name="app_text_size">App‑tekstgrootte</string>
+    <string name="clock_text_size">Klok‑tekstgrootte</string>
+
+
+    <string name="layout_positioning">Lay-out &amp; Positionering</string>
+
+    <string name="app_size">App‑grootte</string>
+    <string name="app_padding_size">Ruimte tussen apps</string>
+    <string name="home_apps_y_offset">Y‑offset startscherm apps</string>
+    <string name="top_widget_margin">Marge bovenste widget</string>
+    <string name="bottom_widget_margin">Marge onderste widget</string>
+
+    <string name="extend_home_apps_area">Klikbaar gebied uitbreiden</string>
+
+    <string name="visibility_display">Zichtbaarheid &amp; Weergave</string>
+
+    <string name="show_status_bar">Statusbalk weergeven</string>
+
+    <string name="show_navigation_bar">Navigatiebalk/gebaar weergeven</string>
+
+    <string name="element_colors">Elementkleuren</string>
+
+    <string name="background_color">Achtergrond</string>
+    <string name="app_color">Apps</string>
+    <string name="clock_color">Klok</string>
+    <string name="battery_color">Batterij</string>
+    <string name="date_color">Datum</string>
+
+    <string name="small_caps_apps">kleine letters</string>
+
+    <string name="fonts_settings_title">Typografie</string>
+    <string name="settings_font_hoog">Hoog</string>
+
+
+    <!-- Font sections -->
+    <string name="settings_font_section">Instellingenlettertype</string>
+    <string name="apps_font">Apps‑lettertype</string>
+    <string name="clock_font">Klok‑lettertype</string>
+    <string name="notification_section">Meldingen</string>
+    <string name="notification_home">Startschermmeldingen</string>
+
+    <string name="app_notification_font">Badge‑melding‑lettertype</string>
+
+
+    <string name="universal_custom_font">Universeel lettertype</string>
+    <string name="universal_custom_font_selector">Universeel lettertype</string>
+    <string name="notifications_font">Meldingen‑lettertype</string>
+
+    <!-- Strings used for gestures settings -->
+    <string name="gestures_settings_title">Gebaren</string>
+
+    <string name="tap_click_actions">Tik/klikacties</string>
+
+    <string name="double_tap">Dubbel tikken</string>
+    <string name="clock_click_app">Klik op klok</string>
+    <string name="date_click_app">Klik op datum</string>
+    <string name="quote_click_app">Klik op citaat</string>
+    
+    <string name="edit_gestures_settings_toast">Bewerk acties &amp; gebaren in Instellingen/Gebaren</string>
+
+    <string name="swipe_movement">Vegen beweging</string>
+
+    <string name="swipe_left_app">Vegen naar links</string>
+    <string name="swipe_right_app">Vegen naar rechts</string>
+
+    <string name="open_app">Open app</string>
+    <string name="private_space">Privé‑ruimtes</string>
+    <string name="next_page">Ga naar volgende pagina</string>
+    <string name="previous_page">Ga naar vorige pagina</string>
+    <string name="eink_refresh_switch">E‑ink auto‑verversing</string>
+    <string name="eink_auto_refresh">Auto E‑ink verversen</string>
+    <string name="eink_auto_mode">E‑ink auto‑modus</string>
+    <string name="eink_refresh">E‑ink verversen</string>
+    <string name="lock_screen">Scherm vergrendelen</string>
+    <string name="show_recents">Recente apps weergeven</string>
+    <string name="quick_settings">Snelle instellingen</string>
+    <string name="power_dialog">Energie‑dialoog</string>
+    <string name="open_quick_settings">Snelle instellingen openen</string>
+    <string name="open_power_dialog">Energie‑dialoog openen</string>
+    <string name="open_tools">Tools openen</string>
+
+
+    <!-- Strings used for advanced settings -->
+    <string name="advanced_settings_title">Geavanceerd</string>
+
+    <string name="app_version">App‑versie</string>
+
+    <string name="advanced_settings_set_as_default_launcher">Instellen als standaard‑launcher</string>
+    <string name="advanced_settings_change_default_launcher">Standaard‑launcher wijzigen</string>
+
+    <string name="advanced_settings_restart_title">Launcher herstarten</string>
+
+    <string name="advanced_settings_backup_restore_title">Back‑up/herstel</string>
+
+    <string name="advanced_settings_backup_restore_backup">Back‑up</string>
+    <string name="advanced_settings_backup_restore_restore">Herstel</string>
+    <string name="advanced_settings_backup_restore_clear">Alle gegevens wissen</string>
+
+    <string name="advanced_settings_backup_restore_clear_title">Voorkeuren wissen</string>
+    <string name="advanced_settings_backup_restore_clear_description">Weet u zeker dat u dit wilt doen?</string>
+    <string name="advanced_settings_backup_restore_clear_yes">Ja</string>
+    <string name="advanced_settings_backup_restore_clear_no">Nee</string>
+
+    <string name="advanced_settings_share_application_description">Verbeter uw ervaring met %1$s!</string>
+    <string name="advanced_settings_share_application_description_addon">Download nu op %1$s en zie waar iedereen over praat! %2$s\n</string>
+
+
+    <!-- App Page Strings -->
+    <string name="favorite_apps">Favoriete apps</string>
+    <string name="reorder_apps">Apps herschikken</string>
+
+    <!-- Accessibility/Help Strings -->
+    <string name="accessibility_service_name">inkOS Acties Service</string>
+    <string name="accessibility_service_description">Deze toegankelijkheidsservice stelt inkOS in staat bepaalde acties uit te voeren, zoals het vergrendelen van het scherm of het openen van de snelle instellingen. Onze toegankelijkheidsservice verzamelt of deelt geen gegevens.</string>
+    <string name="can_not_delete_system_apps">Kan systeembestanden niet verwijderen</string>
+    <string name="drawer_list_empty_hint">Geen apps gevonden</string>
+    <string name="long_press_for_settings">Lang indrukken ergens voor instellingen</string>
+    <string name="long_press_to_select_app">Lang indrukken om app te selecteren</string>
+    <string name="swipe_up_for_apps">Vegen omhoog en omlaag voor pagina&#39;s</string>
+    <string name="app_drawer_tips">Tip: Veeg omlaag om te sluiten. Scroll om toetsenbord te verbergen.</string>
+
+    <!-- PinCode Strings -->
+    <string name="text_authentication_cancel">Authenticatie geannuleerd.</string>
+    <string name="text_authentication_error">Authenticatiefout: %1$s (code %2$d)</string>
+    <string name="text_authentication_failed">Authenticatie mislukt.</string>
+    <string name="text_biometric_login">Biometrische login inkOS Instellingen</string>
+    <string name="text_biometric_login_app">Biometrische login voor %1$s</string>
+    <string name="text_biometric_login_sub">Log in met uw biometrische gegevens.</string>
+
+    <!-- Crash Strings -->
+    <string name="acra_crash">Crash</string>
+    <string name="acra_dialog_text">Het spijt ons, maar %1$s heeft een onverwacht probleem ondervonden en moet sluiten. Help ons verbeteren door een crashrapport te sturen.\n\n%1$s respecteert uw privacy en de verzamelde gegevens worden uitsluitend gebruikt om de app‑stabiliteit te verbeteren. Er worden geen persoonlijke gegevens verzameld. Bedankt voor uw steun!</string>
+    <string name="acra_send_report">Rapport verzenden</string>
+    <string name="acra_dont_send">Niet verzenden</string>
+    <string name="error_invalid_file_title">Ongeldig bestandstype</string>
+    <string name="error_invalid_file_message">Gebruik het geëxporteerde .json back‑upbestand</string>
+
+
+    <!-- Settings Strings -->
+    <string name="dark">Donker</string>
+    <string name="light">Licht</string>
+    <string name="system_default">Systeem</string>
+    <string name="restart_launcher">Launcher herstarten</string>
+    <string name="delete">Verwijderen</string>
+    <string name="hide">Verbergen</string>
+    <string name="show">Weergeven</string>
+    <string name="lock">Vergrendelen</string>
+    <string name="unlock">Ontgrendelen</string>
+    <string name="rename">Hernoemen</string>
+    <string name="info">Info</string>
+    <string name="okay">Oké</string>
+    <string name="cancel">Annuleren</string>
+    <string name="enabled">Ingeschakeld</string>
+    <string name="disabled">Uitgeschakeld</string>
+    <string name="open">Openen</string>
+    <string name="close">Sluiten</string>
+    <string name="open_clock">Klok openen</string>
+    <string name="app_drawer">App‑lade</string>
+    <string name="customizations">Aanpassingen</string>
+    <string name="app_drawer_alignment">Uitlijning</string>
+    <string name="app_drawer_align_left">Links</string>
+    <string name="app_drawer_align_center">Midden</string>
+    <string name="app_drawer_align_right">Rechts</string>
+    <string name="confirm_delete_font">Bevestig verwijderen</string>
+
+    <!-- Short alignment labels requested by user -->
+    <string name="left">Links</string>
+    <string name="center">Midden</string>
+    <string name="right">Rechts</string>
+
+    <!-- Media Player Strings -->
+    <string name="open_music_app">Muziekapp openen</string>
+    <string name="previous_track">Vorig nummer</string>
+    <string name="play_or_pause">Afspelen of pauzeren</string>
+    <string name="next_track">Volgend nummer</string>
+    <string name="stop_playback">Afspelen stoppen</string>
+
+    <!-- Permissions Strings -->
+    <string name="bluetooth_permission_required_title">BLUETOOTH-MACHTIGING VEREIST:</string>
+    <string name="bluetooth_permission_required_body">Deze tool is alleen bruikbaar voor Mudita Kompakt of andere telefoons zonder Bluetooth‑geschiedenis. Ontbrekende machtigingen: %1$s. Geef machtigingen om Bluetooth‑functies te gebruiken.</string>
+
+    <!-- Private Spaces Strings -->
+    <string name="alert_requires_android_v">Deze functionaliteit vereist Android 15 of hoger.</string>
+    <string name="toast_private_space_default_home_screen">inkOS moet het standaard startscherm zijn om toegang te krijgen tot privé‑ruimte.</string>
+    <string name="toast_private_space_locked">Privé‑ruimte vergrendeld</string>
+    <string name="toast_private_space_not_available">Privé‑ruimte is niet beschikbaar</string>
+
+    <string name="notifications_screen_title">Meldingen</string>
+
+    <!-- Error messages for file picker -->
+    <string name="error_no_file_picker_title">Geen bestandskiezer gevonden</string>
+    <string name="error_no_file_picker_message">Er is geen compatibele bestandsbeheerder geïnstalleerd. Installeer een bestandsbeheerder om back‑ups te herstellen.</string>
+    <string name="notification_listener_access">Meldingsmachtigingen</string>
+</resources>
