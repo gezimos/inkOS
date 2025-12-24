@@ -1,3 +1,47 @@
+# Changelog inkOS v0.4 - 24 December 2025
+
+## Home
+- Home alignment: left/center/right options (left default).
+- Dual clocks option and 24/12hr toggle; second clock uses a simple timezone offset.
+- Added charging indicator on home.
+- Removed re-order apps.
+
+## AppDrawer Settings
+- AZ filter is default; supports diacritics.
+- Page indicator dots removed.
+- "Hide home apps" added to avoid duplicates.
+- Search function added with optional auto-show keyboard.
+- Auto-launch result opens the closest match automatically.
+
+## Look & Feel: Colors
+- Rule to disallow identical background and text colors to avoid unreadable UIs.
+- Merged text color preferences for simpler management; recommended black/white for e-ink.
+- Removed System theme mode (was unreliable with scheduled theme changes).
+- Wallpaper system switched to Android Wallpaper System; includes editor and presets.
+- Background opacity ranges 0–255; 0 is fully transparent.
+
+## Fonts
+- Added more font choices; default changed to PublicSans.
+
+## Gestures
+- Added swipe up/down gestures with configurable Swipe Threshold to avoid page-swipe conflicts.
+
+## Notifications
+- SimpleTray settings: notifications per page and bottom-button toggles.
+- Notification icons in SimpleTray/Letters link to app notification settings.
+
+## Extras
+- Removed mKompakt Bluetooth fragment from Extra Settings.
+- Added default apps shortcut in System Shortcuts.
+
+## New Fragments
+- Simple Tray: combines Quick Settings and notifications (long swipe down). Requires extra permissions.
+- Recents: replacement Recents; shows recent and most-used apps (usage access required).
+
+Notes:
+- Backup data at Advanced / Backup&Restore before updating.
+- v0.3 users may skip updating if satisfied.
+
 # Changelog inkOS v0.3 - 03 October 20225
 
 ## Home & Appdrawer
