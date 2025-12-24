@@ -40,7 +40,6 @@
 
 Notes:
 - Backup data at Advanced / Backup&Restore before updating.
-- v0.3 users may skip updating if satisfied.
 
 # Changelog inkOS v0.3 - 03 October 20225
 
