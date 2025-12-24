@@ -12,10 +12,15 @@ import java.util.Timer
 import kotlin.concurrent.schedule
 import kotlin.math.abs
 
-/*
-Swipe, double tap and long press touch listener for a view
-Source: https://www.tutorialspoint.com/how-to-handle-swipe-gestures-in-kotlin
-*/
+/**
+ * LEGACY: Swipe, double tap and long press touch listener for View-based UI.
+ * 
+ * For Compose UI, use:
+ * - Modifier.gestureHelper() for low-level gesture detection
+ * - GestureHelper.handleSwipeLeft/Right/etc() for gesture execution
+ * 
+ * Source: https://www.tutorialspoint.com/how-to-handle-swipe-gestures-in-kotlin
+ */
 
 internal open class OnSwipeTouchListener(c: Context?) : OnTouchListener {
     private var longPressOn = false

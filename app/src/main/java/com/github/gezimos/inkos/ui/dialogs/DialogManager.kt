@@ -23,10 +23,13 @@ import androidx.core.view.WindowInsetsCompat
 import com.github.gezimos.inkos.R
 import com.github.gezimos.inkos.data.Constants
 import com.github.gezimos.inkos.data.Prefs
+import com.github.gezimos.inkos.helper.ShapeHelper
 import com.github.gezimos.inkos.helper.getTrueSystemFont
 import com.github.gezimos.inkos.helper.loadFile
 import com.github.gezimos.inkos.helper.storeFile
 import com.github.gezimos.inkos.helper.utils.AppReloader
+import com.github.gezimos.inkos.helper.utils.VibrationHelper
+import com.github.gezimos.inkos.style.resolveThemeColors
 
 class DialogManager(val context: Context, val activity: Activity) {
 
@@ -35,7 +38,6 @@ class DialogManager(val context: Context, val activity: Activity) {
     var backupRestoreDialog: LockedBottomSheetDialog? = null
     var sliderDialog: AlertDialog? = null
     var singleChoiceDialog: AlertDialog? = null
-    var multiChoiceDialog: AlertDialog? = null
     var colorPickerDialog: AlertDialog? = null
 
     fun showBackupRestoreDialog() {
@@ -53,6 +55,7 @@ class DialogManager(val context: Context, val activity: Activity) {
                 val padding = (12 * context.resources.displayMetrics.density).toInt()
                 setPadding(padding, padding, padding, padding)
                 setOnClickListener {
+                    try { VibrationHelper.trigger(VibrationHelper.Effect.CLICK) } catch (_: Exception) {}
                     onClick()
                     backupRestoreDialog?.dismiss()
                 }
@@ -72,10 +75,10 @@ class DialogManager(val context: Context, val activity: Activity) {
         // Create and show LockedBottomSheetDialog
         val dialog = LockedBottomSheetDialog(context)
         dialog.setContentView(layout)
-        // Apply background color from prefs so bottom sheet follows app background (and night mode if prefs changes)
-        val p = Prefs(context)
+        // Apply background color from theme so bottom sheet follows app background (and night mode if prefs changes)
         try {
-            layout.setBackgroundColor(p.backgroundColor)
+            val (_, bg) = resolveThemeColors(context)
+            layout.setBackgroundColor(bg)
             dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
         } catch (_: Exception) {
             // best-effort; ignore failures
@@ -143,22 +146,27 @@ class DialogManager(val context: Context, val activity: Activity) {
                     minimumHeight = 0
                 }
 
-                // Style buttons
+                // Style buttons using resolved theme colors
                 try {
-                    val p = Prefs(context)
+                    val (textColor, backgroundColor) = resolveThemeColors(context)
                     val density = context.resources.displayMetrics.density
-                    val radius = (6 * density)
+                    val prefs = Prefs(context)
+                    val textIslandsShape = prefs.textIslandsShape
+                    val radius = ShapeHelper.getCornerRadiusPx(
+                        textIslandsShape = textIslandsShape,
+                        density = density
+                    )
                     val strokeWidth = (3f * density).toInt()
                     val bgDrawable = GradientDrawable().apply {
                         shape = GradientDrawable.RECTANGLE
                         cornerRadius = radius
-                        setColor(p.backgroundColor)
-                        setStroke(strokeWidth, p.appColor)
+                        setColor(backgroundColor)
+                        setStroke(strokeWidth, textColor)
                     }
                     noBtn.background = bgDrawable
                     yesBtn.background = bgDrawable.constantState?.newDrawable()?.mutate()
-                    noBtn.setTextColor(p.appColor)
-                    yesBtn.setTextColor(p.appColor)
+                    noBtn.setTextColor(textColor)
+                    yesBtn.setTextColor(textColor)
                 } catch (_: Exception) {}
 
                 val spacing = (8 * context.resources.displayMetrics.density).toInt()
@@ -168,8 +176,12 @@ class DialogManager(val context: Context, val activity: Activity) {
                 addView(noBtn)
                 addView(yesBtn)
 
-                noBtn.setOnClickListener { bottomSheet?.dismiss() }
+                noBtn.setOnClickListener {
+                    try { VibrationHelper.trigger(VibrationHelper.Effect.CLICK) } catch (_: Exception) {}
+                    bottomSheet?.dismiss()
+                }
                 yesBtn.setOnClickListener {
+                    try { VibrationHelper.trigger(VibrationHelper.Effect.CLICK) } catch (_: Exception) {}
                     clearData()
                     bottomSheet?.dismiss()
                 }
@@ -180,10 +192,11 @@ class DialogManager(val context: Context, val activity: Activity) {
 
         // show bottom sheet
         val dialog = LockedBottomSheetDialog(context)
+        bottomSheet = dialog // Assign to bottomSheet so cancel button can dismiss it
         dialog.setContentView(content)
         try {
-            val p = Prefs(context)
-            content.setBackgroundColor(p.backgroundColor)
+            val (_, bg) = resolveThemeColors(context)
+            content.setBackgroundColor(bg)
             dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
         } catch (_: Exception) {}
         setDialogFontForView(content, context, "settings")
@@ -219,7 +232,7 @@ class DialogManager(val context: Context, val activity: Activity) {
 
     fun showSliderDialog(
         context: Context,
-        title: String,
+        @Suppress("UNUSED_PARAMETER") title: String,
         minValue: Int,
         maxValue: Int,
         currentValue: Int,
@@ -229,7 +242,7 @@ class DialogManager(val context: Context, val activity: Activity) {
     sliderBottomSheetDialog?.dismiss()
 
         var seekBar: SeekBar
-        lateinit var valueText: TextView
+        lateinit var valueEdit: EditText
 
         // Create a layout to hold the SeekBar, value display and buttons
         val seekBarLayout = LinearLayout(context).apply {
@@ -238,15 +251,32 @@ class DialogManager(val context: Context, val activity: Activity) {
             val pad = (16 * context.resources.displayMetrics.density).toInt()
             setPadding(pad, pad, pad, pad)
 
-            // TextView to display the current value
-            valueText = TextView(context).apply {
-                text = "$currentValue"
+            // EditText to display and edit the current value (tap to show IME for number entry)
+            valueEdit = EditText(context).apply {
+                id = View.generateViewId()
+                setText("$currentValue")
                 textSize = 16f
                 gravity = Gravity.CENTER
+                isSingleLine = true
+                inputType = InputType.TYPE_CLASS_NUMBER
+                imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_DONE
+                // Make it visually similar to a TextView (no underline/background)
+                background = null
+                // Allow text selection / caret for editing
+                isCursorVisible = true
+                // Add a bit of padding on the number to make it easier to tap directly
+                val valuePad = (6 * context.resources.displayMetrics.density).toInt()
+                setPadding(valuePad, valuePad, valuePad, valuePad)
+                // Make focusable for D-pad navigation
+                isFocusable = true
+                isFocusableInTouchMode = true
             }
 
             // Declare the seekBar outside the layout block so we can access it later
+            val density = context.resources.displayMetrics.density
+
             seekBar = SeekBar(context).apply {
+                id = View.generateViewId()
                 min = minValue // Minimum value
                 max = maxValue // Maximum value
                 progress = currentValue // Default value
@@ -258,17 +288,100 @@ class DialogManager(val context: Context, val activity: Activity) {
                         progress: Int,
                         fromUser: Boolean
                     ) {
-                        valueText.text = "$progress"
+                        // update numeric field when SeekBar changes
+                        try { valueEdit.setText("$progress") } catch (_: Exception) {}
+                        try { valueEdit.setSelection(valueEdit.text.length) } catch (_: Exception) {}
                     }
 
                     override fun onStartTrackingTouch(seekBar: SeekBar) {}
                     override fun onStopTrackingTouch(seekBar: SeekBar) {}
                 })
             }
+            
+            // Set up focus chain: valueEdit -> seekBar -> cancelBtn -> okBtn
+            // We'll set button IDs after they're created, but set up the initial chain here
+            seekBar.setNextFocusUpId(valueEdit.id)  // From seekbar, UP goes to number box
+            valueEdit.setNextFocusDownId(seekBar.id)  // From number box, DOWN goes to seekbar
 
-            // Add TextView and SeekBar to the layout
-            addView(valueText)
-            addView(seekBar)
+            // Apply theme tints to seekbar and value text
+            try {
+                val (textColor, _) = resolveThemeColors(context)
+                valueEdit.setTextColor(textColor)
+                // Use tint lists if available so thumb and progress follow theme
+                try {
+                    val csl = android.content.res.ColorStateList.valueOf(textColor)
+                    seekBar.progressTintList = csl
+                    seekBar.thumbTintList = csl
+                    try {
+                        val thumb = createCircularThumb(context, textColor)
+                        seekBar.thumb = thumb
+                        seekBar.thumbOffset = (thumb.intrinsicWidth / 2)
+                    } catch (_: Exception) {}
+                } catch (_: Exception) {}
+            } catch (_: Exception) {}
+
+            // Add TextView and SeekBar to the layout. Add extra top margin
+            // on the SeekBar so there's more space between the numeric value
+            // and the slider itself (improves touch clarity).
+            addView(valueEdit)
+            val seekLp = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = (12 * density).toInt()
+            }
+            addView(seekBar, seekLp)
+
+            // After the SeekBar exists, wire the EditText input to update the SeekBar
+            try {
+                valueEdit.addTextChangedListener(object : TextWatcher {
+                    override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                    override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                    override fun afterTextChanged(s: Editable?) {
+                        try {
+                            val v = s?.toString()?.toIntOrNull()
+                            if (v != null) {
+                                val clamped = v.coerceIn(minValue, maxValue)
+                                if (seekBar.progress != clamped) seekBar.progress = clamped
+                            }
+                        } catch (_: Exception) {}
+                    }
+                })
+
+                valueEdit.setOnEditorActionListener { _, actionId, event ->
+                    // Handle both IME_ACTION_DONE and Enter key press
+                    val isEnterKey = event != null && 
+                        event.keyCode == android.view.KeyEvent.KEYCODE_ENTER && 
+                        event.action == android.view.KeyEvent.ACTION_DOWN
+                    
+                    if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE || isEnterKey) {
+                        try {
+                            val entered = valueEdit.text.toString().toIntOrNull()
+                            val final = entered?.coerceIn(minValue, maxValue) ?: seekBar.progress
+                            seekBar.progress = final
+                            // Update the EditText to show the clamped value
+                            valueEdit.setText("$final")
+                            valueEdit.setSelection(valueEdit.text.length)
+                        } catch (_: Exception) {}
+                        try {
+                            val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                            imm.hideSoftInputFromWindow(valueEdit.windowToken, 0)
+                        } catch (_: Exception) {}
+                        // Clear focus and move to next focusable element (seekbar)
+                        valueEdit.clearFocus()
+                        seekBar.requestFocus()
+                        true
+                    } else false
+                }
+
+                valueEdit.setOnClickListener {
+                    try {
+                        valueEdit.requestFocus()
+                        val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                        imm.showSoftInput(valueEdit, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+                    } catch (_: Exception) {}
+                }
+            } catch (_: Exception) {}
 
             // Buttons row
             val buttonsRow = LinearLayout(context).apply {
@@ -279,15 +392,16 @@ class DialogManager(val context: Context, val activity: Activity) {
                     LinearLayout.LayoutParams.WRAP_CONTENT
                 ).apply {
                     // add spacing between SeekBar and buttons (12dp)
-                    topMargin = (16 * context.resources.displayMetrics.density).toInt()
+                    topMargin = (24 * context.resources.displayMetrics.density).toInt()
                 }
                 layoutParams = params
-                val btnPadding = (8 * context.resources.displayMetrics.density).toInt()
-                // smaller button padding and text size for compact appearance
-                val smallBtnPadding = (8 * context.resources.displayMetrics.density).toInt()
+                (8 * context.resources.displayMetrics.density).toInt()
+                // slightly larger button padding and text size for compact appearance (bigger tap target)
+                val smallBtnPadding = (12 * context.resources.displayMetrics.density).toInt()
                 val smallTextSizeSp = 16f
 
                 val cancelBtn = android.widget.Button(context).apply {
+                    id = View.generateViewId()
                     text = context.getString(R.string.cancel)
                     // make button visually smaller
                     setPadding(smallBtnPadding, smallBtnPadding, smallBtnPadding, smallBtnPadding)
@@ -297,12 +411,19 @@ class DialogManager(val context: Context, val activity: Activity) {
                     minimumWidth = 0
                     minHeight = 0
                     minimumHeight = 0
-                    setOnClickListener { sliderBottomSheetDialog?.dismiss() }
+                    // Make focusable for keyboard navigation, but NOT in touch mode to avoid double-tap issue
+                    isFocusable = true
+                    isFocusableInTouchMode = false
+                    setOnClickListener {
+                        try { VibrationHelper.trigger(VibrationHelper.Effect.CLICK) } catch (_: Exception) {}
+                        sliderBottomSheetDialog?.dismiss()
+                    }
                 }
                 // We'll make both buttons share available width equally. Add a small gap between them.
                 val btnSpacing = (8 * context.resources.displayMetrics.density).toInt()
 
                 val okBtn = android.widget.Button(context).apply {
+                    id = View.generateViewId()
                     text = context.getString(R.string.okay)
                     // make button visually smaller
                     setPadding(smallBtnPadding, smallBtnPadding, smallBtnPadding, smallBtnPadding)
@@ -311,30 +432,47 @@ class DialogManager(val context: Context, val activity: Activity) {
                     minimumWidth = 0
                     minHeight = 0
                     minimumHeight = 0
+                    // Make focusable for keyboard navigation, but NOT in touch mode to avoid double-tap issue
+                    isFocusable = true
+                    isFocusableInTouchMode = false
                     setOnClickListener {
+                        try { VibrationHelper.trigger(VibrationHelper.Effect.CLICK) } catch (_: Exception) {}
                         val finalValue = seekBar.progress
                         onValueSelected(finalValue)
                         sliderBottomSheetDialog?.dismiss()
                     }
                 }
+                
+                // Set up focus chain: seekBar -> cancelBtn -> okBtn -> valueEdit (circular)
+                seekBar.setNextFocusDownId(cancelBtn.id)
+                cancelBtn.setNextFocusUpId(seekBar.id)
+                cancelBtn.setNextFocusRightId(okBtn.id)
+                okBtn.setNextFocusLeftId(cancelBtn.id)
+                okBtn.setNextFocusDownId(valueEdit.id)
+                valueEdit.setNextFocusUpId(okBtn.id)
 
-                // Style buttons: fill = backgroundColor, outline = appColor
+                // Style buttons: use resolved theme colors (background/text)
                 try {
-                    val p = Prefs(context)
+                    val (textColor, backgroundColor) = resolveThemeColors(context)
                     val density = context.resources.displayMetrics.density
-                    val radius = (6 * density)
+                    val prefs = Prefs(context)
+                    val textIslandsShape = prefs.textIslandsShape
+                    val radius = ShapeHelper.getCornerRadiusPx(
+                        textIslandsShape = textIslandsShape,
+                        density = density
+                    )
                     val strokeWidth = (3f * density).toInt()
                     val bgDrawable = GradientDrawable().apply {
                         shape = GradientDrawable.RECTANGLE
                         cornerRadius = radius
-                        setColor(p.backgroundColor)
-                        setStroke(strokeWidth, p.appColor)
+                        setColor(backgroundColor)
+                        setStroke(strokeWidth, textColor)
                     }
                     cancelBtn.background = bgDrawable
                     okBtn.background = bgDrawable.constantState?.newDrawable()?.mutate()
-                    // Ensure button text color uses appColor for visibility
-                    cancelBtn.setTextColor(p.appColor)
-                    okBtn.setTextColor(p.appColor)
+                    // Ensure button text color uses textColor for visibility
+                    cancelBtn.setTextColor(textColor)
+                    okBtn.setTextColor(textColor)
                 } catch (_: Exception) { }
                 // Give both buttons equal weight so they have the same width, with a small margin between them
                 val leftParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
@@ -359,10 +497,10 @@ class DialogManager(val context: Context, val activity: Activity) {
         // Create bottom sheet dialog and wire key handling
         val dialog = LockedBottomSheetDialog(context)
         dialog.setContentView(seekBarLayout)
-        // apply background color
+        // apply background color using resolved theme
         try {
-            val p = Prefs(context)
-            seekBarLayout.setBackgroundColor(p.backgroundColor)
+            val (_, bg) = resolveThemeColors(context)
+            seekBarLayout.setBackgroundColor(bg)
             dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
         } catch (_: Exception) {}
 
@@ -413,6 +551,12 @@ class DialogManager(val context: Context, val activity: Activity) {
 
         dialog.setLocked(true)
         dialog.show()
+        
+        // Request focus on seekBar when dialog is shown (primary focus)
+        seekBar.post {
+            seekBar.requestFocus()
+        }
+        
         sliderBottomSheetDialog = dialog
     }
 
@@ -430,7 +574,8 @@ class DialogManager(val context: Context, val activity: Activity) {
         nonSelectable: ((T) -> Boolean)? = null, // items for which we should NOT show a radio (e.g. Add Custom)
         onItemSelected: (T) -> Unit,
         onItemDeleted: ((T) -> Unit)? = null, // kept for compatibility but not used here
-        showButtons: Boolean = true
+        showButtons: Boolean = true,
+        maxHeightRatio: Float = 0.30f // Maximum height as ratio of screen height (default 30%)
     ) {
     singleChoiceBottomSheetDialog?.dismiss()
 
@@ -450,7 +595,7 @@ class DialogManager(val context: Context, val activity: Activity) {
             name
         }.toMutableList()
 
-        var checkedItem = selectedIndex ?: -1
+        val checkedItem = selectedIndex ?: -1
 
         val prefsForAdapter = Prefs(context)
         val defaultTypeface = prefsForAdapter.getFontForContext("settings").getFont(context, prefsForAdapter.getCustomFontPathForContext("settings"))
@@ -465,7 +610,12 @@ class DialogManager(val context: Context, val activity: Activity) {
                 val inflater = android.view.LayoutInflater.from(context)
                 val optionObj = optionList.getOrNull(position)
                 val layoutRes = if (nonSelectable != null && optionObj != null && nonSelectable(optionObj)) android.R.layout.simple_list_item_1 else android.R.layout.simple_list_item_single_choice
-                val view = inflater.inflate(layoutRes, parent, false)
+                // Use convertView if available, otherwise inflate new view
+                // Note: We can't always reuse convertView because different items may use different layouts
+                val view = convertView ?: run {
+                    @Suppress("UnconditionalLayoutInflation")
+                    inflater.inflate(layoutRes, parent, false)
+                }
                 val textView = view.findViewById<TextView>(android.R.id.text1)
                 // Ensure the label text is set (we inflate different layouts so super.getView isn't called)
                 val label = try { displayList.getOrNull(position) ?: optionObj?.toString() ?: "" } catch (_: Exception) { optionObj?.toString() ?: "" }
@@ -485,7 +635,13 @@ class DialogManager(val context: Context, val activity: Activity) {
                 }
                 val paddingPx = (24 * context.resources.displayMetrics.density).toInt()
                 textView.setPadding(paddingPx, 0, paddingPx, 0)
-                try { textView.setTextColor(prefsForAdapter.appColor) } catch (_: Exception) {}
+                try {
+                    val (textColor, _) = resolveThemeColors(context)
+                    textView.setTextColor(textColor)
+                    try {
+                        (textView as? android.widget.CheckedTextView)?.checkMarkTintList = android.content.res.ColorStateList.valueOf(textColor)
+                    } catch (_: Exception) {}
+                } catch (_: Exception) {}
 
                 return view
             }
@@ -512,11 +668,11 @@ class DialogManager(val context: Context, val activity: Activity) {
                 adapter = stringAdapter
             }
             // Handle long-press at the ListView level so item clicks remain responsive.
-            listView.setOnItemLongClickListener { _, view, position, _ ->
+            listView.setOnItemLongClickListener { _, _, position, _ ->
                 try {
                     val opt = optionList.getOrNull(position)
                     if (opt != null && isCustomFont != null && isCustomFont(opt)) {
-                        android.app.AlertDialog.Builder(context)
+                        AlertDialog.Builder(context)
                             .setTitle(context.getString(android.R.string.dialog_alert_title))
                             .setMessage(context.getString(R.string.confirm_delete_font))
                             .setNegativeButton(android.R.string.cancel, null)
@@ -539,7 +695,7 @@ class DialogManager(val context: Context, val activity: Activity) {
                 listView.post { listView.setItemChecked(checkedItem, true) }
             }
 
-            val maxListHeight = (context.resources.displayMetrics.heightPixels * 0.30).toInt()
+            val maxListHeight = (context.resources.displayMetrics.heightPixels * maxHeightRatio).toInt()
             val listParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, maxListHeight)
             addView(listView, listParams)
 
@@ -561,8 +717,9 @@ class DialogManager(val context: Context, val activity: Activity) {
 
                     // Style buttons
                     try {
-                        selectBtn.setTextColor(prefsForAdapter.appColor)
-                        cancelBtn.setTextColor(prefsForAdapter.appColor)
+                        val (textColor, _) = resolveThemeColors(context)
+                        selectBtn.setTextColor(textColor)
+                        cancelBtn.setTextColor(textColor)
                     } catch (_: Exception) {}
 
                     val spacing = (8 * context.resources.displayMetrics.density).toInt()
@@ -572,8 +729,12 @@ class DialogManager(val context: Context, val activity: Activity) {
                     addView(cancelBtn)
                     addView(selectBtn)
 
-                    cancelBtn.setOnClickListener { singleChoiceBottomSheetDialog?.dismiss() }
+                    cancelBtn.setOnClickListener {
+                        try { VibrationHelper.trigger(VibrationHelper.Effect.CLICK) } catch (_: Exception) {}
+                        singleChoiceBottomSheetDialog?.dismiss()
+                    }
                     selectBtn.setOnClickListener {
+                        try { VibrationHelper.trigger(VibrationHelper.Effect.CLICK) } catch (_: Exception) {}
                         val checkedPos = listView.checkedItemPosition
                         if (checkedPos >= 0 && checkedPos < optionList.size) {
                             try { onItemSelected(optionList[checkedPos]) } catch (_: Exception) {}
@@ -608,8 +769,8 @@ class DialogManager(val context: Context, val activity: Activity) {
         val dialog = LockedBottomSheetDialog(context)
         dialog.setContentView(content)
         try {
-            val p = Prefs(context)
-            content.setBackgroundColor(p.backgroundColor)
+            val (_, bg) = resolveThemeColors(context)
+            content.setBackgroundColor(bg)
             dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
         } catch (_: Exception) {}
         dialog.setLocked(true)
@@ -633,9 +794,6 @@ class DialogManager(val context: Context, val activity: Activity) {
         singleChoiceBottomSheetDialog = dialog
     }
 
-    private fun applyFontsToListView(listView: ListView, fonts: List<Typeface>?, fontSize: Float) {
-        // This method is no longer needed, keeping for compatibility
-    }
 
     // multiChoiceDialog (AlertDialog) removed
     var multiChoiceBottomSheetDialog: LockedBottomSheetDialog? = null
@@ -644,7 +802,8 @@ class DialogManager(val context: Context, val activity: Activity) {
         title: String,
         items: Array<String>,
         initialChecked: BooleanArray,
-        onConfirm: (selectedIndices: List<Int>) -> Unit
+        onConfirm: (selectedIndices: List<Int>) -> Unit,
+        maxHeightRatio: Float = 0.60f // Maximum height as ratio of screen height (default 60% for allowlists)
     ) {
     // Dismiss any existing dialogs
     multiChoiceBottomSheetDialog?.dismiss()
@@ -654,7 +813,7 @@ class DialogManager(val context: Context, val activity: Activity) {
         // Build content layout for bottom sheet
         val content = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            val pad = (8 * context.resources.displayMetrics.density).toInt()
+            val pad = (16 * context.resources.displayMetrics.density).toInt()
             setPadding(pad, pad, pad, pad)
 
             // Title
@@ -675,8 +834,15 @@ class DialogManager(val context: Context, val activity: Activity) {
                     val v = super.getView(position, convertView, parent)
                     try {
                         val tv = v.findViewById<TextView>(android.R.id.text1)
-                        tv.setTextColor(Prefs(context).appColor)
-                        tv.typeface = Prefs(context).getFontForContext("settings").getFont(context, Prefs(context).getCustomFontPathForContext("settings")) ?: getTrueSystemFont()
+                        try {
+                            val (textColor, _) = resolveThemeColors(context)
+                            tv.setTextColor(textColor)
+                            // Tint the checkmark if this is a CheckedTextView so checkbox matches theme
+                            try {
+                                (tv as? android.widget.CheckedTextView)?.checkMarkTintList = android.content.res.ColorStateList.valueOf(textColor)
+                            } catch (_: Exception) {}
+                            tv.typeface = Prefs(context).getFontForContext("settings").getFont(context, Prefs(context).getCustomFontPathForContext("settings")) ?: getTrueSystemFont()
+                        } catch (_: Exception) {}
                     } catch (_: Exception) {}
                     return v
                 }
@@ -686,6 +852,10 @@ class DialogManager(val context: Context, val activity: Activity) {
                 choiceMode = ListView.CHOICE_MODE_MULTIPLE
                 divider = null
                 this.adapter = adapter
+                // Add bottom padding to ListView so last item isn't hidden
+                val bottomPad = (32 * context.resources.displayMetrics.density).toInt()
+                setPadding(paddingLeft, paddingTop, paddingRight, bottomPad)
+                clipToPadding = false
             }
 
             // Pre-check items
@@ -695,21 +865,32 @@ class DialogManager(val context: Context, val activity: Activity) {
                 }
             }
 
-            // Limit height to keep dialog compact
-            val maxListHeight = (context.resources.displayMetrics.heightPixels * 0.35).toInt()
-            val listParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, maxListHeight)
-            addView(listView, listParams)
-
-            // Handle immediate toggles: update checked array and call onConfirm
+            // Handle item clicks with auto-save: toggle checkbox and immediately save
             listView.setOnItemClickListener { _, _, position, _ ->
                 try {
                     val currently = listView.isItemChecked(position)
                     checked[position] = currently
+                    
+                    // Auto-save: immediately call onConfirm with current selection
                     val selected = mutableListOf<Int>()
                     for (idx in checked.indices) if (checked[idx]) selected.add(idx)
-                    onConfirm(selected)
+                    try { onConfirm(selected) } catch (_: Exception) {}
                 } catch (_: Exception) {}
             }
+
+            // Calculate ListView height (no buttons needed now)
+            val density = context.resources.displayMetrics.density
+            val estimatedTitleHeight = (50 * density).toInt()
+            val estimatedPadding = pad * 2
+            val estimatedUsedSpace = estimatedTitleHeight + estimatedPadding
+            
+            val screenHeight = context.resources.displayMetrics.heightPixels
+            val maxDialogHeight = (screenHeight * maxHeightRatio).toInt()
+            val listHeight = (maxDialogHeight - estimatedUsedSpace).coerceAtLeast(300)
+            
+            // Add ListView with calculated height
+            val listParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, listHeight)
+            addView(listView, listParams)
         }
 
         // Apply fonts/colors and show as bottom sheet
@@ -717,21 +898,21 @@ class DialogManager(val context: Context, val activity: Activity) {
         val dialog = LockedBottomSheetDialog(context)
         dialog.setContentView(content)
         try {
-            val p = Prefs(context)
-            content.setBackgroundColor(p.backgroundColor)
+            val (_, bg) = resolveThemeColors(context)
+            content.setBackgroundColor(bg)
             dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
         } catch (_: Exception) {}
         dialog.setLocked(true)
         dialog.show()
-
-        // WindowInsets padding
+        
+        // Use WindowInsets to dynamically pad the bottom of the content so items are never clipped
         try {
             val baseBottom = content.paddingBottom
             dialog.window?.decorView?.let { decor ->
                 ViewCompat.setOnApplyWindowInsetsListener(decor) { _, insets ->
                     try {
                         val navBarInset = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
-                        val extra = (8 * context.resources.displayMetrics.density).toInt()
+                        val extra = (16 * context.resources.displayMetrics.density).toInt()
                         content.setPadding(content.paddingLeft, content.paddingTop, content.paddingRight, baseBottom + navBarInset + extra)
                     } catch (_: Exception) {}
                     insets
@@ -746,6 +927,7 @@ class DialogManager(val context: Context, val activity: Activity) {
     // colorPickerDialog (AlertDialog) removed
     var colorPickerBottomSheetDialog: LockedBottomSheetDialog? = null
     var errorBottomSheetDialog: LockedBottomSheetDialog? = null
+    var wallpaperTargetBottomSheetDialog: LockedBottomSheetDialog? = null
 
     fun showColorPickerDialog(
         context: Context,
@@ -760,7 +942,8 @@ class DialogManager(val context: Context, val activity: Activity) {
         val green = Color.green(color)
         val blue = Color.blue(color)
 
-        var isUpdatingText = false
+        // Holds the color currently reflected in the preview but not yet confirmed by the user.
+        var pendingColor = color
 
         // Create SeekBars for Red, Green, and Blue
         val redSeekBar = createColorSeekBar(context, red)
@@ -805,28 +988,184 @@ class DialogManager(val context: Context, val activity: Activity) {
                 addView(colorPreviewBox)
             }
 
-            addView(redSeekBar)
-            addView(greenSeekBar)
-            addView(blueSeekBar)
+            // Add seekbars with vertical spacing between them
+            val seekBarLp = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                val spacing = (10 * context.resources.displayMetrics.density).toInt()
+                topMargin = spacing
+            }
+
+            // First seekbar: keep a little less top margin so title doesn't feel too far
+            val firstLp = LinearLayout.LayoutParams(seekBarLp).apply {
+                topMargin = (6 * context.resources.displayMetrics.density).toInt()
+            }
+
+            addView(redSeekBar, firstLp)
+            addView(greenSeekBar, seekBarLp)
+            addView(blueSeekBar, seekBarLp)
             addView(horizontalLayout)
+
+            // Buttons row (Cancel / OK) — mirror behavior/style from showSliderDialog
+            val buttonsRow = LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.END
+                val params = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    topMargin = (16 * context.resources.displayMetrics.density).toInt()
+                }
+                layoutParams = params
+
+                val smallBtnPadding = (8 * context.resources.displayMetrics.density).toInt()
+                val smallTextSizeSp = 16f
+
+                val cancelBtn = android.widget.Button(context).apply {
+                    text = context.getString(R.string.cancel)
+                    setPadding(smallBtnPadding, smallBtnPadding, smallBtnPadding, smallBtnPadding)
+                    textSize = smallTextSizeSp
+                    minWidth = 0
+                    minimumWidth = 0
+                    minHeight = 0
+                    minimumHeight = 0
+                    setOnClickListener {
+                        try { VibrationHelper.trigger(VibrationHelper.Effect.CLICK) } catch (_: Exception) {}
+                        // Revert to original color
+                        try { onItemSelected(color) } catch (_: Exception) {}
+                        colorPickerBottomSheetDialog?.dismiss()
+                    }
+                }
+
+                val btnSpacing = (8 * context.resources.displayMetrics.density).toInt()
+
+                val okBtn = android.widget.Button(context).apply {
+                    text = context.getString(R.string.okay)
+                    setPadding(smallBtnPadding, smallBtnPadding, smallBtnPadding, smallBtnPadding)
+                    textSize = smallTextSizeSp
+                    minWidth = 0
+                    minimumWidth = 0
+                    minHeight = 0
+                    minimumHeight = 0
+                    setOnClickListener {
+                        try { VibrationHelper.trigger(VibrationHelper.Effect.CLICK) } catch (_: Exception) {}
+                        // Apply the pending color (user-confirmed)
+                        try { onItemSelected(pendingColor) } catch (_: Exception) {}
+                        colorPickerBottomSheetDialog?.dismiss()
+                    }
+                }
+
+                // Style buttons using theme colors
+                try {
+                    val (textColor, backgroundColor) = resolveThemeColors(context)
+                    val density = context.resources.displayMetrics.density
+                    val prefs = Prefs(context)
+                    val textIslandsShape = prefs.textIslandsShape
+                    val radius = ShapeHelper.getCornerRadiusPx(
+                        textIslandsShape = textIslandsShape,
+                        density = density
+                    )
+                    val strokeWidth = (3f * density).toInt()
+                    val bgDrawable = GradientDrawable().apply {
+                        shape = GradientDrawable.RECTANGLE
+                        cornerRadius = radius
+                        setColor(backgroundColor)
+                        setStroke(strokeWidth, textColor)
+                    }
+                    cancelBtn.background = bgDrawable
+                    okBtn.background = bgDrawable.constantState?.newDrawable()?.mutate()
+                    cancelBtn.setTextColor(textColor)
+                    okBtn.setTextColor(textColor)
+                } catch (_: Exception) { }
+
+                val leftParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    marginEnd = btnSpacing
+                }
+                val rightParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    marginStart = btnSpacing
+                }
+                cancelBtn.layoutParams = leftParams
+                okBtn.layoutParams = rightParams
+
+                addView(cancelBtn)
+                addView(okBtn)
+            }
+
+            addView(buttonsRow)
         }
 
-        // Update color preview and immediately apply when SeekBars are adjusted
-        val updateColorPreview = {
+    // Flag to prevent infinite loop when programmatically updating text.
+    // Without this flag, we get an infinite loop:
+    // 1. User types hex code -> TextWatcher.afterTextChanged() fires
+    // 2. afterTextChanged() calls updateColorPreview() which sets rgbText.setText()
+    // 3. setText() triggers afterTextChanged() again -> back to step 2 (infinite loop)
+    // By setting this flag before programmatic setText() calls, the TextWatcher can skip processing
+    // and break the loop.
+    var isUpdatingTextProgrammatically = false
+
+    // Update color preview and immediately apply when SeekBars are adjusted
+    val updateColorPreview = lambda@{
             val updatedColor = Color.rgb(
                 redSeekBar.progress, greenSeekBar.progress, blueSeekBar.progress
             )
+
+            // If this dialog is for background color, validate against text color prefs
+            try {
+                val p = Prefs(context)
+                val isBackgroundDialog = try { context.getString(titleResId) == context.getString(R.string.background_color) } catch (_: Exception) { false }
+                if (isBackgroundDialog) {
+                    val (textColor, _) = resolveThemeColors(context)
+                    val forbidden = listOf(textColor)
+                    if (forbidden.contains(updatedColor)) {
+                        // Disallow: show toast and reset to original default background (resource 'bg')
+                        try {
+                            // Determine the original default background color from app theme resources
+                            val defaultBgRes = when (p.appTheme) {
+                                Constants.Theme.Dark -> R.color.black
+                                Constants.Theme.Light -> R.color.white
+                            }
+                            val defaultBg = androidx.core.content.ContextCompat.getColor(context, defaultBgRes)
+                            android.widget.Toast.makeText(context, "Same color not allowed", android.widget.Toast.LENGTH_SHORT).show()
+
+                            // Persist original default explicitly (ensure we don't keep the last saved color)
+                                // Update pending color to default and show reset visually
+                                pendingColor = defaultBg
+                                colorPreviewBox.setBackgroundColor(defaultBg)
+                            try {
+                                // Set flag to prevent infinite loop
+                                isUpdatingTextProgrammatically = true
+                                try {
+                                    rgbText.setText(String.format("#%02X%02X%02X", Color.red(defaultBg), Color.green(defaultBg), Color.blue(defaultBg)))
+                                } finally {
+                                    isUpdatingTextProgrammatically = false
+                                }
+                                redSeekBar.progress = Color.red(defaultBg)
+                                greenSeekBar.progress = Color.green(defaultBg)
+                                blueSeekBar.progress = Color.blue(defaultBg)
+                            } catch (_: Exception) {}
+
+                            // Do not apply automatically; user must press OK. Return after updating preview.
+                            return@lambda
+                        } catch (_: Exception) {
+                            // fallthrough to normal behavior on error
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+
             colorPreviewBox.setBackgroundColor(updatedColor)
-            // update text field without re-entrancy
-            if (!isUpdatingText) {
-                isUpdatingText = true
+            // update text field - use flag to prevent infinite loop
+            try {
+                isUpdatingTextProgrammatically = true
                 try {
                     rgbText.setText(String.format("#%02X%02X%02X", redSeekBar.progress, greenSeekBar.progress, blueSeekBar.progress))
-                } catch (_: Exception) {}
-                isUpdatingText = false
-            }
-            // Apply immediately
-            try { onItemSelected(updatedColor) } catch (_: Exception) {}
+                } finally {
+                    isUpdatingTextProgrammatically = false
+                }
+            } catch (_: Exception) {}
+            // Update pending color — do not apply until user confirms with OK
+            pendingColor = updatedColor
         }
 
         // Listeners to update color preview and apply changes
@@ -837,6 +1176,9 @@ class DialogManager(val context: Context, val activity: Activity) {
         // Listen for text input and update sliders and preview (apply on valid hex)
         rgbText.addTextChangedListener(object : TextWatcher {
             override fun afterTextChanged(s: Editable?) {
+                // Skip if we're programmatically updating the text
+                if (isUpdatingTextProgrammatically) return
+                
                 s?.toString()?.trim()?.let { colorString ->
                     if (colorString.matches(Regex("^#[0-9A-Fa-f]{6}$"))) {
                         val hexColor = colorString.toColorInt()
@@ -859,8 +1201,8 @@ class DialogManager(val context: Context, val activity: Activity) {
         val dialog = LockedBottomSheetDialog(context)
         dialog.setContentView(layout)
         try {
-            val p = Prefs(context)
-            layout.setBackgroundColor(p.backgroundColor)
+            val (_, bg) = resolveThemeColors(context)
+            layout.setBackgroundColor(bg)
             dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
         } catch (_: Exception) {}
 
@@ -960,7 +1302,10 @@ class DialogManager(val context: Context, val activity: Activity) {
                     minimumWidth = 0
                     minHeight = 0
                     minimumHeight = 0
-                    setOnClickListener { inputBottomSheetDialog?.dismiss() }
+                    setOnClickListener {
+                        try { VibrationHelper.trigger(VibrationHelper.Effect.CLICK) } catch (_: Exception) {}
+                        inputBottomSheetDialog?.dismiss()
+                    }
                 }
 
                 val okBtn = android.widget.Button(context).apply {
@@ -972,27 +1317,33 @@ class DialogManager(val context: Context, val activity: Activity) {
                     minHeight = 0
                     minimumHeight = 0
                     setOnClickListener {
+                        try { VibrationHelper.trigger(VibrationHelper.Effect.CLICK) } catch (_: Exception) {}
                         onValueEntered(input.text.toString())
                         inputBottomSheetDialog?.dismiss()
                     }
                 }
 
-                // Style buttons: fill = backgroundColor, outline = appColor (thicker)
+                // Style buttons: fill = backgroundColor, outline = textColor (thicker)
                 try {
-                    val p = Prefs(context)
+                    val (textColor, backgroundColor) = resolveThemeColors(context)
                     val density = context.resources.displayMetrics.density
-                    val radius = (6 * density)
+                    val prefs = Prefs(context)
+                    val textIslandsShape = prefs.textIslandsShape
+                    val radius = ShapeHelper.getCornerRadiusPx(
+                        textIslandsShape = textIslandsShape,
+                        density = density
+                    )
                     val strokeWidth = (3f * density).toInt()
                     val bgDrawable = GradientDrawable().apply {
                         shape = GradientDrawable.RECTANGLE
                         cornerRadius = radius
-                        setColor(p.backgroundColor)
-                        setStroke(strokeWidth, p.appColor)
+                        setColor(backgroundColor)
+                        setStroke(strokeWidth, textColor)
                     }
                     cancelBtn.background = bgDrawable
                     okBtn.background = bgDrawable.constantState?.newDrawable()?.mutate()
-                    cancelBtn.setTextColor(p.appColor)
-                    okBtn.setTextColor(p.appColor)
+                    cancelBtn.setTextColor(textColor)
+                    okBtn.setTextColor(textColor)
                 } catch (_: Exception) {}
 
                 // Equal width params with spacing
@@ -1020,8 +1371,8 @@ class DialogManager(val context: Context, val activity: Activity) {
         val dialog = LockedBottomSheetDialog(context)
         dialog.setContentView(content)
         try {
-            val p = Prefs(context)
-            content.setBackgroundColor(p.backgroundColor)
+            val (_, bg) = resolveThemeColors(context)
+            content.setBackgroundColor(bg)
             dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
         } catch (_: Exception) {}
 
@@ -1034,8 +1385,9 @@ class DialogManager(val context: Context, val activity: Activity) {
         // Dismiss any existing error dialogs
         errorBottomSheetDialog?.dismiss()
 
-    // Grab prefs early so we can apply appColor to title/message
-    val p = Prefs(context)
+    // Grab prefs early so we can apply fonts; resolve theme colors for colors
+        Prefs(context)
+    val (dlgTextColor, dlgBackground) = resolveThemeColors(context)
 
         val content = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
@@ -1048,11 +1400,11 @@ class DialogManager(val context: Context, val activity: Activity) {
                 gravity = Gravity.CENTER
                 textAlignment = View.TEXT_ALIGNMENT_CENTER
                 textSize = 16f
-                try { setTextColor(p.appColor) } catch (_: Exception) {}
+                try { setTextColor(dlgTextColor) } catch (_: Exception) {}
             }
             addView(titleView)
 
-            val messageView = TextView(context).apply {
+                val messageView = TextView(context).apply {
                 text = message
                 // Left-align message text
                 gravity = Gravity.START
@@ -1060,7 +1412,7 @@ class DialogManager(val context: Context, val activity: Activity) {
                 textSize = 14f
                 val mPad = (8 * context.resources.displayMetrics.density).toInt()
                 setPadding(mPad, mPad, mPad, mPad)
-                try { setTextColor(p.appColor) } catch (_: Exception) {}
+                try { setTextColor(dlgTextColor) } catch (_: Exception) {}
             }
             addView(messageView)
 
@@ -1073,22 +1425,29 @@ class DialogManager(val context: Context, val activity: Activity) {
                 minimumWidth = 0
                 minHeight = 0
                 minimumHeight = 0
-                setOnClickListener { errorBottomSheetDialog?.dismiss() }
+                setOnClickListener {
+                    try { VibrationHelper.trigger(VibrationHelper.Effect.CLICK) } catch (_: Exception) {}
+                    errorBottomSheetDialog?.dismiss()
+                }
             }
-            // style button
+            // style button using resolved theme colors
             try {
-                val p = Prefs(context)
                 val density = context.resources.displayMetrics.density
-                val radius = (6 * density)
+                val prefs = Prefs(context)
+                val textIslandsShape = prefs.textIslandsShape
+                val radius = ShapeHelper.getCornerRadiusPx(
+                    textIslandsShape = textIslandsShape,
+                    density = density
+                )
                 val strokeWidth = (3f * density).toInt()
                 val bgDrawable = GradientDrawable().apply {
                     shape = GradientDrawable.RECTANGLE
                     cornerRadius = radius
-                    setColor(p.backgroundColor)
-                    setStroke(strokeWidth, p.appColor)
+                    setColor(dlgBackground)
+                    setStroke(strokeWidth, dlgTextColor)
                 }
                 okBtn.background = bgDrawable
-                okBtn.setTextColor(p.appColor)
+                okBtn.setTextColor(dlgTextColor)
             } catch (_: Exception) {}
 
             val params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
@@ -1104,8 +1463,7 @@ class DialogManager(val context: Context, val activity: Activity) {
         val dialog = LockedBottomSheetDialog(context)
         dialog.setContentView(content)
         try {
-            val p = Prefs(context)
-            content.setBackgroundColor(p.backgroundColor)
+            content.setBackgroundColor(dlgBackground)
             dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
         } catch (_: Exception) {}
 
@@ -1134,12 +1492,54 @@ class DialogManager(val context: Context, val activity: Activity) {
         return SeekBar(context).apply {
             max = 255
             progress = initialValue
+            try {
+                val (textColor, _) = resolveThemeColors(context)
+                val csl = android.content.res.ColorStateList.valueOf(textColor)
+                this.progressTintList = csl
+                this.thumbTintList = csl
+                try {
+                    val thumb = createCircularThumb(context, textColor)
+                    this.thumb = thumb
+                    this.thumbOffset = (thumb.intrinsicWidth / 2)
+                } catch (_: Exception) {}
+            } catch (_: Exception) {}
         }
+    }
+
+    // Create a circular thumb drawable sized in dp for SeekBars so the thumb
+    // is easier to touch/drag. Returns a drawable with intrinsic size set.
+    private fun createCircularThumb(context: Context, color: Int): android.graphics.drawable.Drawable {
+        val diameterDp = 22
+        val diameterPx = (diameterDp * context.resources.displayMetrics.density).toInt().coerceAtLeast(1)
+        val gd = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(color)
+            // Add a subtle stroke so thumb is visible against any background
+            setStroke((2 * context.resources.displayMetrics.density).toInt(), Color.argb(120, 0, 0, 0))
+            setSize(diameterPx, diameterPx)
+        }
+        // Ensure intrinsic size is available by setting bounds
+        try {
+            gd.setBounds(0, 0, diameterPx, diameterPx)
+        } catch (_: Exception) {}
+        return gd
     }
 
     private fun createColorPreviewBox(context: Context, color: Int): View {
         return View(context).apply {
-            setBackgroundColor(color)
+            try {
+                val (textColor, _) = resolveThemeColors(context)
+                val radius = (4 * context.resources.displayMetrics.density)
+                val gd = GradientDrawable().apply {
+                    shape = GradientDrawable.RECTANGLE
+                    cornerRadius = radius
+                    setColor(color)
+                    setStroke((2 * context.resources.displayMetrics.density).toInt(), textColor)
+                }
+                background = gd
+            } catch (_: Exception) {
+                setBackgroundColor(color)
+            }
         }
     }
 
@@ -1164,32 +1564,33 @@ class DialogManager(val context: Context, val activity: Activity) {
         }
     }
 
+    @Suppress("UNUSED")
     fun setDialogFontForAllButtonsAndText(
         dialog: AlertDialog?,
         context: Context,
         contextKey: String = "settings"
     ) {
         val prefs = Prefs(context)
+        val (textColor, _) = resolveThemeColors(context)
         val fontFamily = prefs.getFontForContext(contextKey)
         val customFontPath = prefs.getCustomFontPathForContext(contextKey)
         val typeface = fontFamily.getFont(context, customFontPath) ?: getTrueSystemFont()
         val textSize = prefs.settingsSize.toFloat()
-        val appColor = prefs.appColor
         // Set for all buttons
         dialog?.getButton(AlertDialog.BUTTON_POSITIVE)?.let {
             it.typeface = typeface
             it.textSize = textSize
-            it.setTextColor(appColor)
+            it.setTextColor(textColor)
         }
         dialog?.getButton(AlertDialog.BUTTON_NEGATIVE)?.let {
             it.typeface = typeface
             it.textSize = textSize
-            it.setTextColor(appColor)
+            it.setTextColor(textColor)
         }
         dialog?.getButton(AlertDialog.BUTTON_NEUTRAL)?.let {
             it.typeface = typeface
             it.textSize = textSize
-            it.setTextColor(appColor)
+            it.setTextColor(textColor)
         }
         // Set for all TextViews in the dialog view
         (dialog?.window?.decorView as? ViewGroup)?.let { root ->
@@ -1197,10 +1598,10 @@ class DialogManager(val context: Context, val activity: Activity) {
                 if (view is TextView) {
                     view.typeface = typeface
                     view.textSize = textSize
-                    view.setTextColor(appColor)
+                    view.setTextColor(textColor)
                     // If it's an EditText, also update hint color for visibility
                     if (view is EditText) {
-                        view.setHintTextColor(appColor)
+                        view.setHintTextColor(textColor)
                     }
                 } else if (view is ViewGroup) {
                     for (i in 0 until view.childCount) {
@@ -1216,23 +1617,23 @@ class DialogManager(val context: Context, val activity: Activity) {
      * Apply the app font and text size to any view hierarchy rooted at [view].
      * This is useful for BottomSheetDialog content views which are not AlertDialogs.
      */
-    private fun setDialogFontForView(view: View?, context: Context, contextKey: String = "settings") {
+    private fun setDialogFontForView(view: View?, context: Context, @Suppress("UNUSED_PARAMETER") contextKey: String = "settings") {
         if (view == null) return
 
         val prefs = Prefs(context)
+        val (textColor, _) = resolveThemeColors(context)
         val fontFamily = prefs.getFontForContext(contextKey)
         val customFontPath = prefs.getCustomFontPathForContext(contextKey)
         val typeface = fontFamily.getFont(context, customFontPath) ?: getTrueSystemFont()
         val textSize = prefs.settingsSize.toFloat()
-        val appColor = prefs.appColor
 
         fun apply(view: View) {
             if (view is TextView) {
                 view.typeface = typeface
                 view.textSize = textSize
-                view.setTextColor(appColor)
+                view.setTextColor(textColor)
                 if (view is EditText) {
-                    view.setHintTextColor(appColor)
+                    view.setHintTextColor(textColor)
                 }
             } else if (view is ViewGroup) {
                 for (i in 0 until view.childCount) {
@@ -1242,6 +1643,149 @@ class DialogManager(val context: Context, val activity: Activity) {
         }
 
         apply(view)
+    }
+
+    @Suppress("UNUSED")
+    fun showWallpaperTargetDialog(
+        context: Context,
+        onSelect: (Int) -> Unit,
+        onCancel: () -> Unit
+    ) {
+        wallpaperTargetBottomSheetDialog?.dismiss()
+
+        val layout = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            val pad = (16 * context.resources.displayMetrics.density).toInt()
+            setPadding(pad, pad, pad, pad)
+        }
+
+        // Title
+        val titleView = TextView(context).apply {
+            @Suppress("HardcodedText")
+            text = "Set wallpaper for"
+            gravity = Gravity.CENTER
+            textSize = 18f
+        }
+        layout.addView(titleView)
+
+        @Suppress("UnnecessaryCheck")
+        val supportsLockScreen = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N
+
+        fun makeOption(text: String, flags: Int): TextView {
+            return TextView(context).apply {
+                this.text = text
+                val padding = (16 * context.resources.displayMetrics.density).toInt()
+                setPadding(padding, padding, padding, padding)
+                gravity = Gravity.CENTER
+                textSize = 16f
+                setOnClickListener {
+                    try { VibrationHelper.trigger(VibrationHelper.Effect.CLICK) } catch (_: Exception) {}
+                    onSelect(flags)
+                    wallpaperTargetBottomSheetDialog?.dismiss()
+                }
+            }
+        }
+
+        val spacing = (12 * context.resources.displayMetrics.density).toInt()
+        
+        // Home screen option
+        layout.addView(makeOption("Home Screen", android.app.WallpaperManager.FLAG_SYSTEM))
+        
+        if (supportsLockScreen) {
+            val spacer = View(context).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    spacing
+                )
+            }
+            layout.addView(spacer)
+            
+            // Lock screen option
+            layout.addView(makeOption("Lock Screen", android.app.WallpaperManager.FLAG_LOCK))
+            
+            val spacer2 = View(context).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    spacing
+                )
+            }
+            layout.addView(spacer2)
+            
+            // Both option
+            layout.addView(makeOption("Both", android.app.WallpaperManager.FLAG_SYSTEM or android.app.WallpaperManager.FLAG_LOCK))
+        }
+
+        // Buttons row
+        val buttonsRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.END
+            val params = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = (24 * context.resources.displayMetrics.density).toInt()
+            }
+            layoutParams = params
+            val smallBtnPadding = (12 * context.resources.displayMetrics.density).toInt()
+            val smallTextSizeSp = 16f
+
+            val cancelBtn = android.widget.Button(context).apply {
+                text = context.getString(R.string.cancel)
+                setPadding(smallBtnPadding, smallBtnPadding, smallBtnPadding, smallBtnPadding)
+                textSize = smallTextSizeSp
+                minWidth = 0
+                minimumWidth = 0
+                minHeight = 0
+                minimumHeight = 0
+                setOnClickListener {
+                    try { VibrationHelper.trigger(VibrationHelper.Effect.CLICK) } catch (_: Exception) {}
+                    onCancel()
+                    wallpaperTargetBottomSheetDialog?.dismiss()
+                }
+            }
+
+            // Style buttons
+            try {
+                val (textColor, backgroundColor) = resolveThemeColors(context)
+                val density = context.resources.displayMetrics.density
+                val prefs = Prefs(context)
+                val textIslandsShape = prefs.textIslandsShape
+                val radius = ShapeHelper.getCornerRadiusPx(
+                    textIslandsShape = textIslandsShape,
+                    density = density
+                )
+                val strokeWidth = (3f * density).toInt()
+                val bgDrawable = GradientDrawable().apply {
+                    shape = GradientDrawable.RECTANGLE
+                    cornerRadius = radius
+                    setColor(backgroundColor)
+                    setStroke(strokeWidth, textColor)
+                }
+                cancelBtn.background = bgDrawable
+                cancelBtn.setTextColor(textColor)
+            } catch (_: Exception) { }
+
+            val cancelParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            cancelBtn.layoutParams = cancelParams
+            addView(cancelBtn)
+        }
+
+        layout.addView(buttonsRow)
+
+        // Apply fonts and color styling
+        setDialogFontForView(layout, context, "settings")
+
+        // Create bottom sheet dialog
+        val dialog = LockedBottomSheetDialog(context)
+        dialog.setContentView(layout)
+        try {
+            val (_, bg) = resolveThemeColors(context)
+            layout.setBackgroundColor(bg)
+            dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+        } catch (_: Exception) {}
+        dialog.setLocked(true)
+        dialog.show()
+        wallpaperTargetBottomSheetDialog = dialog
     }
 }
 

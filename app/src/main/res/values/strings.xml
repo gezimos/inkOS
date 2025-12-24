@@ -16,6 +16,7 @@
     <string name="use_volume_keys_for_pages">VolumeKey Navigation</string>
 
     <string name="settings_gestures_title">Gestures</string>
+    <string name="edge_swipe_back">Edge swipe back</string>
 
     <string name="settings_hidden_apps_title">Hidden Apps</string>
 
@@ -38,6 +39,8 @@
     <string name="apps_on_home_screen">Number of Home Apps</string>
     <string name="pages_on_home_screen">Number of Pages</string>
     <string name="enable_home_pager">Enable Page Indicator</string>
+    <string name="az_filter">AZ Filter</string>
+    <string name="filtring">Filtring</string>
     <string name="home_page_reset">Home Page Reset</string>
 
 
@@ -50,16 +53,20 @@
     <string name="date_text_size">Date Text Size</string>
     <string name="longpress_app_info">Long Press for App Info</string>
     <string name="show_clock">Show Clock</string>
+    <string name="clock_format">Clock Format</string>
+    <string name="clock_mode_system">System</string>
+    <string name="clock_mode_24">24 hour</string>
+    <string name="clock_mode_12">12 hour</string>
     <string name="show_battery">Show Battery</string>
+    <string name="show_notification_count">Show Notification Count</string>
     <string name="show_quote">Show Quote</string>
     <string name="show_audio_widget">Show Audio Widget</string>
     <string name="quote_font">Quote Font</string>
     <string name="quote_text_size">Quote Text Size</string>
     <string name="quote_text">Quote Text</string>
-    <string name="quote_color">Quote</string>
     <string name="show_notification_badge">Asterisk Notification</string>
     <string name="show_notification_text">Label Notifications</string>
-    <string name="enable_notifications">Notification Window</string>
+    <string name="enable_notifications">Notification Window (Letters) </string>
     <string name="show_media_playing_indicator">Media Playing Asterisk</string>
     <string name="show_media_playing_name">Media Playing Name</string>
     <string name="show_sender_name">Sender Name</string>
@@ -74,10 +81,13 @@
     <string name="notification_permission_enabled">Notification permission enabled</string>
     <string name="notification_permissions">Notification permissions</string>
     <string name="reset">Reset</string>
+    <string name="notifications_per_page">Notifications Per Page</string>
+    <string name="enable_bottom_navigation">Enable Bottom Navigation</string>
 
 
     <!-- Strings used for look & feel settings -->
     <string name="look_feel_settings_title">Look &amp; Feel</string>
+    <string name="choose_wallpaper_picker">Choose Wallpaper Picker</string>
 
     <string name="app_text_size">App Text Size</string>
     <string name="clock_text_size">Clock Text Size</string>
@@ -102,10 +112,8 @@
     <string name="element_colors">Element Colors</string>
 
     <string name="background_color">Background</string>
-    <string name="app_color">Apps</string>
-    <string name="clock_color">Clock</string>
+    <string name="text_color">Text Color</string>
     <string name="battery_color">Battery</string>
-    <string name="date_color">Date</string>
 
     <string name="small_caps_apps">lowercase</string>
 
@@ -143,6 +151,14 @@
 
     <string name="swipe_left_app">Swipe left</string>
     <string name="swipe_right_app">Swipe right</string>
+    <string name="swipe_up_app">Swipe up</string>
+    <string name="swipe_down_app">Swipe down</string>
+    <string name="swipe_threshold_ratios">Swipe threshold ratios</string>
+    <string name="short_swipe_ratio">Short swipe ratio</string>
+    <string name="long_swipe_ratio">Long swipe ratio</string>
+    <string name="swipe_ratio_display_format">%1$.2fx</string>
+    <string name="swipe_ratio_dialog_hint">Enter a ratio between %1$.2f× and %2$.2f×</string>
+    <string name="swipe_ratio_value_label">Ratio</string>
 
     <string name="open_app">Open App</string>
     <string name="private_space">Private Spaces</string>
@@ -238,6 +254,7 @@
     <string name="open_clock">Open Clock</string>
     <string name="app_drawer">App Drawer</string>
     <string name="customizations">Customizations</string>
+    <string name="search">Search</string>
     <string name="app_drawer_alignment">Alignment</string>
     <string name="app_drawer_align_left">Left</string>
     <string name="app_drawer_align_center">Center</string>
@@ -267,6 +284,8 @@
     <string name="toast_private_space_not_available">Private space is not available</string>
 
     <string name="notifications_screen_title">Notifications</string>
+    <string name="simple_tray_title">Simple Tray</string>
+    <string name="no_notifications">No notifications</string>
 
     <!-- Error messages for file picker -->
     <string name="error_no_file_picker_title">No File Picker Found</string>

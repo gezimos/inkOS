@@ -1,43 +1,39 @@
 package com.github.gezimos.inkos.ui
 
-import android.annotation.SuppressLint
-import android.app.admin.DevicePolicyManager
-import android.content.Context
-import android.content.Context.VIBRATOR_SERVICE
+import android.app.Notification
 import android.content.Intent
 import android.content.IntentFilter
-import android.graphics.ColorFilter
-import android.graphics.PorterDuff
-import android.graphics.PorterDuffColorFilter
-import android.os.Build
 import android.os.Bundle
 import android.os.Vibrator
-import android.text.format.DateFormat
-import android.util.Log
-import android.view.Gravity
+import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ImageView
-import android.widget.LinearLayout
-import android.widget.TextView
-import androidx.annotation.RequiresApi
 import androidx.biometric.BiometricPrompt
-import androidx.core.content.ContextCompat
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.core.os.bundleOf
-import androidx.core.view.children
-import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.distinctUntilChanged
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
-import com.github.gezimos.common.CrashHandler
-import com.github.gezimos.common.hideKeyboard
-import com.github.gezimos.common.launchCalendar
-import com.github.gezimos.common.openAlarmApp
-import com.github.gezimos.common.openCameraApp
-import com.github.gezimos.common.openDialerApp
 import com.github.gezimos.common.showShortToast
 import com.github.gezimos.inkos.MainViewModel
 import com.github.gezimos.inkos.R
@@ -45,75 +41,61 @@ import com.github.gezimos.inkos.data.Constants.Action
 import com.github.gezimos.inkos.data.Constants.AppDrawerFlag
 import com.github.gezimos.inkos.data.HomeAppUiState
 import com.github.gezimos.inkos.data.Prefs
-import com.github.gezimos.inkos.databinding.FragmentHomeBinding
-import com.github.gezimos.inkos.helper.hideStatusBar
+import com.github.gezimos.inkos.helper.AudioWidgetHelper
+import com.github.gezimos.inkos.helper.KeyMapperHelper
 import com.github.gezimos.inkos.helper.openAppInfo
 import com.github.gezimos.inkos.helper.receivers.BatteryReceiver
-import com.github.gezimos.inkos.helper.showStatusBar
-import com.github.gezimos.inkos.helper.utils.AppReloader
 import com.github.gezimos.inkos.helper.utils.BiometricHelper
-import com.github.gezimos.inkos.helper.utils.NotificationBadgeUtil
-import com.github.gezimos.inkos.helper.utils.PrivateSpaceManager
-import com.github.gezimos.inkos.helper.AudioWidgetHelper
-import com.github.gezimos.inkos.listener.OnSwipeTouchListener
-import com.github.gezimos.inkos.listener.ViewSwipeTouchListener
+import com.github.gezimos.inkos.helper.utils.VibrationHelper
 import com.github.gezimos.inkos.services.NotificationManager
+import com.github.gezimos.inkos.style.SettingsTheme
+import com.github.gezimos.inkos.ui.compose.GestureHelper
+import com.github.gezimos.inkos.ui.compose.HomeMediaAction
+import com.github.gezimos.inkos.ui.compose.HomeUI
+import com.github.gezimos.inkos.ui.compose.HomeUiCallbacks
+import com.github.gezimos.inkos.ui.compose.NavHelper
+import com.github.gezimos.inkos.ui.compose.gestureHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import com.github.gezimos.inkos.helper.KeyMapperHelper
-import android.view.KeyEvent
-import com.github.gezimos.inkos.helper.utils.EinkRefreshHelper
-import com.github.gezimos.inkos.helper.utils.BackgroundImageHelper
+import kotlin.math.abs
 
-class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener {
+class HomeFragmentCompose : Fragment() {
 
     companion object {
         @JvmStatic
         var isHomeVisible: Boolean = false
 
         @JvmStatic
-        fun sendGoToFirstPageSignal() {
-            // This will be set by MainActivity to trigger going to first page
-            goToFirstPageSignal = true
-        }
+        var goToFirstPageSignal: Boolean = false
 
         @JvmStatic
-        var goToFirstPageSignal: Boolean = false
+        fun sendGoToFirstPageSignal() {
+            goToFirstPageSignal = true
+        }
     }
 
     private lateinit var prefs: Prefs
     private lateinit var viewModel: MainViewModel
-    private lateinit var deviceManager: DevicePolicyManager
     private lateinit var batteryReceiver: BatteryReceiver
-    private val biometricHelper by lazy { BiometricHelper(this) }
-    private lateinit var vibrator: Vibrator
 
-    private var _binding: FragmentHomeBinding? = null
-    private val binding get() = _binding!!
+    private val notificationManager: NotificationManager by lazy {
+        NotificationManager.getInstance(requireContext())
+    }
+    private val audioWidgetHelper: AudioWidgetHelper by lazy {
+        AudioWidgetHelper.getInstance(requireContext())
+    }
+    private val biometricHelper: BiometricHelper by lazy { BiometricHelper(this) }
+    private var vibrator: Vibrator? = null
 
-    private var selectedAppIndex = 0
-
-    // Cached calculations for performance (avoid repeated division in hot paths)
-    private var cachedTotalApps = 0
-    private var cachedTotalPages = 0
-    private var cachedAppsPerPage = 0
-
-    // Cached app views to reduce iteration overhead
-    private val appViews: List<TextView>
-        get() = binding.homeAppsLayout.children.filterIsInstance<TextView>().toList()
-
-    // Cached view references for performance (eliminate findViewById calls)
-    private val cachedClockView: TextView get() = binding.clock
-    private val cachedDateView: TextView? get() = binding.root.findViewById(R.id.date)
-    private val cachedBottomWidgetsWrapper: LinearLayout? get() = binding.root.findViewById(R.id.bottomWidgetsWrapper)
-
-    // Add a BroadcastReceiver for user present (unlock)
-    private var userPresentReceiver: android.content.BroadcastReceiver? = null
-
-
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        viewModel = ViewModelProvider(requireActivity())[MainViewModel::class.java]
+        prefs = viewModel.getPrefs()
+        vibrator = try {
+            requireContext().getSystemService(Vibrator::class.java)
+        } catch (_: Exception) {
+            null
+        }
     }
 
     override fun onCreateView(
@@ -121,450 +103,238 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        _binding = FragmentHomeBinding.inflate(inflater, container, false)
+        return ComposeView(requireContext()).apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+            setContent {
+                LocalContext.current
 
-        val view = binding.root
-        prefs = Prefs(requireContext())
-        batteryReceiver = BatteryReceiver()
+                // PERFORMANCE FIX: Use ONLY consolidated render state (single collection point)
+                val fullRenderState by viewModel.homeRenderState.collectAsState()
+                
+                // PERFORMANCE FIX: Derive theme from render state to avoid double collection
+                val isDark = remember(fullRenderState.backgroundColor) {
+                    // Dark theme if background is dark (luminance < 0.5)
+                    val color = fullRenderState.backgroundColor
+                    val r = android.graphics.Color.red(color) / 255f
+                    val g = android.graphics.Color.green(color) / 255f
+                    val b = android.graphics.Color.blue(color) / 255f
+                    val luminance = 0.299f * r + 0.587f * g + 0.114f * b
+                    luminance < 0.5f
+                }
 
-        return view
+                SettingsTheme(isDark = isDark) {
+                    // Hoist pointer input (gesture) handling into the Fragment so HomeUI remains UI-only
+                    val homeAppsBoundsState = remember { androidx.compose.runtime.mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
+                    LocalDensity.current
+                    // gesture helper will provide consistent swipe threshold and cooldown
+
+                    // PERFORMANCE FIX: Memoize chunks AND appsOnPage together
+                    val chunks = remember(fullRenderState.homeApps, fullRenderState.appsPerPage) {
+                        fullRenderState.homeApps.chunked(fullRenderState.appsPerPage)
+                    }
+                    val appsOnPage = remember(chunks, fullRenderState.currentPage) {
+                        chunks.getOrNull(fullRenderState.currentPage) ?: emptyList()
+                    }
+                    val selectedIndex = remember { androidx.compose.runtime.mutableStateOf(0) }
+                    val dpadMode = remember { androidx.compose.runtime.mutableStateOf(false) }
+                    val dpadActivatedAppId = remember { androidx.compose.runtime.mutableStateOf<Int?>(null) }
+                    val keyPressTracker = remember { com.github.gezimos.inkos.ui.compose.KeyPressTracker() }
+                    val focusRequester = remember { FocusRequester() }
+                    
+                    // Multi-zone focus navigation state
+                    val focusZone = remember { androidx.compose.runtime.mutableStateOf(com.github.gezimos.inkos.ui.compose.FocusZone.APPS) }
+                    val selectedMediaButton = remember { androidx.compose.runtime.mutableStateOf(0) }
+
+                    LaunchedEffect(Unit) {
+                        try { focusRequester.requestFocus() } catch (_: Exception) {}
+                    }
+
+                    LaunchedEffect(fullRenderState.currentPage, appsOnPage.size) {
+                        selectedIndex.value = selectedIndex.value.coerceIn(0, maxOf(appsOnPage.size - 1, 0))
+                    }
+                    
+        LaunchedEffect(focusZone.value) {
+            if (focusZone.value != com.github.gezimos.inkos.ui.compose.FocusZone.APPS) {
+                selectedIndex.value = -1
+            } else if (appsOnPage.isNotEmpty() && selectedIndex.value < 0) {
+                selectedIndex.value = 0
+            }
+            if (focusZone.value != com.github.gezimos.inkos.ui.compose.FocusZone.MEDIA_WIDGET) {
+                selectedMediaButton.value = 0
+            }
+        }
+        
+                    Box(modifier = androidx.compose.ui.Modifier.fillMaxSize()
+                        .focusRequester(focusRequester)
+                        .focusable()
+                        .onPreviewKeyEvent { keyEvent ->
+                            try {
+                                val handled = NavHelper.handleHomeKeyEvent(
+                                    keyEvent = keyEvent,
+                                    keyPressTracker = keyPressTracker,
+                                    dpadMode = dpadMode,
+                                    selectedIndex = selectedIndex,
+                                    appsOnPageSize = appsOnPage.size,
+                                    currentPage = fullRenderState.currentPage,
+                                    totalPages = fullRenderState.totalPages,
+                                    appsPerPage = fullRenderState.appsPerPage,
+                                    adjustPageBy = { delta -> try { adjustPageBy(delta, fullRenderState.totalPages) } catch (_: Exception) {} },
+                                    onAppClick = { index ->
+                                        val app = appsOnPage.getOrNull(index)
+                                        if (app != null) {
+                                            dpadActivatedAppId.value = app.id
+                                            handleHomeAppClick(app)
+                                        }
+                                    },
+                                    onAppLongClick = { index ->
+                                        val app = appsOnPage.getOrNull(index)
+                                        if (app != null) {
+                                            handleHomeAppLongClick(app)
+                                        }
+                                    },
+                                    onNavigateBack = { /* not used here */ },
+                                    onSwipeLeft = {
+                                        try {
+                                            GestureHelper.handleSwipeLeft(requireContext(), this@HomeFragmentCompose, viewModel, prefs)
+                                        } catch (_: Exception) {}
+                                    },
+                                    onSwipeRight = {
+                                        try {
+                                            GestureHelper.handleSwipeRight(requireContext(), this@HomeFragmentCompose, viewModel, prefs)
+                                        } catch (_: Exception) {}
+                                    },
+                                    disableSwipeGestures = focusZone.value == com.github.gezimos.inkos.ui.compose.FocusZone.MEDIA_WIDGET,
+                                    // Multi-zone parameters
+                                    focusZone = focusZone,
+                                    selectedMediaButton = selectedMediaButton,
+                                    showClock = fullRenderState.showClock,
+                                    showDate = fullRenderState.showDate,
+                                    showMediaWidget = fullRenderState.showMediaWidget && fullRenderState.mediaInfo != null,
+                                    showQuote = fullRenderState.showQuote && fullRenderState.quoteText.isNotBlank(),
+                                    onClockClick = { handleClockClick() },
+                                    onDateClick = { handleDateClick() },
+                                    onMediaAction = { buttonIndex ->
+                                        val action = when (buttonIndex) {
+                                            0 -> HomeMediaAction.Open
+                                            1 -> HomeMediaAction.Previous
+                                            2 -> HomeMediaAction.PlayPause
+                                            3 -> HomeMediaAction.Next
+                                            4 -> HomeMediaAction.Stop
+                                            else -> HomeMediaAction.PlayPause
+                                        }
+                                        handleMediaAction(action)
+                                    },
+                                    onQuoteClick = { handleQuoteClick() }
+                                )
+
+                                return@onPreviewKeyEvent handled
+
+                                // Let Activity handle printable keys/backspace so input routing
+                                // is centralized (MainActivity -> MainViewModel -> AppsFragment).
+                                // Do not consume the event here; return false so dispatch
+                                // continues to the Activity.
+                            } catch (_: Exception) {}
+                            false
+                        }
+                        .gestureHelper(
+                            shortSwipeRatio = prefs.shortSwipeThresholdRatio,
+                            longSwipeRatio = prefs.longSwipeThresholdRatio,
+                            onDoubleTap = {
+                                try { dpadMode.value = false } catch (_: Exception) {}
+                                try { handleDoubleTapAction() } catch (_: Exception) {}
+                            },
+                            onSwipeLeft = {
+                                GestureHelper.handleSwipeLeft(requireContext(), this@HomeFragmentCompose, viewModel, prefs)
+                            },
+                            onSwipeRight = {
+                                GestureHelper.handleSwipeRight(requireContext(), this@HomeFragmentCompose, viewModel, prefs)
+                            },
+                            onSwipeUp = if (prefs.swipeUpAction != Action.Disabled) {
+                                {
+                                    try { GestureHelper.handleSwipeUp(requireContext(), this@HomeFragmentCompose, viewModel, prefs) } catch (_: Exception) {}
+                                }
+                            } else null,
+                            onSwipeDown = if (prefs.swipeDownAction != Action.Disabled) {
+                                {
+                                    try { GestureHelper.handleSwipeDown(requireContext(), this@HomeFragmentCompose, viewModel, prefs) } catch (_: Exception) {}
+                                }
+                            } else null,
+                            onVerticalPageMove = { delta ->
+                                try {
+                                    if (fullRenderState.totalPages > 1) adjustPageBy(delta, fullRenderState.totalPages)
+                                } catch (_: Exception) {}
+                            },
+                            onAnyTouch = { try { 
+                                dpadMode.value = false
+                                focusZone.value = com.github.gezimos.inkos.ui.compose.FocusZone.APPS
+                            } catch (_: Exception) {} }
+                        )
+                        .pointerInput(Unit) {
+                            awaitEachGesture {
+                                val down = awaitFirstDown(requireUnconsumed = false)
+                                if (down.isConsumed) return@awaitEachGesture
+                                val longPress = awaitLongPressOrCancellation(down.id)
+                                if (longPress != null && !longPress.isConsumed) {
+                                    trySettings()
+                                    longPress.consume()
+                                }
+                            }
+                        }
+                    ) {
+                        HomeUI(
+                            state = fullRenderState,
+                            selectedAppId = appsOnPage.getOrNull(selectedIndex.value)?.id,
+                            showDpadMode = dpadMode.value,
+                            dpadActivatedAppId = dpadActivatedAppId.value,
+                            onDpadActivatedHandled = { id -> if (dpadActivatedAppId.value == id) dpadActivatedAppId.value = null },
+                            focusZone = focusZone.value,
+                            selectedMediaButton = selectedMediaButton.value,
+                            callbacks = HomeUiCallbacks(
+                                onAppClick = { handleHomeAppClick(it) },
+                                onAppLongClick = { handleHomeAppLongClick(it) },
+                                onClockClick = { handleClockClick() },
+                                onDateClick = { handleDateClick() },
+                                onBatteryClick = { handleBatteryClick() },
+                                onNotificationCountClick = { handleNotificationCountClick() },
+                                onQuoteClick = { handleQuoteClick() },
+                                onMediaAction = { action -> handleMediaAction(action) },
+                                onSwipeLeft = {},
+                                onSwipeRight = {},
+                                onPageDelta = { delta -> adjustPageBy(delta, fullRenderState.totalPages) },
+                                onRootLongPress = { /* handled by wrapper */ }
+                            ),
+                            onHomeAppsBoundsChanged = { homeAppsBoundsState.value = it }
+                        )
+                    }
+                }
+            }
+
+        }
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
-        // Always hide keyboard and clear focus when entering HomeFragment
-        hideKeyboard()
-        requireActivity().window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
-
-        viewModel = activity?.run {
-            ViewModelProvider(this)[MainViewModel::class.java]
-        } ?: throw Exception("Invalid Activity")
-
         viewModel.isinkosDefault()
-
-        deviceManager =
-            context?.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
-        @Suppress("DEPRECATION")
-        vibrator = context?.getSystemService(VIBRATOR_SERVICE) as Vibrator
-
-        // Defer heavy operations to after initial render
-        view.post {
-            setupBackgroundImageLazy()
-        }
-
-        initObservers()
-        initClickListeners()
-        initSwipeTouchListener()
-
-        // Apply Y-offset from preferences to position home apps container
-        applyHomeAppsYOffset()
-
-        // Initialize date display
-        updateDateDisplay()
-
-        // Observe home app UI state and update UI accordingly
-        viewModel.homeAppsUiState.observe(viewLifecycleOwner) { homeAppsUiState ->
-            updateHomeAppsUi(homeAppsUiState)
-        }
-
-        // Add observer for notification info and refresh UI state
-        NotificationManager.getInstance(requireContext()).notificationInfoLiveData.observe(
-            viewLifecycleOwner
-        ) { notifications ->
-            Log.d("HomeFragment", "notificationInfoLiveData updated: $notifications")
-            // Always refresh the ViewModel state first
-            viewModel.refreshHomeAppsUiState(requireContext())
-            updateHomeAppsUi(viewModel.homeAppsUiState.value ?: emptyList())
-            // --- Media playback notification observer logic ---
-            val mediaNotification = notifications.values.firstOrNull {
-                it.category == android.app.Notification.CATEGORY_TRANSPORT
-            }
-            viewModel.updateMediaPlaybackInfo(mediaNotification)
-        }
-
-        // Add observer for media player widget
-        AudioWidgetHelper.getInstance(requireContext()).mediaPlayerLiveData.observe(
-            viewLifecycleOwner
-        ) { mediaPlayer ->
-            updateMediaPlayerWidget(mediaPlayer)
-        }
-
-        // Immediately update widget state in case there's already an active player
-        val currentMediaPlayer =
-            AudioWidgetHelper.getInstance(requireContext()).getCurrentMediaPlayer()
-        updateMediaPlayerWidget(currentMediaPlayer)
-
-        // Set up media player click listeners once
-        setupMediaPlayerClickListeners()
-
-        // Centralized key handling via KeyMapperHelper
-        binding.root.isFocusableInTouchMode = true
-        binding.root.requestFocus()
-        binding.root.setOnKeyListener { _, keyCode, event ->
-            val action = KeyMapperHelper.mapHomeKey(prefs, keyCode, event)
-            when (action) {
-                is KeyMapperHelper.HomeKeyAction.MoveSelectionDown -> {
-                    moveSelectionDown()
-                    true
-                }
-                is KeyMapperHelper.HomeKeyAction.MoveSelectionUp -> {
-                    moveSelectionUp()
-                    true
-                }
-                is KeyMapperHelper.HomeKeyAction.PageUp -> {
-                    // Let Activity handle PageUp/PageDown (volume keys) centrally. Return false so Activity can forward.
-                    return@setOnKeyListener false
-                }
-                is KeyMapperHelper.HomeKeyAction.PageDown -> {
-                    // Let Activity handle PageUp/PageDown (volume keys) centrally. Return false so Activity can forward.
-                    return@setOnKeyListener false
-                }
-                is KeyMapperHelper.HomeKeyAction.GestureLeft -> {
-                    when (val act = action.action) {
-                        Action.OpenApp -> openSwipeLeftApp()
-                        else -> handleOtherAction(act)
-                    }
-                    CrashHandler.logUserAction("DPAD_RIGHT Gesture (SwipeLeft)")
-                    true
-                }
-                is KeyMapperHelper.HomeKeyAction.GestureRight -> {
-                    when (val act = action.action) {
-                        Action.OpenApp -> openSwipeRightApp()
-                        else -> handleOtherAction(act)
-                    }
-                    CrashHandler.logUserAction("DPAD_LEFT Gesture (SwipeRight)")
-                    true
-                }
-                is KeyMapperHelper.HomeKeyAction.LongPressSelected -> {
-                    val view = binding.homeAppsLayout.getChildAt(selectedAppIndex)
-                    if (view != null) onLongClick(view) else false
-                }
-                is KeyMapperHelper.HomeKeyAction.ClickClock -> {
-                    when (val action = prefs.clickClockAction) {
-                        Action.OpenApp -> openClickClockApp()
-                        Action.Disabled -> showShortToast(getString(R.string.edit_gestures_settings_toast))
-                        else -> handleOtherAction(action)
-                    }
-                    CrashHandler.logUserAction("Clock Clicked (key)")
-                    true
-                }
-                is KeyMapperHelper.HomeKeyAction.ClickQuote -> {
-                    when (val action = prefs.quoteAction) {
-                        Action.OpenApp -> {
-                            if (prefs.appQuoteWidget.activityPackage.isNotEmpty()) {
-                                viewModel.launchApp(prefs.appQuoteWidget, this)
-                            } else {
-                                showLongPressToast()
-                            }
-                        }
-                        Action.Disabled -> showShortToast(getString(R.string.edit_gestures_settings_toast))
-                        else -> handleOtherAction(action)
-                    }
-                    CrashHandler.logUserAction("Quote Clicked (key)")
-                    true
-                }
-                is KeyMapperHelper.HomeKeyAction.ClickDate -> {
-                    when (val action = prefs.clickDateAction) {
-                        Action.OpenApp -> openClickDateApp()
-                        Action.Disabled -> showShortToast(getString(R.string.edit_gestures_settings_toast))
-                        else -> handleOtherAction(action)
-                    }
-                    CrashHandler.logUserAction("Date Clicked (key)")
-                    true
-                }
-                is KeyMapperHelper.HomeKeyAction.DoubleTap -> {
-                    when (val action = prefs.doubleTapAction) {
-                        Action.OpenApp -> openDoubleTapApp()
-                        else -> handleOtherAction(action)
-                    }
-                    CrashHandler.logUserAction("DoubleTap (key)")
-                    true
-                }
-                is KeyMapperHelper.HomeKeyAction.OpenSettings -> {
-                    trySettings()
-                    true
-                }
-                else -> false
-            }
-        }
-    }
-
-    // ...existing code...
-
-    private fun updateHomeAppsUi(homeAppsUiState: List<HomeAppUiState>) {
-        val notifications =
-            NotificationManager.getInstance(requireContext()).notificationInfoLiveData.value
-                ?: emptyMap()
-        homeAppsUiState.forEach { uiState ->
-            val view = binding.homeAppsLayout.findViewWithTag<TextView>(uiState.activityPackage)
-            if (view != null) {
-                NotificationBadgeUtil.updateNotificationForView(
-                    requireContext(),
-                    prefs,
-                    view,
-                    notifications
-                )
-            }
-        }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        // Always hide keyboard and clear focus when resuming HomeFragment
-        hideKeyboard()
-        requireActivity().window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
-        isHomeVisible = true
-
-        // Disable transition animations for specific elements before updates
-        binding.quote.clearAnimation()
-        binding.homeScreenPager.clearAnimation()
-
-    // Eink refresh: flash overlay if enabled
-    EinkRefreshHelper.refreshEink(requireContext(), prefs, binding.root as? ViewGroup, prefs.einkRefreshDelay)
-        // Re-apply Y-offset after resume to ensure position reflects latest setting
-        applyHomeAppsYOffset()
-        // Centralized reset logic for home button
-        if (prefs.homeReset || goToFirstPageSignal) {
-            currentPage = 0
-            selectedAppIndex = 0
-            goToFirstPageSignal = false
-            updateAppsVisibility(prefs.homePagesNum)
-            focusAppButton(selectedAppIndex)
-        } else {
-            updateAppsVisibility(prefs.homePagesNum)
-            focusAppButton(selectedAppIndex)
-        }
-
-        // Ensure fragment root has focus so volume keys are handled by the fragment
-        binding.root.isFocusableInTouchMode = true
-        binding.root.requestFocus()
-
-        // Register Activity-level page navigation handler so volume keys are forwarded
-        val act = activity as? com.github.gezimos.inkos.MainActivity
-        act?.pageNavigationHandler = object : com.github.gezimos.inkos.MainActivity.PageNavigationHandler {
-            override val handleDpadAsPage: Boolean = false
-
-            override fun pageUp() {
-                val totalPages = prefs.homePagesNum
-                handleSwipeLeft(totalPages)
-                vibratePaging()
-            }
-
-            override fun pageDown() {
-                val totalPages = prefs.homePagesNum
-                handleSwipeRight(totalPages)
-                vibratePaging()
-            }
-        }
-
-        // Also register a fragment key handler so keypad shortcuts (2,6,7,8 etc.) keep working
-        act?.fragmentKeyHandler = object : com.github.gezimos.inkos.MainActivity.FragmentKeyHandler {
-            override fun handleKeyEvent(keyCode: Int, event: KeyEvent): Boolean {
-                val action = KeyMapperHelper.mapHomeKey(prefs, keyCode, event)
-                // only handle ACTION_DOWN mapping already applied in KeyMapperHelper
-                when (action) {
-                    is KeyMapperHelper.HomeKeyAction.MoveSelectionDown -> {
-                        moveSelectionDown()
-                        return true
-                    }
-                    is KeyMapperHelper.HomeKeyAction.MoveSelectionUp -> {
-                        moveSelectionUp()
-                        return true
-                    }
-                    is KeyMapperHelper.HomeKeyAction.PageUp -> {
-                        // volume/page keys routed to pageNavigationHandler; ignore here
-                        return false
-                    }
-                    is KeyMapperHelper.HomeKeyAction.PageDown -> {
-                        return false
-                    }
-                    is KeyMapperHelper.HomeKeyAction.GestureLeft -> {
-                        when (val act = action.action) {
-                            Action.OpenApp -> openSwipeLeftApp()
-                            else -> handleOtherAction(act)
-                        }
-                        CrashHandler.logUserAction("DPAD_RIGHT Gesture (SwipeLeft)")
-                        return true
-                    }
-                    is KeyMapperHelper.HomeKeyAction.GestureRight -> {
-                        when (val act = action.action) {
-                            Action.OpenApp -> openSwipeRightApp()
-                            else -> handleOtherAction(act)
-                        }
-                        CrashHandler.logUserAction("DPAD_LEFT Gesture (SwipeRight)")
-                        return true
-                    }
-                    is KeyMapperHelper.HomeKeyAction.LongPressSelected -> {
-                        val view = binding.homeAppsLayout.getChildAt(selectedAppIndex)
-                        if (view != null) onLongClick(view) else false
-                        return true
-                    }
-                    is KeyMapperHelper.HomeKeyAction.ClickClock -> {
-                        when (val action = prefs.clickClockAction) {
-                            Action.OpenApp -> openClickClockApp()
-                            Action.Disabled -> showShortToast(getString(R.string.edit_gestures_settings_toast))
-                            else -> handleOtherAction(action)
-                        }
-                        CrashHandler.logUserAction("Clock Clicked (key)")
-                        return true
-                    }
-                    is KeyMapperHelper.HomeKeyAction.ClickQuote -> {
-                        when (val action = prefs.quoteAction) {
-                            Action.OpenApp -> {
-                                if (prefs.appQuoteWidget.activityPackage.isNotEmpty()) {
-                                    viewModel.launchApp(prefs.appQuoteWidget, this@HomeFragment)
-                                } else {
-                                    showLongPressToast()
-                                }
-                            }
-                            Action.Disabled -> showShortToast(getString(R.string.edit_gestures_settings_toast))
-                            else -> handleOtherAction(action)
-                        }
-                        CrashHandler.logUserAction("Quote Clicked (key)")
-                        return true
-                    }
-                    is KeyMapperHelper.HomeKeyAction.ClickDate -> {
-                        when (val action = prefs.clickDateAction) {
-                            Action.OpenApp -> openClickDateApp()
-                            Action.Disabled -> showShortToast(getString(R.string.edit_gestures_settings_toast))
-                            else -> handleOtherAction(action)
-                        }
-                        CrashHandler.logUserAction("Date Clicked (key)")
-                        return true
-                    }
-                    is KeyMapperHelper.HomeKeyAction.DoubleTap -> {
-                        when (val action = prefs.doubleTapAction) {
-                            Action.OpenApp -> openDoubleTapApp()
-                            else -> handleOtherAction(action)
-                        }
-                        CrashHandler.logUserAction("DoubleTap (key)")
-                        return true
-                    }
-                    is KeyMapperHelper.HomeKeyAction.OpenSettings -> {
-                        trySettings()
-                        return true
-                    }
-                    else -> return false
-                }
-            }
-        }
-
-        // Refresh home app UI state on resume
         viewModel.refreshHomeAppsUiState(requireContext())
-        
-        // Re-validate background image URI in case permissions were restored
-        BackgroundImageHelper.validateBackgroundImageUri(requireContext(), prefs)
-
-        // Re-apply notification badges to all home app views
-        val notifications = NotificationManager.getInstance(requireContext()).getBadgeNotifications()
-        binding.homeAppsLayout.children.forEach { view ->
-            if (view is TextView) {
-                NotificationBadgeUtil.updateNotificationForView(requireContext(), prefs, view, notifications)
-            }
-        }
-
-        // Force refresh audio widget state on resume to ensure proper sync
-        val audioWidgetHelper = AudioWidgetHelper.getInstance(requireContext())
-        audioWidgetHelper.forceRefreshState()
-        val currentMediaPlayer = audioWidgetHelper.getCurrentMediaPlayer()
-        updateMediaPlayerWidget(currentMediaPlayer)
-    }
-
-    override fun onPause() {
-        super.onPause()
-        isHomeVisible = false
-    val act = activity as? com.github.gezimos.inkos.MainActivity
-    if (act?.pageNavigationHandler != null) act.pageNavigationHandler = null
-    if (act?.fragmentKeyHandler != null) act.fragmentKeyHandler = null
-    }
-
-    // Batch update method to reduce iteration overhead
-    private fun updateAllAppProperties(
-        color: Int? = null,
-        font: android.graphics.Typeface? = null,
-        padding: Int? = null,
-        size: Float? = null
-    ) {
-        appViews.forEach { view ->
-            color?.let { view.setTextColor(it); view.setHintTextColor(it) }
-            font?.let { view.typeface = it }
-            padding?.let { view.setPadding(0, it, 0, it) }
-            size?.let { view.textSize = it }
-        }
-    }
-
-    private fun refreshCachedCalculations() {
-        cachedTotalApps = getTotalAppsCount()
-        cachedTotalPages = prefs.homePagesNum
-        cachedAppsPerPage = if (cachedTotalPages > 0) (cachedTotalApps + cachedTotalPages - 1) / cachedTotalPages else 0
-    }
-
-    private fun moveSelectionDown() {
-        refreshCachedCalculations()
-        val endIdx = minOf((currentPage + 1) * cachedAppsPerPage, cachedTotalApps) - 1
-
-        if (selectedAppIndex < endIdx) {
-            // Move to next app in current page
-            selectedAppIndex++
-        } else {
-            // At last app of current page
-            if (currentPage < cachedTotalPages - 1) {
-                // Move to first app of next page
-                currentPage++
-                selectedAppIndex = currentPage * cachedAppsPerPage
-            } else {
-                // Wrap to first app of first page
-                currentPage = 0
-                selectedAppIndex = 0
-            }
-        }
-        updateAppsVisibility(cachedTotalPages)
-        focusAppButton(selectedAppIndex)
-    }
-
-    private fun moveSelectionUp() {
-        refreshCachedCalculations()
-        val startIdx = currentPage * cachedAppsPerPage
-
-        if (selectedAppIndex > startIdx) {
-            // Move to previous app in current page
-            selectedAppIndex--
-        } else {
-            // At first app of current page
-            if (currentPage > 0) {
-                // Move to last app of previous page
-                currentPage--
-                val prevEndIdx = minOf((currentPage + 1) * cachedAppsPerPage, cachedTotalApps) - 1
-                selectedAppIndex = if (prevEndIdx >= 0) prevEndIdx else 0
-            } else {
-                // Wrap to last app of last page
-                if (cachedTotalPages > 0) {
-                    currentPage = cachedTotalPages - 1
-                    val lastEndIdx = minOf((currentPage + 1) * cachedAppsPerPage, cachedTotalApps) - 1
-                    selectedAppIndex = if (lastEndIdx >= 0) lastEndIdx else 0
-                } else {
-                    // Fallback: single page behavior
-                    selectedAppIndex = 0
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+                NotificationManager.getInstance(requireContext()).notificationInfoState.collect { _ ->
+                    // Refresh home apps to update notification badges
+                    // Media state is now handled automatically by AudioWidgetHelper via MediaSessionManager
+                    viewModel.refreshHomeAppsUiState(requireContext())
                 }
             }
         }
-        updateAppsVisibility(cachedTotalPages)
-        focusAppButton(selectedAppIndex)
+        // Clock ticker now runs in ViewModel, no need to start it here
     }
 
-    private fun focusAppButton(index: Int) {
-        val view = binding.homeAppsLayout.getChildAt(index)
-        view?.requestFocus()
-    }
-
-    @RequiresApi(Build.VERSION_CODES.Q)
     override fun onStart() {
         super.onStart()
-        if (prefs.showStatusBar) showStatusBar(requireActivity()) else hideStatusBar(requireActivity())
-
-        batteryReceiver = BatteryReceiver()
-        /* register battery changes */
+        // Register battery receiver to update charging/battery info in the UI
+        batteryReceiver = BatteryReceiver { newDateText: String, newBatteryText: String, isCharging: Boolean ->
+            // Update ViewModel state only (clock ticker handles UI update)
+            try { viewModel.updateDateAndBatteryText(newDateText, newBatteryText, isCharging) } catch (_: Exception) {}
+        }
         try {
             val filter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
             requireContext().registerReceiver(batteryReceiver, filter)
@@ -572,965 +342,327 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
             e.printStackTrace()
         }
 
-        // Register user present receiver to refresh on unlock
-        if (userPresentReceiver == null) {
-            userPresentReceiver = object : android.content.BroadcastReceiver() {
-                override fun onReceive(context: Context?, intent: Intent?) {
-                    if (intent?.action == Intent.ACTION_USER_PRESENT) {
-                        // Trigger the same refresh as onResume
-                        if (isAdded) {
-                            // Eink refresh: flash overlay if enabled
-                            if (prefs.einkRefreshEnabled) {
-                                val isDark = when (prefs.appTheme) {
-                                    com.github.gezimos.inkos.data.Constants.Theme.Light -> false
-                                    com.github.gezimos.inkos.data.Constants.Theme.Dark -> true
-                                    com.github.gezimos.inkos.data.Constants.Theme.System -> com.github.gezimos.inkos.helper.isSystemInDarkMode(
-                                        requireContext()
-                                    )
-                                }
-                                val overlayColor =
-                                    if (isDark) android.graphics.Color.WHITE else android.graphics.Color.BLACK
-                                val overlay = View(requireContext())
-                                overlay.setBackgroundColor(overlayColor)
-                                overlay.layoutParams = ViewGroup.LayoutParams(
-                                    ViewGroup.LayoutParams.MATCH_PARENT,
-                                    ViewGroup.LayoutParams.MATCH_PARENT
-                                )
-                                (binding.root as ViewGroup).addView(overlay)
-                                overlay.bringToFront()
-                                overlay.postDelayed({
-                                    (binding.root as ViewGroup).removeView(overlay)
-                                }, 120)
-                            }
-                            // Centralized reset logic for home button
-                            if (prefs.homeReset || goToFirstPageSignal) {
-                                currentPage = 0
-                                selectedAppIndex = 0
-                                goToFirstPageSignal = false
-                                updateAppsVisibility(prefs.homePagesNum)
-                                focusAppButton(selectedAppIndex)
-                            } else {
-                                updateAppsVisibility(prefs.homePagesNum)
-                                focusAppButton(selectedAppIndex)
-                            }
-                            // Refresh home app UI state
-                            viewModel.refreshHomeAppsUiState(requireContext())
-                            // Re-apply notification badges to all home app views
-                            val notifications =
-                                NotificationManager.getInstance(
-                                    requireContext()
-                                ).getBadgeNotifications()
-                            binding.homeAppsLayout.children.forEach { view ->
-                                if (view is TextView) {
-                                    NotificationBadgeUtil.updateNotificationForView(
-                                        requireContext(),
-                                        prefs,
-                                        view,
-                                        notifications
-                                    )
-                                }
-                            }
-                            // Force refresh audio widget state after unlock
-                            val audioWidgetHelper = AudioWidgetHelper.getInstance(requireContext())
-                            audioWidgetHelper.forceRefreshState()
-                            val currentMediaPlayer = audioWidgetHelper.getCurrentMediaPlayer()
-                            updateMediaPlayerWidget(currentMediaPlayer)
-                        }
-                    }
-                }
-            }
-            val filter = IntentFilter(Intent.ACTION_USER_PRESENT)
-            requireContext().registerReceiver(userPresentReceiver, filter)
-        }
-
-        binding.apply {
-            val is24HourFormat = DateFormat.is24HourFormat(requireContext())
-            // Use a fixed pattern to guarantee no AM/PM
-            val timePattern = if (is24HourFormat) "HH:mm" else "hh:mm"
-            clock.format12Hour = timePattern
-            clock.format24Hour = timePattern
-
-            // Set top margin of clock based on prefs.topWidgetMargin (dp to px)
-            val layoutParams = clock.layoutParams as? LinearLayout.LayoutParams
-            if (layoutParams != null) {
-                val density = requireContext().resources.displayMetrics.density
-                layoutParams.topMargin = (prefs.topWidgetMargin * density).toInt()
-                clock.layoutParams = layoutParams
-            }
-            
-            // Set bottom margin of bottom widgets wrapper
-            applyBottomWidgetMargin()
-            
-            // Battery widget setup removed
-            binding.quote.textSize = prefs.quoteSize.toFloat()
-            binding.quote.visibility = if (prefs.showQuote) View.VISIBLE else View.GONE
-            mainLayout.setBackgroundColor(prefs.backgroundColor)
-            clock.setTextColor(prefs.clockColor)
-            binding.quote.setTextColor(prefs.quoteColor)
-            binding.quote.text = prefs.quoteText
-            val quoteTypeface = prefs.getFontForContext("quote").getFont(requireContext(), prefs.getCustomFontPathForContext("quote"))
-            binding.quote.typeface = quoteTypeface
-            cachedDateView?.setTextColor(prefs.dateColor)
-            applyAudioWidgetColor(prefs.audioWidgetColor)
-
-            homeAppsLayout.children.forEach { view ->
-                if (view is TextView) {
-                    view.setTextColor(prefs.appColor)
-                    val appTypeface = prefs.getFontForContext("apps").getFont(requireContext(), prefs.getCustomFontPathForContext("apps"))
-                    view.typeface = appTypeface
-                }
-            }
-            val clockTypeface = prefs.getFontForContext("clock").getFont(requireContext(), prefs.getCustomFontPathForContext("clock"))
-            clock.typeface = clockTypeface
-
-
-        }
-
-        binding.homeAppsLayout.children.forEach { view ->
-            if (view is TextView) {
-                val appModel = prefs.getHomeAppModel(view.id)
-                val customLabel = prefs.getAppAlias("app_alias_${appModel.activityPackage}")
-                val displayText =
-                    if (customLabel.isNotEmpty()) customLabel else appModel.activityLabel
-                // Apply small caps transformation if enabled (without modifying the original data)
-                view.text = when {
-                    prefs.allCapsApps -> displayText.uppercase()
-                    prefs.smallCapsApps -> displayText.lowercase()
-                    else -> displayText
-                }
-                val appTypeface = prefs.getFontForContext("apps").getFont(requireContext(), prefs.getCustomFontPathForContext("apps"))
-                view.typeface = appTypeface
-            }
+        // Trigger an immediate battery update using the sticky intent if available
+        try {
+            val batteryIntent = requireContext().registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+            batteryIntent?.let { batteryReceiver.onReceive(requireContext(), it) }
+        } catch (_: Exception) {
         }
     }
 
     override fun onStop() {
         super.onStop()
         try {
-            /* unregister battery changes if the receiver is registered */
             requireContext().unregisterReceiver(batteryReceiver)
         } catch (e: Exception) {
             e.printStackTrace()
         }
-        // Unregister user present receiver
-        if (userPresentReceiver != null) {
-            try {
-                requireContext().unregisterReceiver(userPresentReceiver)
-            } catch (_: Exception) {
-            }
-            userPresentReceiver = null
-        }
     }
 
-    override fun onClick(view: View) {
-
-        when (view.id) {
-            R.id.clock -> {
-                when (val action = prefs.clickClockAction) {
-                    Action.OpenApp -> openClickClockApp()
-                    Action.Disabled -> showShortToast(getString(R.string.edit_gestures_settings_toast))
-                    else -> handleOtherAction(action)
-                }
-                CrashHandler.logUserAction("Clock Clicked")
-            }
-
-            R.id.quote -> {
-                when (val action = prefs.quoteAction) {
-                    Action.OpenApp -> {
-                        if (prefs.appQuoteWidget.activityPackage.isNotEmpty()) {
-                            viewModel.launchApp(prefs.appQuoteWidget, this)
-                        } else {
-                            showLongPressToast()
-                        }
-                    }
-                    Action.Disabled -> showShortToast(getString(R.string.edit_gestures_settings_toast))
-                    else -> handleOtherAction(action)
-                }
-                CrashHandler.logUserAction("Quote Clicked")
-            }
-
-            R.id.date -> {
-                when (val action = prefs.clickDateAction) {
-                    Action.OpenApp -> openClickDateApp()
-                    Action.Disabled -> showShortToast(getString(R.string.edit_gestures_settings_toast))
-                    else -> handleOtherAction(action)
-                }
-                CrashHandler.logUserAction("Date Clicked")
-            }
-
-            // Battery widget click removed
-
-            else -> {
-                try { // Launch app
-                    val appLocation = view.id
-                    homeAppClicked(appLocation)
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
-        }
-    }
-
-    private fun openClickDateApp() {
-        // Use appClickDate, not appClickClock
-        if (prefs.appClickDate.activityPackage.isNotEmpty())
-            viewModel.launchApp(prefs.appClickDate, this)
-        else
-            requireContext().launchCalendar()
-    }
-
-    override fun onLongClick(view: View): Boolean {
-        vibratePaging()
+    override fun onResume() {
+        super.onResume()
+        isHomeVisible = true
         
+        // Immediately update clock when fragment resumes (e.g., after unlocking phone)
+        viewModel.refreshClock()
+        
+        // Handle external request to go to first page (sent from Activity)
+        if (goToFirstPageSignal) {
+            viewModel.setCurrentPage(0)
+            goToFirstPageSignal = false
+        } else if (prefs.homeReset) {
+            // Reset to first page if home reset preference is enabled
+            viewModel.setCurrentPage(0)
+        }
+
+        // Register Activity-level fragmentKeyHandler to receive raw Android key events
+        val act = activity as? com.github.gezimos.inkos.MainActivity ?: return
+        act.fragmentKeyHandler = object : com.github.gezimos.inkos.MainActivity.FragmentKeyHandler {
+            override fun handleKeyEvent(keyCode: Int, event: KeyEvent): Boolean {
+                try {
+                    val mapped = KeyMapperHelper.mapHomeKey(prefs, keyCode, event)
+                    when (mapped) {
+                        KeyMapperHelper.HomeKeyAction.None -> return false
+                        KeyMapperHelper.HomeKeyAction.ClickClock -> {
+                            handleClockClick()
+                            return true
+                        }
+                        KeyMapperHelper.HomeKeyAction.ClickDate -> {
+                            handleDateClick()
+                            return true
+                        }
+                        KeyMapperHelper.HomeKeyAction.ClickQuote -> {
+                            handleQuoteClick()
+                            return true
+                        }
+                        KeyMapperHelper.HomeKeyAction.DoubleTap -> {
+                            handleDoubleTapAction()
+                            return true
+                        }
+                        KeyMapperHelper.HomeKeyAction.PageUp -> {
+                            adjustPageBy(-1, viewModel.homeUiState.value.homePagesNum)
+                            return true
+                        }
+                        KeyMapperHelper.HomeKeyAction.PageDown -> {
+                            adjustPageBy(1, viewModel.homeUiState.value.homePagesNum)
+                            return true
+                        }
+                        KeyMapperHelper.HomeKeyAction.OpenSettings -> {
+                            trySettings()
+                            return true
+                        }
+                        KeyMapperHelper.HomeKeyAction.SwipeLeft -> {
+                            GestureHelper.handleSwipeLeft(requireContext(), this@HomeFragmentCompose, viewModel, prefs)
+                            return true
+                        }
+                        KeyMapperHelper.HomeKeyAction.SwipeRight -> {
+                            GestureHelper.handleSwipeRight(requireContext(), this@HomeFragmentCompose, viewModel, prefs)
+                            return true
+                        }
+                        KeyMapperHelper.HomeKeyAction.LongPressSelected -> {
+                            // Best-effort: open home app list for the selected app
+                            // Fallback to showing settings if no selection tracking available
+                            try {
+                                // Show app list for long-press (mimics long-press behavior)
+                                showAppList(AppDrawerFlag.SetHomeApp, includeHiddenApps = true)
+                            } catch (_: Exception) {}
+                            return true
+                        }
+                        else -> return false
+                    }
+                } catch (_: Exception) {}
+                return false
+            }
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        isHomeVisible = false
+        val act = activity as? com.github.gezimos.inkos.MainActivity ?: return
+        if (act.fragmentKeyHandler != null) act.fragmentKeyHandler = null
+    }
+
+    // Called by Activity when window focus is regained
+    fun onWindowFocusGained() {
+        // Immediately update clock when window gains focus (e.g., after unlocking phone)
+        viewModel.refreshClock()
+    }
+
+    // Renamed to reflect vertical movement (swipe up -> previous page)
+    private fun handleSwipeUp(totalPages: Int) {
+        if (totalPages <= 0) return
+        // Do not wrap-around: if already at first page, stay there
+        if (viewModel.homeUiState.value.currentPage > 0) {
+            viewModel.previousPage()
+            vibratePaging()
+        }
+    }
+
+    // Renamed to reflect vertical movement (swipe down -> next page)
+    private fun handleSwipeDown(totalPages: Int) {
+        if (totalPages <= 0) return
+        // Do not wrap-around: if already at last page, stay there
+        if (viewModel.homeUiState.value.currentPage < totalPages - 1) {
+            viewModel.nextPage()
+            vibratePaging()
+        }
+    }
+
+    private fun adjustPageBy(delta: Int, totalPages: Int) {
+        if (delta == 0) return
+        if (totalPages <= 0) return
+        val steps = abs(delta)
+        if (delta > 0) {
+            repeat(steps) { handleSwipeDown(totalPages) }
+        } else {
+            repeat(steps) { handleSwipeUp(totalPages) }
+        }
+    }
+
+    private fun handleHomeAppClick(app: HomeAppUiState) {
+        val homeApp = prefs.getHomeAppModel(app.id)
+        if (homeApp.activityPackage.isEmpty()) {
+            showLongPressToast()
+            return
+        }
+
+
+        val notifications = notificationManager.notificationInfoState.value
+        val notificationInfo = notifications[homeApp.activityPackage]
+        val isMedia = notificationInfo?.category == Notification.CATEGORY_TRANSPORT
+        if (!isMedia) {
+            notificationManager.updateBadgeNotification(homeApp.activityPackage, null)
+            if (prefs.clearConversationOnAppOpen) {
+                val conversations = notificationManager.conversationNotificationsState.value
+                conversations[homeApp.activityPackage]?.forEach { conversation ->
+                    notificationManager.removeConversationNotification(homeApp.activityPackage, conversation.conversationId)
+                }
+            }
+        }
+
+        launchAppMaybeBiometric(homeApp)
+    }
+
+    private fun handleHomeAppLongClick(app: HomeAppUiState) {
+        vibratePaging()
         if (prefs.homeLocked) {
             if (prefs.longPressAppInfoEnabled) {
-                // Open app info for the long-pressed app
-                val n = view.id
-                val appModel = prefs.getHomeAppModel(n)
-                if (appModel.activityPackage.isNotEmpty()) {
-                    openAppInfo(requireContext(), appModel.user, appModel.activityPackage)
-                    CrashHandler.logUserAction("Show App Info")
+                val model = prefs.getHomeAppModel(app.id)
+                if (model.activityPackage.isNotEmpty()) {
+                    openAppInfo(requireContext(), model.user, model.activityPackage)
                 }
-                return true
             }
-            return true
+            return
         }
-        val n = view.id
-        showAppList(AppDrawerFlag.SetHomeApp, includeHiddenApps = true, n)
-        CrashHandler.logUserAction("Show App List")
-        return true
+        showAppList(AppDrawerFlag.SetHomeApp, includeHiddenApps = true, n = app.id)
     }
 
-    @SuppressLint("ClickableViewAccessibility")
-    private fun initSwipeTouchListener() {
-        binding.touchArea.setOnTouchListener(object : OnSwipeTouchListener(requireContext()) {
-            override fun onSwipeLeft() {
-                when (val action = prefs.swipeLeftAction) {
-                    Action.OpenApp -> openSwipeLeftApp()
-                    else -> {
-                        requireActivity().runOnUiThread {
-                            handleOtherAction(action)
-                        }
-                    }
-                }
-                CrashHandler.logUserAction("SwipeLeft Gesture")
-            }
-
-            override fun onSwipeRight() {
-                when (val action = prefs.swipeRightAction) {
-                    Action.OpenApp -> openSwipeRightApp()
-                    else -> {
-                        requireActivity().runOnUiThread {
-                            handleOtherAction(action)
-                        }
-                    }
-                }
-                CrashHandler.logUserAction("SwipeRight Gesture")
-            }
-
-            override fun onSwipeUp() {
-                // Hardcoded: always go to next page
-                handleSwipeRight(prefs.homePagesNum)
-                CrashHandler.logUserAction("SwipeUp Gesture (PageNext)")
-            }
-
-            override fun onSwipeDown() {
-                // Hardcoded: always go to previous page
-                handleSwipeLeft(prefs.homePagesNum)
-                CrashHandler.logUserAction("SwipeDown Gesture (PagePrevious)")
-            }
-
-            override fun onLongClick() {
-                vibratePaging()
-                CrashHandler.logUserAction("Launcher Settings Opened")
-                trySettings()
-            }
-
-            override fun onDoubleClick() {
-                when (val action = prefs.doubleTapAction) {
-                    Action.OpenApp -> openDoubleTapApp()
-                    else -> {
-                        requireActivity().runOnUiThread {
-                            handleOtherAction(action)
-                        }
-                    }
-                }
-                CrashHandler.logUserAction("DoubleClick Gesture")
-            }
-
-            override fun onLongSwipe(direction: String) {
-                when (direction) {
-                    "up" -> handleSwipeRight(prefs.homePagesNum)
-                    "down" -> handleSwipeLeft(prefs.homePagesNum)
-                    "left" -> when (val action = prefs.swipeLeftAction) {
-                        Action.OpenApp -> openSwipeLeftApp()
-                        else -> handleOtherAction(action)
-                    }
-
-                    "right" -> when (val action = prefs.swipeRightAction) {
-                        Action.OpenApp -> openSwipeRightApp()
-                        else -> handleOtherAction(action)
-                    }
-                }
-                CrashHandler.logUserAction("LongSwipe_${direction} Gesture")
-            }
-        })
+    private fun handleClockClick() {
+        GestureHelper.handleClockClick(requireContext(), this, viewModel, prefs)
     }
 
-    private fun initClickListeners() {
-        binding.apply {
-            clock.setOnClickListener(this@HomeFragment)
-            quote.setOnClickListener(this@HomeFragment)
-        }
-        
-        // Set up date click listener (date view is found dynamically as it's not in binding)
-        cachedDateView?.setOnClickListener(this@HomeFragment)
+    private fun handleDateClick() {
+        GestureHelper.handleDateClick(requireContext(), this, viewModel, prefs)
     }
 
-    private fun initObservers() {
-        binding.apply {
-            // Remove firstRunTips logic
-            // if (prefs.firstSettingsOpen) firstRunTips.visibility = View.VISIBLE
-            // else firstRunTips.visibility = View.GONE
-
-            clock.gravity = Gravity.CENTER
-            homeAppsLayout.gravity = Gravity.CENTER
-            clock.layoutParams = (clock.layoutParams as LinearLayout.LayoutParams).apply {
-                gravity = Gravity.CENTER
-            }
-            homeAppsLayout.children.forEach { view ->
-                (view as? TextView)?.gravity = Gravity.CENTER
-            }
-        }
-
-        with(viewModel) {
-            homeAppsNum.observe(viewLifecycleOwner) {
-                updateAppCount(it)
-            }
-            showClock.observe(viewLifecycleOwner) {
-                binding.clock.visibility = if (it) View.VISIBLE else View.GONE
-            }
-            showDate.observe(viewLifecycleOwner) {
-                // Refresh date display when showDate changes
-                updateDateDisplay()
-            }
-            showDateBatteryCombo.observe(viewLifecycleOwner) {
-                // Refresh date display when showDateBatteryCombo changes
-                updateDateDisplay()
-            }
-            // --- LiveData observers for all preferences ---
-            appTheme.observe(viewLifecycleOwner) {
-                // Optionally, trigger theme change if needed
-            }
-            appColor.observe(viewLifecycleOwner) { color ->
-                updateAllAppProperties(color = color)
-                // Refresh page indicators to apply new color
-                updateAppsVisibility(prefs.homePagesNum)
-            }
-            backgroundColor.observe(viewLifecycleOwner) { color ->
-                binding.mainLayout.setBackgroundColor(color)
-            }
-            clockColor.observe(viewLifecycleOwner) { color ->
-                binding.clock.setTextColor(color)
-            }
-            // batteryColor observer removed
-            dateColor.observe(viewLifecycleOwner) { color ->
-                cachedDateView?.setTextColor(color)
-            }
-            quoteColor.distinctUntilChanged().observe(viewLifecycleOwner) { color ->
-                binding.quote.setTextColor(color)
-            }
-            audioWidgetColor.observe(viewLifecycleOwner) { color ->
-                applyAudioWidgetColor(color)
-            }
-            showAudioWidget.distinctUntilChanged().observe(viewLifecycleOwner) { show ->
-                // Force refresh the audio widget state when toggled
-                val audioWidgetHelper = AudioWidgetHelper.getInstance(requireContext())
-                if (show) {
-                    // When enabling the widget, force a refresh to sync with current media state
-                    audioWidgetHelper.resetDismissalState()
-                    // Trigger immediate state refresh from NotificationService
-                    val currentMediaPlayer = audioWidgetHelper.getCurrentMediaPlayer()
-                    updateMediaPlayerWidget(currentMediaPlayer)
-                } else {
-                    // When disabling the widget, hide it immediately
-                    binding.mediaPlayerWidget.isVisible = false
-                }
-            }
-            showQuote.distinctUntilChanged().observe(viewLifecycleOwner) { show ->
-                binding.quote.isVisible = show
-            }
-            quoteText.distinctUntilChanged().observe(viewLifecycleOwner) { text ->
-                binding.quote.text = text
-            }
-            appsFont.observe(viewLifecycleOwner) { font ->
-                val typeface = prefs.getFontForContext("apps").getFont(requireContext(), prefs.getCustomFontPathForContext("apps"))
-                updateAllAppProperties(font = typeface)
-            }
-            clockFont.observe(viewLifecycleOwner) { font ->
-                val typeface = prefs.getFontForContext("clock").getFont(requireContext(), prefs.getCustomFontPathForContext("clock"))
-                binding.clock.typeface = typeface
-            }
-            // batteryFont observer removed
-            quoteFont.distinctUntilChanged().observe(viewLifecycleOwner) { font ->
-                val typeface = prefs.getFontForContext("quote").getFont(requireContext(), prefs.getCustomFontPathForContext("quote"))
-                binding.quote.typeface = typeface
-            }
-            textPaddingSize.observe(viewLifecycleOwner) { padding ->
-                updateAllAppProperties(padding = padding)
-            }
-            appSize.observe(viewLifecycleOwner) { size ->
-                updateAllAppProperties(size = size.toFloat())
-            }
-            clockSize.observe(viewLifecycleOwner) { size ->
-                binding.clock.textSize = size.toFloat()
-            }
-            // batterySize observer removed
-            quoteSize.distinctUntilChanged().observe(viewLifecycleOwner) { size ->
-                binding.quote.textSize = size.toFloat()
-            }
-            homeBackgroundImageOpacity.distinctUntilChanged()
-                .observe(viewLifecycleOwner) { opacity ->
-                    Log.d("HomeFragment", "Opacity changed to: $opacity")
-                    // Apply opacity directly to existing background image if it exists
-                    val rootLayout = binding.root as ViewGroup
-                    val backgroundImageView =
-                        rootLayout.findViewWithTag<ImageView>("home_background")
-                    if (backgroundImageView != null) {
-                        val opacityFloat = opacity / 100f
-                        Log.d(
-                            "HomeFragment",
-                            "Applying opacity $opacityFloat to existing image view"
-                        )
-                        // Set alpha directly without triggering image reload
-                        backgroundImageView.alpha = opacityFloat
-                        // Use post to ensure the alpha is applied after any pending UI updates
-                        backgroundImageView.post {
-                            backgroundImageView.alpha = opacityFloat
-                            Log.d("HomeFragment", "Post-delayed opacity confirmed: $opacityFloat")
-                        }
-                    } else if (!prefs.homeBackgroundImageUri.isNullOrEmpty()) {
-                        Log.d(
-                            "HomeFragment",
-                            "No background image view found but URI exists, calling setupBackgroundImage()"
-                        )
-                        // Only call setupBackgroundImage if there's actually a URI to load
-                        setupBackgroundImage()
-                    }
-                }
-            homeBackgroundImageUri.distinctUntilChanged().observe(viewLifecycleOwner) { uri ->
-                Log.d("HomeFragment", "URI changed to: $uri")
-                // Only refresh background image when URI actually changes
-                setupBackgroundImage()
-            }
-
-        }
-    }
-
-    private fun homeAppClicked(location: Int) {
-        if (prefs.getAppName(location).isEmpty()) showLongPressToast()
-        else {
-            val homeApp = prefs.getHomeAppModel(location)
-            val packageName = homeApp.activityPackage
-
-            // Handle empty space synthetic app - do nothing
-            if (packageName == "com.inkos.internal.empty_space") {
-                return
-            }
-
-            val notificationManager = NotificationManager.getInstance(requireContext())
-            val notifications = notificationManager.notificationInfoLiveData.value ?: emptyMap()
-            val notificationInfo = notifications[packageName]
-            
-            // Fixed: Clear badge notification when app is opened (except for media that should persist while playing)
-            // User interaction with the app means they've seen the notification content
-            val isMediaPlayback = notificationInfo?.category == android.app.Notification.CATEGORY_TRANSPORT
-            if (!isMediaPlayback) {
-                // Clear the badge when opening the app - user has seen/interacted with the app
-                notificationManager.updateBadgeNotification(packageName, null)
-                
-                // Optionally clear conversation notifications if user preference is enabled
-                if (prefs.clearConversationOnAppOpen) {
-                    // Clear all conversation notifications for this package
-                    val conversations = notificationManager.conversationNotificationsLiveData.value ?: emptyMap()
-                    conversations[packageName]?.forEach { conversation ->
-                        notificationManager.removeConversationNotification(packageName, conversation.conversationId)
-                    }
-                }
-            }
-            
-            viewModel.launchApp(homeApp, this)
-        }
-    }
-
-    private fun showAppList(flag: AppDrawerFlag, includeHiddenApps: Boolean = false, n: Int = 0) {
-        viewModel.getAppList(includeHiddenApps, flag)
+    private fun handleBatteryClick() {
         try {
-            if (findNavController().currentDestination?.id == R.id.mainFragment) {
-                findNavController().navigate(
-                    R.id.action_mainFragment_to_appListFragment,
-                    bundleOf("flag" to flag.toString(), "n" to n)
-                )
+            // Open Android battery information/details page (most common battery settings dialog)
+            val intent = Intent(Intent.ACTION_POWER_USAGE_SUMMARY)
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            requireContext().startActivity(intent)
+        } catch (_: android.content.ActivityNotFoundException) {
+            // Fallback to battery saver settings if power usage summary not available
+            try {
+                val fallbackIntent = Intent(android.provider.Settings.ACTION_BATTERY_SAVER_SETTINGS)
+                fallbackIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                requireContext().startActivity(fallbackIntent)
+            } catch (_: Exception) {
+                // If both fail, try opening general battery settings
+                try {
+                    val generalIntent = Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                    generalIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    requireContext().startActivity(generalIntent)
+                } catch (_: Exception) {}
             }
-        } catch (e: Exception) {
-            if (findNavController().currentDestination?.id == R.id.mainFragment) {
-                findNavController().navigate(
-                    R.id.appListFragment,
-                    bundleOf("flag" to flag.toString())
-                )
-            }
-            e.printStackTrace()
         }
     }
 
-    private fun openSwipeLeftApp() {
-        if (prefs.appSwipeLeft.activityPackage.isNotEmpty())
-            viewModel.launchApp(prefs.appSwipeLeft, this)
-        else
-            requireContext().openCameraApp()
+    private fun handleQuoteClick() {
+        GestureHelper.handleQuoteClick(requireContext(), this, viewModel, prefs)
     }
 
-    private fun openSwipeRightApp() {
-        if (prefs.appSwipeRight.activityPackage.isNotEmpty())
-            viewModel.launchApp(prefs.appSwipeRight, this)
-        else
-            requireContext().openDialerApp()
-    }
-
-    private fun openClickClockApp() {
-        if (prefs.appClickClock.activityPackage.isNotEmpty())
-            viewModel.launchApp(prefs.appClickClock, this)
-        else
-            requireContext().openAlarmApp()
-    }
-
-    private fun openDoubleTapApp() {
-        when (prefs.doubleTapAction) {
-            Action.OpenApp -> {
-                if (prefs.appDoubleTap.activityPackage.isNotEmpty())
-                    viewModel.launchApp(prefs.appDoubleTap, this)
-                else
-                    AppReloader.restartApp(requireContext())
-            }
-            Action.OpenNotificationsScreen -> {
-                requireActivity().runOnUiThread {
-                    findNavController().navigate(R.id.action_mainFragment_to_notificationsFragment)
-                }
-            }
-            Action.RestartApp -> AppReloader.restartApp(requireContext())
-            Action.TogglePrivateSpace -> handleOtherAction(Action.TogglePrivateSpace)
-            // NextPage/PreviousPage removed; no-op for legacy values
-            Action.OpenAppDrawer -> showAppList(AppDrawerFlag.SetHomeApp, includeHiddenApps = false)
-            Action.EinkRefresh -> {
-                        EinkRefreshHelper.refreshEinkForced(requireContext(), prefs, binding.root as? ViewGroup, prefs.einkRefreshDelay)
-            }
-            Action.ExitLauncher -> exitLauncher()
-            Action.LockScreen -> handleOtherAction(Action.LockScreen)
-            Action.ShowRecents -> handleOtherAction(Action.ShowRecents)
-            Action.OpenQuickSettings -> handleOtherAction(Action.OpenQuickSettings)
-            Action.OpenPowerDialog -> handleOtherAction(Action.OpenPowerDialog)
-            Action.Brightness -> handleOtherAction(Action.Brightness)
-            Action.Disabled -> {}
+    private fun handleNotificationCountClick() {
+        try {
+            findNavController().navigate(R.id.action_mainFragment_to_simpleTrayFragment)
+        } catch (_: Exception) {
+            // Fallback navigation if action doesn't exist
+            try {
+                findNavController().navigate(R.id.simpleTrayFragment)
+            } catch (_: Exception) {}
         }
     }
 
-    @SuppressLint("NewApi")
-    private fun handleOtherAction(action: Action) {
+    private fun handleDoubleTapAction() {
+        GestureHelper.handleDoubleTap(requireContext(), this, viewModel, prefs)
+    }
+
+    private fun handleMediaAction(action: HomeMediaAction) {
+        val vibrate = { vibrateForWidget() }
         when (action) {
-            Action.TogglePrivateSpace -> PrivateSpaceManager(requireContext()).togglePrivateSpaceLock(
-                showToast = true,
-                launchSettings = true
-            )
-            Action.OpenApp -> {} // this should be handled in the respective onSwipe[Up,Down,Right,Left] functions
-            // NextPage/PreviousPage removed — paging is handled by swipe gestures only
-            Action.RestartApp -> AppReloader.restartApp(requireContext())
-            // OpenNotificationsScreenAlt removed; merged with OpenNotificationsScreen
-            Action.OpenNotificationsScreen -> {
-                requireActivity().runOnUiThread {
-                    findNavController().navigate(R.id.action_mainFragment_to_notificationsFragment)
-                }
-            }
-            Action.OpenAppDrawer -> showAppList(AppDrawerFlag.LaunchApp, includeHiddenApps = false)
-            Action.EinkRefresh -> {
-                EinkRefreshHelper.refreshEinkForced(requireContext(), prefs, binding.root as? ViewGroup, prefs.einkRefreshDelay)
-            }
-            Action.ExitLauncher -> exitLauncher()
-            Action.LockScreen -> {
-                com.github.gezimos.inkos.helper.initActionService(requireContext())?.lockScreen()
-            }
-            Action.ShowRecents -> {
-                com.github.gezimos.inkos.helper.initActionService(requireContext())?.showRecents()
-            }
-            Action.OpenQuickSettings -> {
-                com.github.gezimos.inkos.helper.initActionService(requireContext())
-                    ?.openQuickSettings()
-            }
-            Action.OpenPowerDialog -> {
-                com.github.gezimos.inkos.helper.initActionService(requireContext())
-                    ?.openPowerDialog()
-            }
-            Action.Brightness -> {
-                com.github.gezimos.inkos.helper.utils.BrightnessHelper.toggleBrightness(requireContext(), prefs, requireActivity().window)
-            }
-            Action.Disabled -> {}
+            HomeMediaAction.Open -> if (audioWidgetHelper.openMediaApp()) vibrate()
+            HomeMediaAction.Previous -> if (audioWidgetHelper.skipToPrevious()) vibrate()
+            HomeMediaAction.PlayPause -> if (audioWidgetHelper.playPauseMedia()) vibrate()
+            HomeMediaAction.Next -> if (audioWidgetHelper.skipToNext()) vibrate()
+            HomeMediaAction.Stop -> if (audioWidgetHelper.stopMedia()) vibrate()
         }
     }
+    private fun launchAppMaybeBiometric(appListItem: com.github.gezimos.inkos.data.AppListItem) {
+        val packageName = appListItem.activityPackage
 
-    private fun showLongPressToast() = showShortToast(getString(R.string.long_press_to_select_app))
-
-    private fun textOnClick(view: View) = onClick(view)
-
-    private fun textOnLongClick(view: View) = onLongClick(view)
-
-    private fun getHomeAppsGestureListener(context: Context, view: View): View.OnTouchListener {
-        return object : ViewSwipeTouchListener(context, view) {
-            override fun onLongClick(view: View) {
-                textOnLongClick(view)
-            }
-
-            override fun onClick(view: View) {
-                textOnClick(view)
-            }
-
-            override fun onSwipeLeft() {
-                when (val action = prefs.swipeLeftAction) {
-                    Action.OpenApp -> openSwipeLeftApp()
-                    else -> handleOtherAction(action)
-                }
-                CrashHandler.logUserAction("SwipeLeft Gesture")
-            }
-
-            override fun onSwipeRight() {
-                when (val action = prefs.swipeRightAction) {
-                    Action.OpenApp -> openSwipeRightApp()
-                    else -> handleOtherAction(action)
-                }
-                CrashHandler.logUserAction("SwipeRight Gesture")
-            }
-
-            override fun onSwipeUp() {
-                // Hardcoded: always go to next page
-                handleSwipeRight(prefs.homePagesNum)
-                CrashHandler.logUserAction("SwipeUp Gesture (NextPage)")
-            }
-
-            override fun onSwipeDown() {
-                // Hardcoded: always go to previous page
-                handleSwipeLeft(prefs.homePagesNum)
-                CrashHandler.logUserAction("SwipeDown Gesture (PreviousPage)")
-            }
-
-            override fun onLongSwipe(direction: String) {
-                when (direction) {
-                    "up" -> handleSwipeRight(prefs.homePagesNum)
-                    "down" -> handleSwipeLeft(prefs.homePagesNum)
-                    "left" -> when (val action = prefs.swipeLeftAction) {
-                        Action.OpenApp -> openSwipeLeftApp()
-                        else -> handleOtherAction(action)
-                    }
-
-                    "right" -> when (val action = prefs.swipeRightAction) {
-                        Action.OpenApp -> openSwipeRightApp()
-                        else -> handleOtherAction(action)
-                    }
-                }
-                CrashHandler.logUserAction("LongSwipe_${direction} Gesture")
-            }
+        // Handle synthetic and system apps first
+        val appsRepo = com.github.gezimos.inkos.data.repository.AppsRepository.getInstance(requireContext().applicationContext as android.app.Application)
+        if (appsRepo.launchSyntheticOrSystemApp(requireContext(), packageName, this)) {
+            return
         }
-    }
 
-    @SuppressLint("InflateParams")
-    private fun updateAppCount(newAppsNum: Int) {
-        val oldAppsNum = binding.homeAppsLayout.childCount
-        val diff = newAppsNum - oldAppsNum
+        if (viewModel.isAppLocked(packageName)) {
+            // run biometric auth then launch
+            biometricHelper.startBiometricAuth(appListItem, object : BiometricHelper.CallbackApp {
+                override fun onAuthenticationSucceeded(appListItem: com.github.gezimos.inkos.data.AppListItem) {
+                    viewModel.launchApp(appListItem)
+                }
 
-        // Add dynamic padding based on visible widgets
-        updateHomeAppsPadding()
+                override fun onAuthenticationFailed() {
+                    android.util.Log.e("Authentication", getString(R.string.text_authentication_failed))
+                }
 
-        if (diff > 0) {
-            // Add new apps
-            for (i in oldAppsNum until newAppsNum) {
-                val view = layoutInflater.inflate(R.layout.home_app_button, null) as TextView
-                view.apply {
-                    textSize = prefs.appSize.toFloat()
-                    id = i
-                    val appModel = prefs.getHomeAppModel(i)
-                    val customLabel = prefs.getAppAlias("app_alias_${appModel.activityPackage}")
-
-                    // Handle empty space synthetic app - display as blank
-                    if (appModel.activityPackage == "com.inkos.internal.empty_space") {
-                        text = "" // Empty text for spacing
-                        isClickable = false // Make non-clickable
-                        isFocusable = false // Make non-focusable
-                        alpha = 0.0f // Make invisible but take up space
-                    } else {
-                        val displayText =
-                            if (customLabel.isNotEmpty()) customLabel else appModel.activityLabel
-                        // Apply small caps transformation if enabled (without modifying the original data)
-                        text = when {
-                            prefs.allCapsApps -> displayText.uppercase()
-                            prefs.smallCapsApps -> displayText.lowercase()
-                            else -> displayText
-                        }
-                        isClickable = true
-                        isFocusable = true
-                        alpha = 1.0f
-                    }
-                    setTextColor(prefs.appColor)
-                    setHintTextColor(prefs.appColor)
-                    @SuppressLint("ClickableViewAccessibility")
-                    setOnTouchListener(getHomeAppsGestureListener(context, this))
-                    setOnClickListener(this@HomeFragment)
-                    // Centralized key handling for app button via KeyMapperHelper
-                    setOnKeyListener { _, keyCode, event ->
-                        val mapped = KeyMapperHelper.mapAppButtonKey(prefs, keyCode, event)
-                        when (mapped) {
-                            is KeyMapperHelper.HomeKeyAction.MoveSelectionDown -> {
-                                moveSelectionDown()
-                                true
-                            }
-                            is KeyMapperHelper.HomeKeyAction.MoveSelectionUp -> {
-                                moveSelectionUp()
-                                true
-                            }
-                            is KeyMapperHelper.HomeKeyAction.GestureLeft -> {
-                                when (val act = mapped.action) {
-                                    Action.OpenApp -> openSwipeLeftApp()
-                                    else -> handleOtherAction(act)
-                                }
-                                CrashHandler.logUserAction("DPAD_RIGHT Gesture (SwipeLeft)")
-                                true
-                            }
-                            is KeyMapperHelper.HomeKeyAction.GestureRight -> {
-                                when (val act = mapped.action) {
-                                    Action.OpenApp -> openSwipeRightApp()
-                                    else -> handleOtherAction(act)
-                                }
-                                CrashHandler.logUserAction("DPAD_LEFT Gesture (SwipeRight)")
-                                true
-                            }
-                            is KeyMapperHelper.HomeKeyAction.LongPressSelected -> {
-                                onLongClick(this)
-                                true
-                            }
-                            is KeyMapperHelper.HomeKeyAction.OpenSettings -> {
-                                trySettings()
-                                true
-                            }
-                            else -> false
-                        }
-                    }
-
-                    if (!prefs.extendHomeAppsArea) {
-                        layoutParams = ViewGroup.LayoutParams(
-                            ViewGroup.LayoutParams.WRAP_CONTENT,
-                            ViewGroup.LayoutParams.WRAP_CONTENT
+                override fun onAuthenticationError(errorCode: Int, errorMessage: CharSequence?) {
+                    when (errorCode) {
+                        BiometricPrompt.ERROR_USER_CANCELED -> android.util.Log.e(
+                            "Authentication",
+                            getString(R.string.text_authentication_cancel)
+                        )
+                        else -> android.util.Log.e(
+                            "Authentication",
+                            getString(R.string.text_authentication_error).format(errorMessage, errorCode)
                         )
                     }
-
-                    gravity = Gravity.CENTER // Always use center gravity
-                    isFocusable = true
-                    isFocusableInTouchMode = true
-
-                    val padding: Int = prefs.textPaddingSize
-                    setPadding(0, padding, 0, padding)
-                    setTextColor(prefs.appColor)
-
-                    // Apply apps font
-                    val appTypeface = prefs.getFontForContext("apps").getFont(requireContext(), prefs.getCustomFontPathForContext("apps"))
-                    typeface = appTypeface
-
-                    tag = appModel.activityPackage // Assign unique tag
                 }
-                binding.homeAppsLayout.addView(view)
-            }
-        } else if (diff < 0) {
-            binding.homeAppsLayout.removeViews(oldAppsNum + diff, -diff)
-        }
-
-        // Update the total number of pages and calculate maximum apps per page
-        updatePagesAndAppsPerPage(prefs.homeAppsNum, prefs.homePagesNum)
-    }
-
-    private fun updateHomeAppsPadding() {
-        binding.apply {
-            // Check if any of the main widgets are visible
-            val hasVisibleWidgets = clock.isVisible
-
-            // Apply padding only if widgets are visible
-            val defaultPadding = resources.getDimensionPixelSize(R.dimen.home_apps_default_padding)
-
-            // Apply the padding
-            homeAppsLayout.setPadding(
-                homeAppsLayout.paddingLeft,
-                if (hasVisibleWidgets) defaultPadding else 0,
-                homeAppsLayout.paddingRight,
-                homeAppsLayout.paddingBottom
-            )
-        }
-    }
-
-    // updates number of apps visible on home screen
-    // does nothing if number has not changed
-    private var currentPage = 0
-
-    private fun updatePagesAndAppsPerPage(totalApps: Int, totalPages: Int) {
-        refreshCachedCalculations()
-        updateAppsVisibility(cachedTotalPages)
-    }
-
-    private fun updateAppsVisibility(totalPages: Int) {
-        // Use cached values if available, otherwise refresh
-        if (cachedAppsPerPage == 0) refreshCachedCalculations()
-        val startIdx = currentPage * cachedAppsPerPage
-        val endIdx = minOf((currentPage + 1) * cachedAppsPerPage, cachedTotalApps)
-
-        for (i in 0 until cachedTotalApps) {
-            val view = binding.homeAppsLayout.getChildAt(i)
-            view.visibility = if (i in startIdx until endIdx) View.VISIBLE else View.GONE
-        }
-
-        // Disable animations on the pager before making changes
-        binding.homeScreenPager.clearAnimation()
-
-        // Clear existing page indicators
-        binding.homeScreenPager.removeAllViews()
-
-        // Create new page indicators
-        val sizeInDp = 12
-        val density = requireContext().resources.displayMetrics.density
-        val sizeInPx = (sizeInDp * density).toInt()
-        val spacingInPx = (12 * density).toInt() // 6dp spacing between indicators
-
-        for (pageIndex in 0 until totalPages) {
-            val imageView = ImageView(requireContext()).apply {
-                val drawableRes = if (pageIndex == currentPage) {
-                    R.drawable.ic_current_page
-                } else {
-                    R.drawable.ic_new_page
-                }
-
-                val drawable = ContextCompat.getDrawable(requireContext(), drawableRes)?.apply {
-                    val colorFilterColor: ColorFilter =
-                        PorterDuffColorFilter(prefs.appColor, PorterDuff.Mode.SRC_IN)
-                    colorFilter = colorFilterColor
-                }
-                setImageDrawable(drawable)
-
-                layoutParams = LinearLayout.LayoutParams(sizeInPx, sizeInPx).apply {
-                    if (pageIndex > 0) {
-                        topMargin = spacingInPx
-                    }
-                }
-            }
-            binding.homeScreenPager.addView(imageView)
-        }
-
-        // Show/hide the page indicator based on preferences
-        if (prefs.homePagesNum > 1 && prefs.homePager) {
-            // Set visibility without animation
-            if (binding.homeScreenPager.visibility != View.VISIBLE) {
-                binding.homeScreenPager.clearAnimation()
-                binding.homeScreenPager.visibility = View.VISIBLE
-            }
+            })
         } else {
-            if (binding.homeScreenPager.visibility != View.GONE) {
-                binding.homeScreenPager.clearAnimation()
-                binding.homeScreenPager.visibility = View.GONE
+            viewModel.launchApp(appListItem)
+        }
+    }
+
+    private fun showAppList(flag: AppDrawerFlag, includeHiddenApps: Boolean, n: Int = 0, initialSearch: String? = null) {
+        viewModel.getAppList(includeHiddenApps = includeHiddenApps, flag = flag)
+        val bundle = bundleOf(
+            "flag" to flag.toString(),
+            "n" to n,
+            "showSearch" to false
+        )
+        if (!initialSearch.isNullOrEmpty()) {
+            bundle.putString("initialSearch", initialSearch)
+        }
+        try {
+            findNavController().navigate(R.id.appsFragment, bundle)
+        } catch (_: Exception) {
+            try {
+                findNavController().navigate(R.id.action_mainFragment_to_appListFragment, bundle)
+            } catch (_: Exception) {
+                findNavController().navigate(R.id.appListFragment, bundle)
             }
         }
-    }
-
-    private fun handleSwipeLeft(totalPages: Int) {
-        if (totalPages <= 0) return // Prevent issues if totalPages is 0 or negative
-
-        refreshCachedCalculations()
-        currentPage = if (currentPage == 0) {
-            cachedTotalPages - 1 // Wrap to last page if on the first page
-        } else {
-            currentPage - 1 // Move to the previous page
-        }
-
-    // Move focus to first visible item on the new page
-    selectedAppIndex = currentPage * cachedAppsPerPage
-    if (selectedAppIndex >= cachedTotalApps) selectedAppIndex = maxOf(0, cachedTotalApps - 1)
-
-    updateAppsVisibility(cachedTotalPages)
-    focusAppButton(selectedAppIndex)
-    vibratePaging()
-    }
-
-    private fun handleSwipeRight(totalPages: Int) {
-        if (totalPages <= 0) return // Prevent issues if totalPages is 0 or negative
-
-        refreshCachedCalculations()
-        currentPage = if (currentPage == cachedTotalPages - 1) {
-            0 // Wrap to first page if on the last page
-        } else {
-            currentPage + 1 // Move to the next page
-        }
-
-    // Move focus to first visible item on the new page
-    selectedAppIndex = currentPage * cachedAppsPerPage
-    if (selectedAppIndex >= cachedTotalApps) selectedAppIndex = maxOf(0, cachedTotalApps - 1)
-
-    updateAppsVisibility(cachedTotalPages)
-    focusAppButton(selectedAppIndex)
-    vibratePaging()
-    }
-
-    private fun vibratePaging() {
-        if (prefs.useVibrationForPaging) {
-            @Suppress("DEPRECATION")
-            vibrator.vibrate(50) // Vibrate for 50 milliseconds
-        }
-    }
-
-    private fun vibrateForWidget() {
-        if (prefs.useVibrationForPaging) {
-            @Suppress("DEPRECATION")
-            vibrator.vibrate(50) // Vibrate for 50 milliseconds
-        }
-    }
-
-    private fun getTotalAppsCount(): Int {
-        return binding.homeAppsLayout.childCount
     }
 
     private fun trySettings() {
-        lifecycleScope.launch(Dispatchers.Main) {
+        try {
+            // Use a stronger haptic feedback for long-press->settings
+            VibrationHelper.trigger(VibrationHelper.Effect.LONG_PRESS)
+        } catch (_: Exception) {}
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.Main) {
             if (prefs.settingsLocked) {
-                biometricHelper.startBiometricSettingsAuth(object :
-                    BiometricHelper.CallbackSettings {
+                biometricHelper.startBiometricSettingsAuth(object : BiometricHelper.CallbackSettings {
                     override fun onAuthenticationSucceeded() {
                         sendToSettingFragment()
                     }
 
                     override fun onAuthenticationFailed() {
-                        Log.e(
-                            "Authentication",
-                            getString(R.string.text_authentication_failed)
-                        )
+                        android.util.Log.e("Authentication", getString(R.string.text_authentication_failed))
                     }
 
-                    override fun onAuthenticationError(
-                        errorCode: Int,
-                        errorMessage: CharSequence?
-                    ) {
+                    override fun onAuthenticationError(errorCode: Int, errorMessage: CharSequence?) {
                         when (errorCode) {
-                            BiometricPrompt.ERROR_USER_CANCELED -> Log.e(
+                            BiometricPrompt.ERROR_USER_CANCELED -> android.util.Log.e(
                                 "Authentication",
                                 getString(R.string.text_authentication_cancel)
                             )
-
-                            else ->
-                                Log.e(
-                                    "Authentication",
-                                    getString(R.string.text_authentication_error).format(
-                                        errorMessage,
-                                        errorCode
-                                    )
-                                )
+                            else -> android.util.Log.e(
+                                "Authentication",
+                                getString(R.string.text_authentication_error).format(errorMessage, errorCode)
+                            )
                         }
                     }
                 })
@@ -1543,193 +675,17 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
     private fun sendToSettingFragment() {
         try {
             findNavController().navigate(R.id.action_mainFragment_to_settingsFragment)
-            // Remove firstOpen(false) call, as it is only for first run tip
-            // viewModel.firstOpen(false)
-        } catch (e: java.lang.Exception) {
-            Log.d("onLongClick", e.toString())
+        } catch (_: Exception) {
         }
     }
 
-    fun setupBackgroundImage() {
-        BackgroundImageHelper.setupBackgroundImage(requireContext(), prefs, viewModel, binding.root as ViewGroup)
+    private fun vibratePaging() {
+        VibrationHelper.trigger(VibrationHelper.Effect.PAGE)
     }
 
-    // Lazy background image setup to defer heavy operations
-    private fun setupBackgroundImageLazy() {
-        BackgroundImageHelper.validateBackgroundImageUri(requireContext(), prefs)
-        setupBackgroundImage()
+    private fun vibrateForWidget() {
+        VibrationHelper.trigger(VibrationHelper.Effect.CLICK)
     }
 
-    // Apply the Home Apps Y-offset preference by adjusting top padding of the main container.
-    private fun applyHomeAppsYOffset() {
-        try {
-            val dp = prefs.homeAppsYOffset
-            val scale = resources.displayMetrics.density
-            val px = (dp * scale).toInt()
-            // Keep existing left/right/bottom paddings
-            val left = binding.maincontainer.paddingLeft
-            val right = binding.maincontainer.paddingRight
-            val bottom = binding.maincontainer.paddingBottom
-            binding.maincontainer.setPadding(left, px, right, bottom)
-        } catch (e: Exception) {
-            // Fail silently; don't crash the home screen if something goes wrong
-            e.printStackTrace()
-        }
-    }
-
-    // ...existing code...
-
-    // Called from MainActivity when window regains focus (e.g., overlay closed)
-    fun onWindowFocusGained() {
-    EinkRefreshHelper.refreshEink(requireContext(), prefs, binding.root as? ViewGroup, prefs.einkRefreshDelay)
-        // Optionally, refresh UI state if needed
-        viewModel.refreshHomeAppsUiState(requireContext())
-    }
-
-    // Update date display based on current preferences
-    private fun updateDateDisplay() {
-        val showClock = prefs.showClock
-        val showDate = prefs.showDate
-        val clockView = cachedClockView
-        val dateView = cachedDateView
-        
-        // Redundant safeguard: ensure date click listener is set even if view is recreated
-        dateView?.setOnClickListener(this@HomeFragment)
-        
-        // Update bottom widget margin for bottom widgets wrapper
-        applyBottomWidgetMargin()
-        
-        // Set visibility states
-        setViewsVisibility(
-            clockView to if (showClock) View.VISIBLE else View.GONE,
-            dateView to if (showDate) View.VISIBLE else View.GONE
-        )
-        
-        // Configure date view if visible
-        if (showDate) {
-            configureDateView(dateView)
-            triggerBatteryUpdate()
-        }
-        
-        // Set top margins based on what's visible
-        when {
-            showClock && showDate -> {
-                setTopMargin(clockView, prefs.topWidgetMargin)
-                setTopMargin(dateView, 0)
-            }
-            showClock -> setTopMargin(clockView, prefs.topWidgetMargin)
-            showDate -> setTopMargin(dateView, prefs.topWidgetMargin)
-        }
-    }
-    
-    // Helper functions for date display optimization
-    private fun setViewsVisibility(vararg views: Pair<TextView?, Int>) {
-        views.forEach { (view, visibility) ->
-            view?.visibility = visibility
-        }
-    }
-    
-    private fun configureDateView(dateView: TextView?) {
-        dateView?.apply {
-            textSize = prefs.dateSize.toFloat()
-            val typeface = prefs.getFontForContext("date").getFont(requireContext(), prefs.getCustomFontPathForContext("date"))
-            this.typeface = typeface
-        }
-    }
-    
-    private fun setTopMargin(view: TextView?, marginDp: Int) {
-        view?.let {
-            val layoutParams = it.layoutParams as? LinearLayout.LayoutParams
-            layoutParams?.let { params ->
-                val density = requireContext().resources.displayMetrics.density
-                params.topMargin = (marginDp * density).toInt()
-                it.layoutParams = params
-            }
-        }
-    }
-    
-    private fun triggerBatteryUpdate() {
-        val batteryIntent = requireContext().registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
-        batteryIntent?.let { batteryReceiver.onReceive(requireContext(), it) }
-    }
-
-    private fun updateMediaPlayerWidget(mediaPlayer: AudioWidgetHelper.MediaPlayerInfo?) {
-        // Check if audio widget is enabled in preferences
-        if (mediaPlayer != null && prefs.showAudioWidgetEnabled) {
-            binding.mediaPlayerWidget.visibility = View.VISIBLE
-
-            // Update play/pause button drawable based on current state
-            val isPlaying = mediaPlayer.isPlaying
-            val playPauseDrawable = if (isPlaying) R.drawable.audio_pause else R.drawable.audio_play
-            binding.mediaPlayPause.setImageResource(playPauseDrawable)
-        } else {
-            binding.mediaPlayerWidget.visibility = View.GONE
-        }
-    }
-
-    private fun setupMediaPlayerClickListeners() {
-        val audioWidgetHelper = AudioWidgetHelper.getInstance(requireContext())
-
-        binding.mediaOpenApp.setOnClickListener {
-            vibrateForWidget()
-            audioWidgetHelper.openMediaApp()
-        }
-
-        binding.mediaPrevious.setOnClickListener {
-            vibrateForWidget()
-            audioWidgetHelper.skipToPrevious()
-        }
-
-        binding.mediaPlayPauseContainer.setOnClickListener {
-            vibrateForWidget()
-            audioWidgetHelper.playPauseMedia()
-        }
-
-        binding.mediaNext.setOnClickListener {
-            vibrateForWidget()
-            audioWidgetHelper.skipToNext()
-        }
-
-        binding.mediaStop.setOnClickListener {
-            vibrateForWidget()
-            audioWidgetHelper.stopMedia()
-        }
-    }
-
-    private fun applyAudioWidgetColor(color: Int) {
-        // Apply tint to all audio widget ImageViews
-        // Each FrameLayout contains one ImageView as a child
-        (binding.mediaOpenApp.getChildAt(0) as? ImageView)?.imageTintList =
-            android.content.res.ColorStateList.valueOf(color)
-        (binding.mediaPrevious.getChildAt(0) as? ImageView)?.imageTintList =
-            android.content.res.ColorStateList.valueOf(color)
-        (binding.mediaNext.getChildAt(0) as? ImageView)?.imageTintList =
-            android.content.res.ColorStateList.valueOf(color)
-        (binding.mediaStop.getChildAt(0) as? ImageView)?.imageTintList =
-            android.content.res.ColorStateList.valueOf(color)
-
-        // For the play/pause container, apply color to the circle background (first child)
-        (binding.mediaPlayPauseContainer.getChildAt(0) as? ImageView)?.imageTintList =
-            android.content.res.ColorStateList.valueOf(color)
-        // The play/pause icon itself already has a special tint for contrast
-    }
-
-    private fun applyBottomWidgetMargin() {
-        cachedBottomWidgetsWrapper?.let { wrapper ->
-            val wrapperLayoutParams = wrapper.layoutParams as? ViewGroup.MarginLayoutParams
-            if (wrapperLayoutParams != null) {
-                val density = requireContext().resources.displayMetrics.density
-                wrapperLayoutParams.bottomMargin = (prefs.bottomWidgetMargin * density).toInt()
-                wrapper.layoutParams = wrapperLayoutParams
-            }
-        }
-    }
-
-    private fun exitLauncher() {
-        val intent = Intent(Intent.ACTION_MAIN).apply {
-            addCategory(Intent.CATEGORY_HOME)
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-        }
-        startActivity(Intent.createChooser(intent, "Choose your launcher"))
-    }
+    private fun showLongPressToast() = requireContext().showShortToast(getString(R.string.long_press_to_select_app))
 }

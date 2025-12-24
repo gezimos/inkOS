@@ -5,14 +5,17 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.BatteryManager
+import android.view.View
+import android.widget.ImageView
 import androidx.appcompat.widget.AppCompatTextView
+import androidx.core.widget.ImageViewCompat
 import com.github.gezimos.inkos.R
 import com.github.gezimos.inkos.data.Prefs
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class BatteryReceiver : BroadcastReceiver() {
+class BatteryReceiver(private val onBatteryUpdate: (String, String, Boolean) -> Unit = { _, _, _ -> }) : BroadcastReceiver() {
 
     private lateinit var prefs: Prefs
 
@@ -20,32 +23,31 @@ class BatteryReceiver : BroadcastReceiver() {
         prefs = Prefs(context)
         val level: Int = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
         val scale: Int = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
-
-    val contextBattery = context as? Activity
-    // batteryTextView removed
-        val dateTextView = (contextBattery)?.findViewById<AppCompatTextView>(R.id.date)
+        val status: Int = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+        val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                status == BatteryManager.BATTERY_STATUS_FULL
 
         val batteryLevel = level * 100 / scale.toFloat()
         val batteryLevelInt = batteryLevel.toInt()
 
-    // Update bottom battery widget removed
-
-        // Update date+battery combo if enabled
-        if (prefs.showDate && prefs.showDateBatteryCombo) {
-            val dateFormat = SimpleDateFormat("EEE, d MMM", Locale.getDefault())
-            val currentDate = dateFormat.format(Date())
-
-            dateTextView?.text = buildString {
-                append(currentDate)
-                append("  ·  ")
-                append(batteryLevelInt)
-                append("%")
-            }
-        } else if (prefs.showDate) {
-            // Show just date if combo is disabled
-            val dateFormat = SimpleDateFormat("EEE, d MMM", Locale.getDefault())
-            dateTextView?.text = dateFormat.format(Date())
+        // Compute date text (without battery)
+        val dateFormat = SimpleDateFormat("EEE, d MMM", Locale.getDefault())
+        val currentDate = dateFormat.format(Date())
+        val newDateText = if (prefs.showDate) {
+            currentDate
+        } else {
+            ""
         }
+
+        // Compute battery text (independent of date)
+        val newBatteryText = if (prefs.showDateBatteryCombo) {
+            "$batteryLevelInt%"
+        } else {
+            ""
+        }
+
+        // Call the callback with date text, battery text, and charging status
+        onBatteryUpdate(newDateText, newBatteryText, isCharging)
     }
 }
 

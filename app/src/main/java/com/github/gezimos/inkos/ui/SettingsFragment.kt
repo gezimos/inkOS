@@ -8,15 +8,19 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
-import androidx.core.net.toUri
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -31,17 +35,15 @@ import androidx.navigation.fragment.findNavController
 import com.github.gezimos.inkos.MainViewModel
 import com.github.gezimos.inkos.R
 import com.github.gezimos.inkos.data.Constants.Theme.Dark
-import com.github.gezimos.inkos.data.Constants.Theme.Light
-import com.github.gezimos.inkos.data.Constants.Theme.System
 import com.github.gezimos.inkos.data.Prefs
 import com.github.gezimos.inkos.helper.getHexForOpacity
 import com.github.gezimos.inkos.helper.isSystemInDarkMode
 import com.github.gezimos.inkos.helper.isinkosDefault
 import com.github.gezimos.inkos.helper.utils.EinkScrollBehavior
 import com.github.gezimos.inkos.helper.utils.PrivateSpaceManager
+import com.github.gezimos.inkos.helper.ShapeHelper
 import com.github.gezimos.inkos.listener.DeviceAdmin
 import com.github.gezimos.inkos.style.SettingsTheme
-import com.github.gezimos.inkos.ui.compose.SettingsComposable.DashedSeparator
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.PageHeader
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsHomeItem
 
@@ -58,15 +60,10 @@ class SettingsFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        prefs = Prefs(requireContext())
-        val isDark = when (prefs.appTheme) {
-            Light -> false
-            Dark -> true
-            System -> isSystemInDarkMode(requireContext())
-        }
-        val settingsSize = (prefs.settingsSize - 3)
-        val backgroundColor = getHexForOpacity(prefs)
+        viewModel = ViewModelProvider(requireActivity())[MainViewModel::class.java]
+        prefs = viewModel.getPrefs()
         val context = requireContext()
+        val backgroundColor = getHexForOpacity(requireContext())
         val currentPage = intArrayOf(0)
         val pageCount = intArrayOf(1)
 
@@ -91,6 +88,11 @@ class SettingsFragment : Fragment() {
         // Helper to update header
         fun updateHeader(headerView: androidx.compose.ui.platform.ComposeView) {
             headerView.setContent {
+                val uiState by viewModel.homeUiState.collectAsState()
+                val isDark = uiState.appTheme == Dark
+                val settingsSize = (uiState.settingsSize - 3)
+                val navController = findNavController()
+                
                 LocalDensity.current
                 // Remove bottomInsetDp from header
                 SettingsTheme(isDark) {
@@ -99,7 +101,7 @@ class SettingsFragment : Fragment() {
                             iconRes = R.drawable.ic_inkos,
                             title = stringResource(R.string.settings_name),
                             onClick = {
-                                val nav = findNavController()
+                                val nav = navController
                                 val popped = try {
                                     nav.popBackStack(R.id.mainFragment, false)
                                 } catch (_: Exception) {
@@ -117,25 +119,33 @@ class SettingsFragment : Fragment() {
                                     }
                                 }
                             },
-                            showStatusBar = prefs.showStatusBar,
+                            showStatusBar = uiState.showStatusBar,
                             pageIndicator = {
-                                // Small 'bmc' drawable tinted like the page indicator (white in dark mode, black in light)
-                                val composeCtx = androidx.compose.ui.platform.LocalContext.current
-                                val buyMeUri = "https://buymeacoffee.com/gezimos".toUri()
-                                val buyMeIntent = android.content.Intent(android.content.Intent.ACTION_VIEW, buyMeUri)
-                                androidx.compose.foundation.Image(
-                                    painter = androidx.compose.ui.res.painterResource(id = R.drawable.bmc),
-                                    contentDescription = null,
-                                    colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(
-                                        if (isDark) androidx.compose.ui.graphics.Color.White else androidx.compose.ui.graphics.Color.Black
-                                    ),
+                                val textIslandsShape = uiState.textIslandsShape
+                                val supportButtonShape = remember(textIslandsShape) {
+                                    ShapeHelper.getRoundedCornerShape(
+                                        textIslandsShape = textIslandsShape,
+                                        pillRadius = 50.dp
+                                    )
+                                }
+                                androidx.compose.material.Text(
+                                    text = "Support",
+                                    style = SettingsTheme.typography.title,
+                                    fontSize = if (settingsSize > 0) (settingsSize * 1.2).sp else TextUnit.Unspecified,
+                                    color = com.github.gezimos.inkos.style.Theme.colors.text,
                                     modifier = Modifier
-                                        .height(18.dp)
+                                        .padding(start = 8.dp)
+                                        .border(
+                                            width = 2.dp,
+                                            color = com.github.gezimos.inkos.style.Theme.colors.text,
+                                            shape = supportButtonShape
+                                        )
+                                        .padding(horizontal = 12.dp, vertical = 6.dp)
                                         .clickable {
                                             try {
-                                                composeCtx.startActivity(buyMeIntent)
+                                                navController.navigate(R.id.supportFragment)
                                             } catch (_: Exception) {
-                                                // Ignore failures to open browser
+                                                // Ignore navigation failures
                                             }
                                         }
                                 )
@@ -161,6 +171,10 @@ class SettingsFragment : Fragment() {
             addView(
                 androidx.compose.ui.platform.ComposeView(context).apply {
                     setContent {
+                        val uiState by viewModel.homeUiState.collectAsState()
+                        val isDark = uiState.appTheme == Dark
+                        val settingsSize = (uiState.settingsSize - 3)
+                        
                         val density = LocalDensity.current
                         val bottomInsetDp = with(density) { bottomInsetPx.toDp() }
                         SettingsTheme(isDark) {
@@ -208,18 +222,10 @@ class SettingsFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        // Eink refresh: flash overlay if enabled
-        com.github.gezimos.inkos.helper.utils.EinkRefreshHelper.refreshEink(
-            requireContext(), prefs, null, prefs.einkRefreshDelay, useActivityRoot = true
-        )
     }
 
     override fun onResume() {
         super.onResume()
-        // Eink refresh: flash overlay if enabled
-        com.github.gezimos.inkos.helper.utils.EinkRefreshHelper.refreshEink(
-            requireContext(), prefs, null, prefs.einkRefreshDelay, useActivityRoot = true
-        )
     }
 
     @Composable
@@ -232,13 +238,11 @@ class SettingsFragment : Fragment() {
         Column(
             modifier = Modifier.fillMaxWidth()
         ) {
-            DashedSeparator()
             SettingsHomeItem(
                 title = stringResource(R.string.settings_home_title),
                 titleFontSize = titleFontSize,
                 onClick = { showFeaturesSettings() },
             )
-            DashedSeparator()
             SettingsHomeItem(
                 title = "App Drawer",
                 titleFontSize = titleFontSize,
@@ -247,31 +251,26 @@ class SettingsFragment : Fragment() {
                     navController.navigate(R.id.settingsDrawerFragment)
                 },
             )
-            DashedSeparator()
             SettingsHomeItem(
                 title = stringResource(R.string.fonts_settings_title),
                 titleFontSize = titleFontSize,
                 onClick = { showFontsSettings() },
             )
-            DashedSeparator()
             SettingsHomeItem(
                 title = stringResource(R.string.settings_look_feel_title),
                 titleFontSize = titleFontSize,
                 onClick = { showLookFeelSettings() },
             )
-            DashedSeparator()
             SettingsHomeItem(
                 title = stringResource(R.string.settings_gestures_title),
                 titleFontSize = titleFontSize,
                 onClick = { showGesturesSettings() },
             )
-            DashedSeparator()
             SettingsHomeItem(
                 title = stringResource(R.string.notification_section),
                 titleFontSize = titleFontSize,
                 onClick = { showNotificationSettings() },
             )
-            DashedSeparator()
             if (privateSpaceManager.isPrivateSpaceSupported() &&
                 privateSpaceManager.isPrivateSpaceSetUp(showToast = false, launchSettings = false)
             ) {
@@ -285,7 +284,6 @@ class SettingsFragment : Fragment() {
                         )
                     }
                 )
-                DashedSeparator()
             }
             SettingsHomeItem(
                 title = stringResource(R.string.settings_advanced_title) +
@@ -293,7 +291,6 @@ class SettingsFragment : Fragment() {
                 titleFontSize = titleFontSize,
                 onClick = { showAdvancedSettings() },
             )
-            DashedSeparator()
             SettingsHomeItem(
                 title = "Extras",
                 titleFontSize = titleFontSize,
@@ -301,7 +298,6 @@ class SettingsFragment : Fragment() {
                     navController.navigate(R.id.extrasFragment)
                 },
             )
-            DashedSeparator()
             Spacer(modifier = Modifier.height(16.dp))
         }
     }
@@ -318,10 +314,10 @@ class SettingsFragment : Fragment() {
     override fun onActivityCreated(savedInstanceState: Bundle?) {
         @Suppress("DEPRECATION")
         super.onActivityCreated(savedInstanceState)
-        prefs = Prefs(requireContext())
         viewModel = activity?.run {
             ViewModelProvider(this)[MainViewModel::class.java]
         } ?: throw Exception("Invalid Activity")
+        prefs = viewModel.getPrefs()
 
         viewModel.isinkosDefault()
 
@@ -334,7 +330,7 @@ class SettingsFragment : Fragment() {
     private fun checkAdminPermission() {
         val isAdmin: Boolean = deviceManager.isAdminActive(componentName)
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P)
-            prefs.lockModeOn = isAdmin
+            viewModel.setLockModeOn(isAdmin)
     }
 
     private fun showFeaturesSettings() {

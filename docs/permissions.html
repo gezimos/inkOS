@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Permissions - inkOS</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="header-content">
+                <a href="index.html" class="logo" style="text-decoration: none; color: inherit;">
+                    <img src="img/inkos.svg" alt="inkOS logo" />
+                    <h1>inkOS</h1>
+                </a>
+                <nav class="nav-links">
+                    <a href="index.html#customization">App</a>
+                    <a href="index.html#features">Features</a>
+                    <a href="index.html#faq">FAQ</a>
+                    <a href="https://youtube.com/@gezimos" target="_blank" rel="noopener">Video</a>
+                </nav>
+                <a class="header-action" href="https://www.buymeacoffee.com/gezimos" target="_blank" rel="noopener">Buy me a coffee</a>
+            </div>
+        </div>
+    </header>
+
+    <section class="section">
+        <div class="container">
+            <h2 class="section-title" style="text-align: left; margin-left: 0;">Permissions</h2>
+            <div style="width: 100%;">
+                <p style="font-size: 1.1rem; line-height: 1.7; color: #333; margin-bottom: 2rem;">
+                    inkOS uses the following permissions to provide its features. All permissions are used locally on your device and no data is transmitted externally.
+                </p>
+
+                <div style="margin-bottom: 2rem;">
+                    <h3 style="font-size: 1.3rem; margin-bottom: 1rem; color: #000;">android.permission.EXPAND_STATUS_BAR</h3>
+                    <p style="font-size: 1.1rem; line-height: 1.7; color: #333;">
+                        Allows the launcher to expand or collapse the status bar (for gestures and quick access).
+                    </p>
+                </div>
+
+                <div style="margin-bottom: 2rem;">
+                    <h3 style="font-size: 1.3rem; margin-bottom: 1rem; color: #000;">android.permission.QUERY_ALL_PACKAGES</h3>
+                    <p style="font-size: 1.1rem; line-height: 1.7; color: #333;">
+                        Allows the launcher to list all installed apps, so you can see and manage them.
+                    </p>
+                </div>
+
+                <div style="margin-bottom: 2rem;">
+                    <h3 style="font-size: 1.3rem; margin-bottom: 1rem; color: #000;">android.permission.REQUEST_DELETE_PACKAGES</h3>
+                    <p style="font-size: 1.1rem; line-height: 1.7; color: #333;">
+                        Allows the launcher to request the uninstallation of apps (user confirmation required).
+                    </p>
+                </div>
+
+                <div style="margin-bottom: 2rem;">
+                    <h3 style="font-size: 1.3rem; margin-bottom: 1rem; color: #000;">android.permission.USE_BIOMETRIC</h3>
+                    <p style="font-size: 1.1rem; line-height: 1.7; color: #333;">
+                        Enables PIN or fingerprint lock for apps or settings.
+                    </p>
+                </div>
+
+                <div style="margin-bottom: 2rem;">
+                    <h3 style="font-size: 1.3rem; margin-bottom: 1rem; color: #000;">android.permission.SYSTEM_ALERT_WINDOW</h3>
+                    <p style="font-size: 1.1rem; line-height: 1.7; color: #333;">
+                        Required for overlay features, such as showing notifications or dialogs over other apps.
+                    </p>
+                </div>
+
+                <div style="margin-bottom: 2rem;">
+                    <h3 style="font-size: 1.3rem; margin-bottom: 1rem; color: #000;">android.permission.FOREGROUND_SERVICE</h3>
+                    <p style="font-size: 1.1rem; line-height: 1.7; color: #333;">
+                        Allows the launcher to run foreground services for persistent features (e.g., notification listener).
+                    </p>
+                </div>
+
+                <div style="margin-bottom: 2rem;">
+                    <h3 style="font-size: 1.3rem; margin-bottom: 1rem; color: #000;">android.permission.VIBRATE</h3>
+                    <p style="font-size: 1.1rem; line-height: 1.7; color: #333;">
+                        Enables vibration feedback for certain actions.
+                    </p>
+                </div>
+
+                <div style="margin-bottom: 2rem;">
+                    <h3 style="font-size: 1.3rem; margin-bottom: 1rem; color: #000;">android.permission.WRITE_SETTINGS</h3>
+                    <p style="font-size: 1.1rem; line-height: 1.7; color: #333;">
+                        Allows the launcher to modify system settings (for features like brightness control in Simple Tray).
+                    </p>
+                </div>
+
+                <div style="margin-bottom: 2rem;">
+                    <h3 style="font-size: 1.3rem; margin-bottom: 1rem; color: #000;">android.permission.ACCESS_WIFI_STATE</h3>
+                    <p style="font-size: 1.1rem; line-height: 1.7; color: #333;">
+                        Allows the launcher to access WiFi state (for WiFi status in Simple Tray).
+                    </p>
+                </div>
+
+                <div style="margin-bottom: 2rem;">
+                    <h3 style="font-size: 1.3rem; margin-bottom: 1rem; color: #000;">android.permission.CHANGE_WIFI_STATE</h3>
+                    <p style="font-size: 1.1rem; line-height: 1.7; color: #333;">
+                        Allows the launcher to change WiFi state (for WiFi toggle in Simple Tray).
+                    </p>
+                </div>
+
+                <div style="margin-bottom: 2rem;">
+                    <h3 style="font-size: 1.3rem; margin-bottom: 1rem; color: #000;">android.permission.BLUETOOTH</h3>
+                    <p style="font-size: 1.1rem; line-height: 1.7; color: #333;">
+                        Allows access to Bluetooth features (for device compatibility and widgets).
+                    </p>
+                </div>
+
+                <div style="margin-bottom: 2rem;">
+                    <h3 style="font-size: 1.3rem; margin-bottom: 1rem; color: #000;">android.permission.BLUETOOTH_ADMIN</h3>
+                    <p style="font-size: 1.1rem; line-height: 1.7; color: #333;">
+                        Allows administration of Bluetooth features.
+                    </p>
+                </div>
+
+                <div style="margin-bottom: 2rem;">
+                    <h3 style="font-size: 1.3rem; margin-bottom: 1rem; color: #000;">android.permission.BLUETOOTH_CONNECT</h3>
+                    <p style="font-size: 1.1rem; line-height: 1.7; color: #333;">
+                        Allows the launcher to connect to Bluetooth devices (for widgets and device integration).
+                    </p>
+                </div>
+
+                <div style="margin-bottom: 2rem;">
+                    <h3 style="font-size: 1.3rem; margin-bottom: 1rem; color: #000;">android.permission.CAMERA</h3>
+                    <p style="font-size: 1.1rem; line-height: 1.7; color: #333;">
+                        Allows access to the camera (for flashlight feature in Simple Tray).
+                    </p>
+                </div>
+
+                <div style="margin-bottom: 2rem;">
+                    <h3 style="font-size: 1.3rem; margin-bottom: 1rem; color: #000;">android.permission.READ_PHONE_STATE</h3>
+                    <p style="font-size: 1.1rem; line-height: 1.7; color: #333;">
+                        Allows the launcher to read phone state (for cellular signal display in Simple Tray).
+                    </p>
+                </div>
+
+                <div style="margin-bottom: 2rem;">
+                    <h3 style="font-size: 1.3rem; margin-bottom: 1rem; color: #000;">android.permission.MODIFY_AUDIO_SETTINGS</h3>
+                    <p style="font-size: 1.1rem; line-height: 1.7; color: #333;">
+                        Allows the launcher to modify audio settings (for volume control in Simple Tray).
+                    </p>
+                </div>
+
+                <div style="margin-bottom: 2rem;">
+                    <h3 style="font-size: 1.3rem; margin-bottom: 1rem; color: #000;">android.permission.PACKAGE_USAGE_STATS</h3>
+                    <p style="font-size: 1.1rem; line-height: 1.7; color: #333;">
+                        Allows the launcher to access usage statistics (for recent apps in Recents screen).
+                    </p>
+                </div>
+
+                <div style="margin-bottom: 2rem;">
+                    <h3 style="font-size: 1.3rem; margin-bottom: 1rem; color: #000;">android.permission.READ_MEDIA_IMAGES</h3>
+                    <p style="font-size: 1.1rem; line-height: 1.7; color: #333;">
+                        Allows the launcher to read media images (for wallpaper selection).
+                    </p>
+                </div>
+
+                <div style="margin-bottom: 2rem;">
+                    <h3 style="font-size: 1.3rem; margin-bottom: 1rem; color: #000;">android.permission.READ_EXTERNAL_STORAGE</h3>
+                    <p style="font-size: 1.1rem; line-height: 1.7; color: #333;">
+                        Allows the launcher to read external storage (for image access on older Android versions).
+                    </p>
+                </div>
+
+                <div style="margin-bottom: 2rem;">
+                    <h3 style="font-size: 1.3rem; margin-bottom: 1rem; color: #000;">android.permission.SET_WALLPAPER</h3>
+                    <p style="font-size: 1.1rem; line-height: 1.7; color: #333;">
+                        Allows the launcher to set wallpapers.
+                    </p>
+                </div>
+
+                <div style="margin-top: 3rem; padding: 1.5rem; background: #f5f5f5; border-radius: var(--radius-2);">
+                    <p style="font-size: 1.1rem; line-height: 1.7; color: #333; margin-bottom: 1rem;">
+                        <strong>Note:</strong> Some permissions (particularly Bluetooth-related) are primarily needed for Mudita Kompakt to reconnect to headphones due to missing Bluetooth history.
+                    </p>
+                    <p style="font-size: 1.1rem; line-height: 1.7; color: #333;">
+                        <strong>Important:</strong> inkOS does not request internet access and does not collect or transmit any data. All permissions are used locally on your device only.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-logo">
+                    <a href="index.html" class="logo" style="text-decoration: none; color: inherit;">
+                        <img src="img/inkos.svg" alt="inkOS logo" />
+                        <h1>inkOS</h1>
+                    </a>
+                    <p>&copy; 2025 inkOS.</p>
+                </div>
+                <div class="footer-sitemap">
+                    <div class="sitemap-column">
+                        <h3>inkOS</h3>
+                        <a href="#">About</a>
+                        <a href="https://youtube.com/@gezimos" target="_blank" rel="noopener">YouTube</a>
+                        <a href="#">Blog</a>
+                    </div>
+                    <div class="sitemap-column">
+                        <h3>Navigation</h3>
+                        <a href="index.html#customization">App</a>
+                        <a href="index.html#features">Features</a>
+                        <a href="index.html#faq">FAQ</a>
+                    </div>
+                    <div class="sitemap-column">
+                        <h3>Legal</h3>
+                        <a href="privacy.html">Privacy Policy</a>
+                        <a href="permissions.html">Permissions</a>
+                        <a href="https://github.com/gezimos/inkOS/blob/main/LICENSE">License</a>
+                    </div>
+                    <div class="sitemap-column">
+                        <h3>GitHub</h3>
+                        <a href="https://github.com/gezimos/inkOS">Repository</a>
+                        <a href="https://github.com/gezimos/inkOS/issues">Issues</a>
+                        <a href="https://github.com/gezimos/inkOS/releases">Releases</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
+

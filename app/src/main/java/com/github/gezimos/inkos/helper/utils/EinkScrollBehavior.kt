@@ -1,19 +1,16 @@
 package com.github.gezimos.inkos.helper.utils
 
-import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
-import android.content.pm.PackageManager
 import android.os.Build
-import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.util.Log
 import android.view.MotionEvent
 import android.view.View
 import android.widget.ScrollView
 import androidx.core.widget.NestedScrollView
 import com.github.gezimos.inkos.data.Prefs
-import android.util.Log
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -46,7 +43,7 @@ class EinkScrollBehavior(
         vibratorManager.defaultVibrator
     } else {
         @Suppress("DEPRECATION")
-        context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        try { context.getSystemService(Vibrator::class.java) } catch (_: Exception) { null }
     }
 
     fun attachToScrollView(scrollView: View) {
@@ -266,23 +263,9 @@ class EinkScrollBehavior(
     }
 
     private fun performHapticFeedback() {
-        if (!prefs.useVibrationForPaging) return
+        // Delegate to centralized helper (it checks prefs and throttles)
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                if (context.checkSelfPermission(Manifest.permission.VIBRATE) == PackageManager.PERMISSION_GRANTED) {
-                    vibrator.vibrate(
-                        VibrationEffect.createOneShot(
-                            50,
-                            VibrationEffect.DEFAULT_AMPLITUDE
-                        )
-                    )
-                }
-            } else {
-                @Suppress("DEPRECATION")
-                vibrator.vibrate(50)
-            }
-        } catch (_: Exception) {
-            // Silently handle any vibration-related errors
-        }
+            VibrationHelper.trigger(VibrationHelper.Effect.PAGE)
+        } catch (_: Exception) {}
     }
 }

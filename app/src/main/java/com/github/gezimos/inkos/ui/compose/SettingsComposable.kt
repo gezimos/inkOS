@@ -9,6 +9,14 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.focusable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -22,6 +30,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalContext
+import com.github.gezimos.inkos.data.Prefs
+import com.github.gezimos.inkos.helper.utils.VibrationHelper
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -36,9 +51,55 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.sp
+import com.github.gezimos.inkos.helper.ShapeHelper
 import com.github.gezimos.inkos.style.SettingsTheme
+import com.github.gezimos.inkos.style.Theme
 
 object SettingsComposable {
+
+    @Composable
+    private fun Modifier.pillFocusHighlight(
+        isFocused: Boolean,
+        inset: Dp = 6.dp,
+        color: Color,
+        outerHorizontal: Dp = 16.dp,
+        outerVertical: Dp = 16.dp
+    ): Modifier {
+        val density = LocalDensity.current
+        val context = LocalContext.current
+        val prefs = Prefs(context)
+        val textIslandsShape = prefs.textIslandsShape
+        
+        val insetPx = with(density) { inset.toPx() }
+        val outerPxH = with(density) { outerHorizontal.toPx() }
+        val outerPxV = with(density) { outerVertical.toPx() }
+        return this
+            .graphicsLayer(clip = false)
+            .drawBehind {
+                if (isFocused) {
+                    // Draw a shape that extends outerHorizontal/outerVertical outside the element bounds,
+                    // and keeps an inner inset from the element edges.
+                    // Shape is determined by textIslandsShape preference: 0=Pill, 1=Rounded, 2=Square
+                    val drawH = (size.height + outerPxV * 2 - insetPx * 2).coerceAtLeast(0f)
+                    val drawW = (size.width + outerPxH * 2 - insetPx * 2).coerceAtLeast(0f)
+                    val topLeft = Offset(-outerPxH + insetPx, -outerPxV + insetPx)
+                    
+                    // Calculate corner radius based on textIslandsShape preference
+                    val cornerRadius = ShapeHelper.getCornerRadius(
+                        textIslandsShape = textIslandsShape,
+                        height = drawH,
+                        density = density
+                    )
+                    
+                    drawRoundRect(
+                        color = color,
+                        topLeft = topLeft,
+                        size = Size(drawW, drawH),
+                        cornerRadius = cornerRadius
+                    )
+                }
+            }
+    }
 
     @Composable
     fun PageIndicator(
@@ -46,11 +107,7 @@ object SettingsComposable {
         pageCount: Int,
         modifier: Modifier = Modifier
     ) {
-        // Use the current theme to determine dark mode
-        val isDark = androidx.compose.foundation.isSystemInDarkTheme()
-        val activeRes = com.github.gezimos.inkos.R.drawable.ic_current_page
-        val inactiveRes = com.github.gezimos.inkos.R.drawable.ic_new_page
-        val tintColor = if (isDark) Color.White else Color.Black
+        val tintColor = SettingsTheme.color.settings
         Row(
             modifier = modifier,
             verticalAlignment = Alignment.CenterVertically,
@@ -58,7 +115,7 @@ object SettingsComposable {
         ) {
             for (i in 0 until pageCount) {
                 Image(
-                    painter = painterResource(id = if (i == currentPage) activeRes else inactiveRes),
+                    painter = painterResource(id = if (i == currentPage) com.github.gezimos.inkos.R.drawable.ic_current_page else com.github.gezimos.inkos.R.drawable.ic_new_page),
                     contentDescription = null,
                     colorFilter = ColorFilter.tint(tintColor),
                     modifier = Modifier
@@ -84,19 +141,34 @@ object SettingsComposable {
             modifier = modifier
                 .fillMaxWidth()
                 .padding(top = if (showStatusBar) 36.dp else 12.dp)
-                .padding(bottom = 12.dp)
                 .padding(horizontal = SettingsTheme.color.horizontalPadding),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Back icon
+            // Back icon: make focusable and highlight like other rows. Request focus on composition
+            val prefs = Prefs(LocalContext.current)
+            val prefTextColor = Theme.colors.text
+            val prefBackgroundColor = Theme.colors.background
+            val backFocusRequester = remember { FocusRequester() }
+            var backFocused by remember { mutableStateOf(false) }
             Image(
                 painter = painterResource(id = iconRes),
                 contentDescription = title,
+                // Do NOT invert/tint the icon when focused; keep consistent icon color
                 colorFilter = ColorFilter.tint(SettingsTheme.color.image),
                 modifier = Modifier
-                    .clickable(onClick = onClick)
+                    .focusRequester(backFocusRequester)
+                        .onFocusChanged { backFocused = it.isFocused }
+                        .focusable()
+                    .clickable(onClick = {
+                        try { VibrationHelper.trigger(VibrationHelper.Effect.CLICK) } catch (_: Exception) {}
+                        onClick()
+                    })
                     .size(iconSize)
             )
+            LaunchedEffect(Unit) {
+                // Request focus for the header back icon so DPAD navigation lands here immediately
+                backFocusRequester.requestFocus()
+            }
 
             Spacer(modifier = Modifier.width(8.dp))
 
@@ -113,13 +185,7 @@ object SettingsComposable {
 
             // Page indicator right-aligned, no extra padding
             if (pageIndicator != null) {
-                Box(
-                    modifier = Modifier
-                        .padding(start = 8.dp)
-                        .align(Alignment.CenterVertically)
-                ) {
-                    pageIndicator()
-                }
+                pageIndicator()
             }
         }
     }
@@ -133,21 +199,23 @@ object SettingsComposable {
     ) {
         val interactionSource = remember { MutableInteractionSource() }
         val isFocused = interactionSource.collectIsFocusedAsState().value
-        val isDark = androidx.compose.foundation.isSystemInDarkTheme()
-        val focusColor = if (isDark) Color(0x33FFFFFF) else Color(0x22000000)
+        val prefs = Prefs(LocalContext.current)
+        val prefTextColor = Theme.colors.text
+        val prefBackgroundColor = Theme.colors.background
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .then(
-                    if (isFocused) Modifier.background(focusColor) else Modifier
-                )
+                .padding(horizontal = SettingsTheme.color.horizontalPadding)
+                .padding(vertical = 16.dp)
+                .pillFocusHighlight(isFocused, 6.dp, prefTextColor)
                 .clickable(
-                    onClick = onClick,
+                    onClick = {
+                        try { VibrationHelper.trigger(VibrationHelper.Effect.CLICK) } catch (_: Exception) {}
+                        onClick()
+                    },
                     interactionSource = interactionSource,
                     indication = null
-                )
-                .padding(horizontal = SettingsTheme.color.horizontalPadding)
-                .padding(vertical = 16.dp),
+                ),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (imageVector != null) {
@@ -168,13 +236,14 @@ object SettingsComposable {
                 style = SettingsTheme.typography.title,
                 fontSize = titleFontSize,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
+                color = if (isFocused) prefBackgroundColor else SettingsTheme.typography.title.color
             )
             // Chevron right icon
             Image(
                 painter = painterResource(id = com.github.gezimos.inkos.R.drawable.ic_chevron_right),
                 contentDescription = null,
-                colorFilter = ColorFilter.tint(SettingsTheme.color.image),
+                colorFilter = ColorFilter.tint(if (isFocused) prefBackgroundColor else SettingsTheme.color.image),
                 modifier = Modifier.size(16.dp)
             )
         }
@@ -205,6 +274,11 @@ object SettingsComposable {
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(start = SettingsTheme.color.horizontalPadding)
             )
+
+            // Dashed separator to the right of the title that fills remaining space
+            Box(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                DashedSeparator()
+            }
         }
     }
 
@@ -236,7 +310,7 @@ object SettingsComposable {
         }
     }
 
-    
+
 
     @Composable
     fun SettingsItem(
@@ -258,17 +332,24 @@ object SettingsComposable {
     }
 
     @Composable
-    fun CustomToggleSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    fun CustomToggleSwitch(
+        checked: Boolean,
+        onCheckedChange: (Boolean) -> Unit,
+        tint: Color = SettingsTheme.typography.title.color
+    ) {
         val circleDiameter = 9.8.dp
         val circleBorder = 2.5.dp
         val lineWidth = 14.5.dp
         val lineHeight = 2.22.dp
 
-        val switchColor = SettingsTheme.typography.title.color
+        val switchColor = tint
 
         Row(
             modifier = Modifier
-                .clickable { onCheckedChange(!checked) }
+                .clickable {
+                    try { VibrationHelper.trigger(VibrationHelper.Effect.SELECT) } catch (_: Exception) {}
+                    onCheckedChange(!checked)
+                }
                 .padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -311,21 +392,24 @@ object SettingsComposable {
     ) {
         val interactionSource = remember { MutableInteractionSource() }
         val isFocused = interactionSource.collectIsFocusedAsState().value
-        val isDark = androidx.compose.foundation.isSystemInDarkTheme()
-        val focusColor = if (isDark) Color(0x33FFFFFF) else Color(0x22000000)
+        val prefs = Prefs(LocalContext.current)
+        val prefTextColor = Theme.colors.text
+        val prefBackgroundColor = Theme.colors.background
         Row(
             modifier = modifier
                 .fillMaxWidth()
-                .then(
-                    if (isFocused) Modifier.background(focusColor) else Modifier
-                )
+                .padding(horizontal = SettingsTheme.color.horizontalPadding)
+                .padding(vertical = 16.dp)
+                .pillFocusHighlight(isFocused, 6.dp, prefTextColor)
                 .clickable(
                     enabled = enabled,
-                    onClick = { onCheckedChange(!defaultState) },
+                    onClick = {
+                        try { VibrationHelper.trigger(VibrationHelper.Effect.SELECT) } catch (_: Exception) {}
+                        onCheckedChange(!defaultState)
+                    },
                     interactionSource = interactionSource,
                     indication = null
-                )
-                .padding(horizontal = SettingsTheme.color.horizontalPadding),
+                ),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -335,15 +419,13 @@ object SettingsComposable {
                     SettingsTheme.typography.title.copy(fontSize = fontSize)
                 } else SettingsTheme.typography.title,
                 modifier = Modifier
-                    .weight(1f)
-                    .padding(vertical = 16.dp), // vertical padding only on text
-                color = if (enabled) {
-                    SettingsTheme.typography.title.color
-                } else Color.Gray
+                    .weight(1f),
+                color = if (!enabled) prefTextColor.copy(alpha = 0.25f) else if (isFocused) prefBackgroundColor else SettingsTheme.typography.title.color
             )
             CustomToggleSwitch(
                 checked = defaultState,
-                onCheckedChange = { onCheckedChange(it) }
+                onCheckedChange = { onCheckedChange(it) },
+                tint = if (isFocused) prefBackgroundColor else SettingsTheme.typography.title.color
             )
         }
     }
@@ -359,22 +441,24 @@ object SettingsComposable {
     ) {
         val interactionSource = remember { MutableInteractionSource() }
         val isFocused = interactionSource.collectIsFocusedAsState().value
-        val isDark = androidx.compose.foundation.isSystemInDarkTheme()
-        val focusColor = if (isDark) Color(0x33FFFFFF) else Color(0x22000000)
+        val prefs = Prefs(LocalContext.current)
+        val prefTextColor = Theme.colors.text
+        val prefBackgroundColor = Theme.colors.background
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .then(
-                    if (isFocused) Modifier.background(focusColor) else Modifier
-                )
+                .padding(horizontal = SettingsTheme.color.horizontalPadding)
+                .padding(vertical = 16.dp)
+                .pillFocusHighlight(isFocused, 6.dp, prefTextColor)
                 .clickable(
                     enabled = enabled,
-                    onClick = onClick,
+                    onClick = {
+                        try { VibrationHelper.trigger(VibrationHelper.Effect.CLICK) } catch (_: Exception) {}
+                        onClick()
+                    },
                     interactionSource = interactionSource,
                     indication = null
-                )
-                .padding(vertical = 16.dp)
-                .padding(horizontal = SettingsTheme.color.horizontalPadding),
+                ),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
@@ -382,14 +466,14 @@ object SettingsComposable {
                 style = SettingsTheme.typography.title,
                 fontSize = fontSize,
                 modifier = Modifier.weight(1f),
-                color = if (enabled) SettingsTheme.typography.title.color else Color.Gray
+                color = if (isFocused) prefBackgroundColor else SettingsTheme.typography.title.color
             )
 
             Text(
                 text = option,
                 style = SettingsTheme.typography.title,
                 fontSize = fontSize,
-                color = if (enabled) fontColor else Color.Gray
+                color = if (!enabled) prefTextColor.copy(alpha = 0.25f) else if (isFocused) prefBackgroundColor else fontColor
             )
         }
     }
@@ -405,22 +489,25 @@ object SettingsComposable {
     ) {
         val interactionSource = remember { MutableInteractionSource() }
         val isFocused = interactionSource.collectIsFocusedAsState().value
-        val isDark = androidx.compose.foundation.isSystemInDarkTheme()
-        val focusColor = if (isDark) Color(0x33FFFFFF) else Color(0x22000000)
+        val prefs = Prefs(LocalContext.current)
+        val prefTextColor = Theme.colors.text
+        val prefBackgroundColor = Theme.colors.background
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .then(
-                    if (isFocused) Modifier.background(focusColor) else Modifier
-                )
+                .padding(horizontal = SettingsTheme.color.horizontalPadding)
+                .padding(vertical = 12.dp)
+                .pillFocusHighlight(isFocused, 6.dp, prefTextColor)
                 .clickable(
                     enabled = enabled,
-                    onClick = onClick,
+                    onClick = {
+                        try { VibrationHelper.trigger(VibrationHelper.Effect.CLICK) } catch (_: Exception) {}
+                        onClick()
+                    },
                     interactionSource = interactionSource,
                     indication = null
                 )
-                .padding(vertical = 12.dp)
-                .padding(horizontal = SettingsTheme.color.horizontalPadding),
+            ,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
@@ -428,7 +515,7 @@ object SettingsComposable {
                 style = SettingsTheme.typography.title,
                 fontSize = fontSize,
                 modifier = Modifier.weight(1f),
-                color = if (enabled) SettingsTheme.typography.title.color else Color.Gray
+                color = if (!enabled) prefTextColor.copy(alpha = 0.25f) else if (isFocused) prefBackgroundColor else SettingsTheme.typography.title.color
             )
 
             Row(
@@ -440,7 +527,7 @@ object SettingsComposable {
                     text = hexColor,
                     style = SettingsTheme.typography.title,
                     fontSize = fontSize,
-                    color = if (enabled) SettingsTheme.typography.title.color else Color.Gray
+                    color = if (!enabled) prefTextColor.copy(alpha = 0.25f) else if (isFocused) prefBackgroundColor else SettingsTheme.typography.title.color
                 )
 
                 Canvas(

@@ -18,10 +18,9 @@ import android.util.Log
 import android.util.TypedValue
 import android.view.View
 import android.view.WindowInsets
+import android.view.WindowInsetsController
 import android.view.WindowManager
 import androidx.core.view.WindowCompat
-import androidx.fragment.app.Fragment
-import androidx.navigation.fragment.findNavController
 import com.github.gezimos.common.openAccessibilitySettings
 import com.github.gezimos.common.showLongToast
 import com.github.gezimos.inkos.R
@@ -29,6 +28,7 @@ import com.github.gezimos.inkos.data.AppListItem
 import com.github.gezimos.inkos.data.Constants
 import com.github.gezimos.inkos.data.Prefs
 import com.github.gezimos.inkos.services.ActionService
+import com.github.gezimos.inkos.style.resolveThemeColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -38,296 +38,22 @@ import java.util.Locale
 import kotlin.math.pow
 import kotlin.math.sqrt
 
-/**
- * Get synthetic apps (App Drawer, Notifications, Empty Space, System Shortcuts) based on context
- */
-fun getSyntheticApps(
-    prefs: Prefs,
-    flag: Constants.AppDrawerFlag?,
-    includeHiddenApps: Boolean = false
-): List<AppListItem> {
-    val syntheticApps = mutableListOf<AppListItem>()
-
-    // Add internal synthetic apps (App Drawer, Notifications)
-    if (flag == Constants.AppDrawerFlag.SetHomeApp ||
-        flag == Constants.AppDrawerFlag.LaunchApp ||
-        flag == Constants.AppDrawerFlag.HiddenApps ||
-        flag == null
-    ) {
-
-        syntheticApps.addAll(getInternalSyntheticApps(prefs, flag, includeHiddenApps))
-    }
-
-    // Add Empty Space for SetHomeApp context only
-    if (flag == Constants.AppDrawerFlag.SetHomeApp) {
-        syntheticApps.add(getEmptySpaceApp())
-    }
-
-    // Add system shortcuts if enabled
-    if (prefs.systemShortcutsEnabled &&
-        (flag == Constants.AppDrawerFlag.SetHomeApp ||
-                flag == Constants.AppDrawerFlag.LaunchApp ||
-                flag == Constants.AppDrawerFlag.HiddenApps ||
-                flag == null)
-    ) {
-
-        syntheticApps.addAll(getSystemShortcutsForContext(prefs, flag, includeHiddenApps))
-    }
-
-    return syntheticApps
-}
-
-/**
- * Get internal synthetic apps (App Drawer, Notifications)
- */
-private fun getInternalSyntheticApps(
-    prefs: Prefs,
-    flag: Constants.AppDrawerFlag?,
-    includeHiddenApps: Boolean
-): List<AppListItem> {
-    val apps = mutableListOf<AppListItem>()
-    val hiddenApps = prefs.hiddenApps
-
-    // App Drawer synthetic app
-    val appDrawerPackage = "com.inkos.internal.app_drawer"
-    val isAppDrawerHidden = hiddenApps.contains("${appDrawerPackage}|${Process.myUserHandle()}")
-
-    if (shouldIncludeSyntheticApp(flag, isAppDrawerHidden, includeHiddenApps)) {
-        val customLabel = prefs.getAppAlias("app_alias_$appDrawerPackage")
-        apps.add(
-            AppListItem(
-                activityLabel = "App Drawer",
-                activityPackage = appDrawerPackage,
-                activityClass = "com.github.gezimos.inkos.ui.AppDrawerFragment",
-                user = Process.myUserHandle(),
-                customLabel = customLabel
-            )
-        )
-    }
-
-    // Notifications synthetic app (if enabled)
-    if (prefs.notificationsEnabled) {
-        val notificationsPackage = "com.inkos.internal.notifications"
-        val isNotificationsHidden =
-            hiddenApps.contains("${notificationsPackage}|${Process.myUserHandle()}")
-
-        if (shouldIncludeSyntheticApp(flag, isNotificationsHidden, includeHiddenApps)) {
-            val customLabel = prefs.getAppAlias("app_alias_$notificationsPackage")
-            apps.add(
-                AppListItem(
-                    activityLabel = "Notifications",
-                    activityPackage = notificationsPackage,
-                    activityClass = "com.github.gezimos.inkos.ui.notifications.NotificationsFragment",
-                    user = Process.myUserHandle(),
-                    customLabel = customLabel
-                )
-            )
-        }
-    }
-
-    return apps
-}
-
-/**
- * Get Empty Space synthetic app
- */
-private fun getEmptySpaceApp(): AppListItem {
-    return AppListItem(
-        activityLabel = "Empty Space",
-        activityPackage = "com.inkos.internal.empty_space",
-        activityClass = "",
-        user = Process.myUserHandle(),
-        customLabel = ""
-    )
-}
-
-/**
- * Get system shortcuts for the given context
- */
-private fun getSystemShortcutsForContext(
-    prefs: Prefs,
-    flag: Constants.AppDrawerFlag?,
-    includeHiddenApps: Boolean
-): List<AppListItem> {
-    return when (flag) {
-        Constants.AppDrawerFlag.HiddenApps -> {
-            SystemShortcutHelper.getFilteredSystemShortcuts(
-                prefs, includeHidden = false, onlyHidden = true
-            )
-        }
-
-        Constants.AppDrawerFlag.SetHomeApp -> {
-            SystemShortcutHelper.getFilteredSystemShortcuts(
-                prefs, includeHidden = false, onlyHidden = false
-            )
-        }
-
-        else -> {
-            SystemShortcutHelper.getFilteredSystemShortcuts(
-                prefs, includeHidden = includeHiddenApps, onlyHidden = false
-            )
-        }
-    }
-}
-
-/**
- * Determine if a synthetic app should be included based on context and hidden status
- */
-private fun shouldIncludeSyntheticApp(
-    flag: Constants.AppDrawerFlag?,
-    isHidden: Boolean,
-    includeHiddenApps: Boolean
-): Boolean {
-    return when (flag) {
-        Constants.AppDrawerFlag.SetHomeApp -> !isHidden || includeHiddenApps
-        Constants.AppDrawerFlag.LaunchApp -> !isHidden
-        Constants.AppDrawerFlag.HiddenApps -> isHidden
-        null -> !isHidden || includeHiddenApps
-        else -> false
-    }
-}
-
-/**
- * Get all hidden apps (both synthetic and regular apps) for hidden apps management
- */
-suspend fun getHiddenApps(
-    context: Context,
-    prefs: Prefs,
-    hiddenAppsSet: Set<String>
-): List<AppListItem> {
-    val hiddenApps = mutableListOf<AppListItem>()
-
-    // Get all installed apps to match against
-    val allApps = getAppsList(context, includeRegularApps = true, includeHiddenApps = true)
-
-    for (hiddenApp in hiddenAppsSet) {
-        try {
-            val parts = hiddenApp.split("|")
-            val packageName = parts[0]
-
-            when {
-                // Handle internal synthetic apps
-                packageName == "com.inkos.internal.app_drawer" -> {
-                    val customLabel = prefs.getAppAlias("app_alias_$packageName")
-                    hiddenApps.add(
-                        AppListItem(
-                            activityLabel = "App Drawer",
-                            activityPackage = packageName,
-                            activityClass = "com.github.gezimos.inkos.ui.AppDrawerFragment",
-                            user = Process.myUserHandle(),
-                            customLabel = customLabel
-                        )
-                    )
-                }
-
-                packageName == "com.inkos.internal.notifications" -> {
-                    val customLabel = prefs.getAppAlias("app_alias_$packageName")
-                    hiddenApps.add(
-                        AppListItem(
-                            activityLabel = "Notifications",
-                            activityPackage = packageName,
-                            activityClass = "com.github.gezimos.inkos.ui.notifications.NotificationsFragment",
-                            user = Process.myUserHandle(),
-                            customLabel = customLabel
-                        )
-                    )
-                }
-
-                // Handle system shortcuts (if enabled)
-                prefs.systemShortcutsEnabled && SystemShortcutHelper.isSystemShortcut(packageName) -> {
-                    val shortcut = SystemShortcutHelper.getSystemShortcut(packageName)
-                    if (shortcut != null) {
-                        val customLabel = prefs.getAppAlias("app_alias_$packageName")
-                        val item = SystemShortcutHelper.createAppListItem(shortcut, customLabel)
-                        hiddenApps.add(item)
-                    }
-                }
-
-                // Handle regular apps
-                else -> {
-                    val app = if (parts.size > 1) {
-                        allApps.find { app ->
-                            app.activityPackage == packageName &&
-                                    app.user.toString() == parts[1]
-                        }
-                    } else {
-                        allApps.find { app ->
-                            app.activityPackage == packageName
-                        }
-                    }
-
-                    app?.let {
-                        val customLabel = prefs.getAppAlias("app_alias_${it.activityPackage}")
-                        if (customLabel.isNotEmpty()) {
-                            it.customLabel = customLabel
-                        }
-                        hiddenApps.add(it)
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("SystemUtils", "Error processing hidden app: $hiddenApp", e)
-            continue
-        }
-    }
-
-    return hiddenApps
-}
-
-/**
- * Handle launching synthetic and system apps
- * Returns true if the app was handled (launched or is a special case), false if it should be handled normally
- */
-fun launchSyntheticOrSystemApp(
-    context: Context,
-    packageName: String,
-    fragment: Fragment
-): Boolean {
-    when {
-        // Handle synthetic "App Drawer" item
-        packageName == "com.inkos.internal.app_drawer" -> {
-            try {
-                if (fragment.findNavController().currentDestination?.id == R.id.mainFragment) {
-                    fragment.findNavController()
-                        .navigate(R.id.action_mainFragment_to_appListFragment)
-                }
-            } catch (_: Exception) {
-                fragment.findNavController().navigate(R.id.appListFragment)
-            }
-            return true
-        }
-
-        // Handle synthetic "Notifications" item
-        packageName == "com.inkos.internal.notifications" -> {
-            try {
-                fragment.findNavController().navigate(R.id.notificationsFragment)
-            } catch (_: Exception) {
-                // fallback: try direct navigation
-                fragment.findNavController().navigate(R.id.notificationsFragment)
-            }
-            return true
-        }
-
-        // Handle synthetic "Empty Space" item - do nothing
-        packageName == "com.inkos.internal.empty_space" -> {
-            return true
-        }
-
-        // Handle system shortcuts
-        SystemShortcutHelper.isSystemShortcut(packageName) -> {
-            return SystemShortcutHelper.launchSystemShortcut(context, packageName)
-        }
-
-        else -> return false
-    }
-}
+// Synthetic app helpers were moved to `helper/SyntheticApps.kt` to keep SystemUtils focused.
+// See `SyntheticApps.kt` in the same package for implementations of:
+// - getSyntheticApps
+// - getInternalSyntheticApps
+// - getEmptySpaceApp
+// - getSystemShortcutsForContext
+// - shouldIncludeSyntheticApp
+// - getHiddenApps
+// - launchSyntheticOrSystemApp
 
 suspend fun getAppsList(
     context: Context,
     includeRegularApps: Boolean = true,
     includeHiddenApps: Boolean = false,
 ): MutableList<AppListItem> {
-    return withContext(Dispatchers.Main) {
+    return withContext(Dispatchers.IO) {
         val appList: MutableList<AppListItem> = mutableListOf()
         val combinedList: MutableList<AppListItem> = mutableListOf()
 
@@ -343,8 +69,12 @@ suspend fun getAppsList(
                     val appPackage = launcherActivityInfo.applicationInfo.packageName
                     val label = launcherActivityInfo.label.toString()
 
-                    if (includeHiddenApps && hiddenApps.contains(appPackage) ||
-                        includeRegularApps && !hiddenApps.contains(appPackage)
+                    // Check hidden apps using the same format as hideOrShowApp(): "packageName|userHandle.toString()"
+                    // Also check old format (package only) for backwards compatibility
+                    val hiddenKey = "$appPackage|${profile.toString()}"
+                    val isHidden = hiddenApps.contains(hiddenKey) || hiddenApps.contains(appPackage)
+                    if (includeHiddenApps && isHidden ||
+                        includeRegularApps && !isHidden
                     ) {
                         val customLabel = Prefs(context).getAppAlias("app_alias_$appPackage")
                         appList.add(
@@ -459,16 +189,8 @@ fun showStatusBar(activity: Activity) {
         // Set correct status bar icon appearance based on current theme
         val windowInsetsController =
             WindowCompat.getInsetsController(activity.window, activity.window.decorView)
-        val prefs = com.github.gezimos.inkos.data.Prefs(activity)
-        val isDarkTheme = when (prefs.appTheme) {
-                Constants.Theme.Dark -> true
-                Constants.Theme.Light -> false
-                Constants.Theme.System -> {
-                val uiMode =
-                    activity.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK
-                uiMode == android.content.res.Configuration.UI_MODE_NIGHT_YES
-            }
-        }
+        val prefs = Prefs(activity)
+        val isDarkTheme = prefs.appTheme == Constants.Theme.Dark
         windowInsetsController.isAppearanceLightStatusBars = !isDarkTheme
     } else {
         @Suppress("DEPRECATION", "InlinedApi")
@@ -480,12 +202,19 @@ fun showStatusBar(activity: Activity) {
 }
 
 fun hideStatusBar(activity: Activity) {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        try {
+            activity.window.insetsController?.systemBarsBehavior =
+                WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        } catch (_: Exception) {}
         activity.window.insetsController?.hide(WindowInsets.Type.statusBars())
-    else {
+    } else {
         @Suppress("DEPRECATION")
         activity.window.decorView.apply {
-            systemUiVisibility = View.SYSTEM_UI_FLAG_IMMERSIVE or View.SYSTEM_UI_FLAG_FULLSCREEN
+            systemUiVisibility = View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
+                    View.SYSTEM_UI_FLAG_FULLSCREEN or
+                    View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
+                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE
         }
     }
 }
@@ -497,16 +226,8 @@ fun showNavigationBar(activity: Activity) {
         // Set correct navigation bar icon appearance based on current theme
         val windowInsetsController =
             WindowCompat.getInsetsController(activity.window, activity.window.decorView)
-        val prefs = com.github.gezimos.inkos.data.Prefs(activity)
-        val isDarkTheme = when (prefs.appTheme) {
-            Constants.Theme.Dark -> true
-            Constants.Theme.Light -> false
-            Constants.Theme.System -> {
-                val uiMode =
-                    activity.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK
-                uiMode == android.content.res.Configuration.UI_MODE_NIGHT_YES
-            }
-        }
+        val prefs = Prefs(activity)
+        val isDarkTheme = prefs.appTheme == Constants.Theme.Dark
         windowInsetsController.isAppearanceLightNavigationBars = !isDarkTheme
     } else {
         @Suppress("DEPRECATION", "InlinedApi")
@@ -518,14 +239,20 @@ fun showNavigationBar(activity: Activity) {
 }
 
 fun hideNavigationBar(activity: Activity) {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        try {
+            activity.window.insetsController?.systemBarsBehavior =
+                WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        } catch (_: Exception) {}
         activity.window.insetsController?.hide(WindowInsets.Type.navigationBars())
-    else {
+    } else {
         @Suppress("DEPRECATION")
         activity.window.decorView.apply {
             systemUiVisibility = View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
                     View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
-                    View.SYSTEM_UI_FLAG_FULLSCREEN
+                    View.SYSTEM_UI_FLAG_FULLSCREEN or
+                    View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
+                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE
         }
     }
 }
@@ -651,6 +378,25 @@ fun loadFile(activity: Activity, backupType: Constants.BackupType) {
 fun getHexForOpacity(prefs: Prefs): Int {
     val backgroundColor = prefs.backgroundColor
     return backgroundColor // Just return the background color without opacity modification
+}
+
+/**
+ * Variant that resolves the current theme colors via the theme bridge and returns
+ * the background color as an ARGB int. Prefer this from View code when a Context
+ * is available so the centralized theme resolver is used.
+ */
+fun getHexForOpacity(context: Context): Int {
+    return try {
+        val (_, bg) = resolveThemeColors(context)
+        bg
+    } catch (e: Exception) {
+        // Fallback to prefs if resolve fails
+        try {
+            Prefs(context).backgroundColor
+        } catch (_: Exception) {
+            0xFFFFFFFF.toInt()
+        }
+    }
 }
 
 fun isSystemInDarkMode(context: Context): Boolean {

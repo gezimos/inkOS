@@ -1,6 +1,7 @@
 .gradle
 .kotlin
 .idea
+.cursor
 git-cliff*
 bin/*
 local.properties
@@ -11,3 +12,5 @@ app/release
 app/build
 app/debug
 diff.*
+directions
+.DS_Store

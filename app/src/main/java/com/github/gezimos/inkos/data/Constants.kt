@@ -23,7 +23,8 @@ object Constants {
     const val REQUEST_SET_DEFAULT_HOME = 777
 
     const val TRIPLE_TAP_DELAY_MS = 300
-    const val LONG_PRESS_DELAY_MS = 500
+    // Increase default long-press delay to be a bit longer for our custom behavior
+    const val LONG_PRESS_DELAY_MS = 700
 
     const val MIN_HOME_APPS = 0
     const val MAX_HOME_APPS = 30
@@ -32,8 +33,7 @@ object Constants {
 
     // These are for the App Text Size (home screen app labels)
     const val MIN_APP_SIZE = 10
-    const val MAX_APP_SIZE = 50
-
+    const val MAX_APP_SIZE = 60
     // Add for settings text size
     const val MIN_SETTINGS_TEXT_SIZE = 8
     const val MAX_SETTINGS_TEXT_SIZE = 27
@@ -51,22 +51,40 @@ object Constants {
 
     const val MIN_TEXT_PADDING = 0
     const val MAX_TEXT_PADDING = 80
-    
     // Specific min/max for Home Apps Y-Offset (dp)
     const val MIN_HOME_APPS_Y_OFFSET = 0
     const val MAX_HOME_APPS_Y_OFFSET = 500
 
     // Restore for date_size (not gap)
     const val MIN_CLOCK_SIZE = 12
-    const val MAX_CLOCK_SIZE = 80
+    const val MAX_CLOCK_SIZE = 100
 
     // Update MAX_HOME_PAGES dynamically based on MAX_HOME_APPS
     const val DEFAULT_MAX_HOME_PAGES = 10
     var MAX_HOME_PAGES = DEFAULT_MAX_HOME_PAGES
 
+    const val DEFAULT_SHORT_SWIPE_RATIO = 0.25f
+    const val DEFAULT_LONG_SWIPE_RATIO = 2.5f
+    const val MIN_SHORT_SWIPE_RATIO = 0.01f
+    const val MAX_SHORT_SWIPE_RATIO = 1.0f
+    const val MIN_LONG_SWIPE_RATIO = 1.1f
+    const val MAX_LONG_SWIPE_RATIO = 5.0f
+
     // Default widget margins
-    const val DEFAULT_TOP_WIDGET_MARGIN = 35
-    const val DEFAULT_BOTTOM_WIDGET_MARGIN = 50
+    const val DEFAULT_TOP_WIDGET_MARGIN = 32
+    const val DEFAULT_BOTTOM_WIDGET_MARGIN = 32
+
+    // Default gap/padding between app labels in the app drawer
+    const val DEFAULT_APP_DRAWER_GAP = 8
+
+    // Default font size (sp) for app drawer labels
+    const val DEFAULT_APP_DRAWER_SIZE = 24
+
+    // Internal synthetic app identifiers (UI-only elements are not listed here)
+    const val INTERNAL_APP_DRAWER = "com.inkos.internal.app_drawer"
+    const val INTERNAL_NOTIFICATIONS = "com.inkos.internal.notifications"
+    const val INTERNAL_RECENTS = "com.inkos.internal.recents"
+    const val INTERNAL_SIMPLE_TRAY = "com.inkos.internal.simple_tray"
 
     // Max widget margins
     const val MAX_TOP_WIDGET_MARGIN = 200
@@ -81,6 +99,64 @@ object Constants {
             DEFAULT_MAX_HOME_PAGES
         }
 
+    }
+
+    object PrefKeys {
+        const val APP_THEME = "APP_THEME"
+        const val TEXT_COLOR = "TEXT_COLOR"
+        const val BACKGROUND_COLOR = "BACKGROUND_COLOR"
+        const val STATUS_BAR = "STATUS_BAR"
+        const val NAVIGATION_BAR = "NAVIGATION_BAR"
+        const val TEXT_SIZE_SETTINGS = "TEXT_SIZE_SETTINGS"
+        const val APPS_FONT = "APPS_FONT"
+        const val CLOCK_FONT = "CLOCK_FONT"
+        const val QUOTE_FONT = "QUOTE_FONT"
+        const val NOTIFICATIONS_FONT = "NOTIFICATIONS_FONT"
+        const val NOTIFICATION_FONT = "NOTIFICATION_FONT"
+        const val STATUS_FONT = "STATUS_FONT"
+        const val LETTERS_FONT = "LETTERS_FONT"
+        const val LETTERS_TITLE_FONT = "LETTERS_TITLE_FONT"
+        const val TEXT_PADDING_SIZE = "TEXT_PADDING_SIZE"
+        const val APP_SIZE_TEXT = "APP_SIZE_TEXT"
+        const val CLOCK_SIZE_TEXT = "CLOCK_SIZE_TEXT"
+        const val QUOTE_TEXT_SIZE = "QUOTE_TEXT_SIZE"
+        const val QUOTE_TEXT = "QUOTE_TEXT"
+        const val SHOW_QUOTE = "SHOW_QUOTE"
+        const val SHOW_AUDIO_WIDGET = "SHOW_AUDIO_WIDGET"
+        const val SHOW_DATE = "SHOW_DATE"
+        const val SHOW_AM_PM = "SHOW_AM_PM"
+        const val SHOW_SECOND_CLOCK = "SHOW_SECOND_CLOCK"
+        const val CLOCK_MODE = "CLOCK_MODE"
+        const val SECOND_CLOCK_OFFSET_HOURS = "SECOND_CLOCK_OFFSET_HOURS"
+        const val SHOW_CLOCK = "SHOW_CLOCK"
+        const val SHOW_DATE_BATTERY_COMBO = "SHOW_DATE_BATTERY_COMBO"
+        const val SHOW_NOTIFICATION_COUNT = "SHOW_NOTIFICATION_COUNT"
+        const val BACKGROUND_OPACITY = "BACKGROUND_OPACITY"
+        const val HOME_ALIGNMENT = "HOME_ALIGNMENT"
+        const val HOME_APPS_Y_OFFSET = "HOME_APPS_Y_OFFSET"
+        const val HIDE_HOME_APPS = "HIDE_HOME_APPS"
+        const val APP_DRAWER_ALIGNMENT = "APP_DRAWER_ALIGNMENT"
+        const val APP_DRAWER_SIZE = "APP_DRAWER_SIZE"
+        const val APP_DRAWER_GAP = "APP_DRAWER_GAP"
+        const val APP_DRAWER_SEARCH_ENABLED = "APP_DRAWER_SEARCH_ENABLED"
+        const val APP_DRAWER_AUTO_LAUNCH = "APP_DRAWER_AUTO_LAUNCH"
+        const val APP_DRAWER_AUTO_SHOW_KEYBOARD = "APP_DRAWER_AUTO_SHOW_KEYBOARD"
+        const val TEXT_ISLANDS = "TEXT_ISLANDS"
+        const val TEXT_ISLANDS_INVERTED = "TEXT_ISLANDS_INVERTED"
+        const val TEXT_ISLANDS_SHAPE = "TEXT_ISLANDS_SHAPE"
+        const val SHOW_ICONS = "SHOW_ICONS"
+        const val APP_DRAWER_AZ_FILTER = "APP_DRAWER_AZ_FILTER"
+        const val APP_DRAWER_PAGER = "APP_DRAWER_PAGER"
+        const val SHOW_NOTIFICATION_BADGE = "show_notification_badge"
+        const val TOP_WIDGET_MARGIN = "TOP_WIDGET_MARGIN"
+        const val BOTTOM_WIDGET_MARGIN = "BOTTOM_WIDGET_MARGIN"
+        const val DATE_FONT = "DATE_FONT"
+        const val DATE_SIZE_TEXT = "date_text_size"
+        const val ALL_CAPS_APPS = "ALL_CAPS_APPS"
+        const val SMALL_CAPS_APPS = "SMALL_CAPS_APPS"
+        const val HAPTIC_FEEDBACK = "HAPTIC_FEEDBACK"
+        const val HOME_PAGER = "HOME_PAGER"
+        const val LOCKED_APPS = "LOCKED_APPS"
     }
 
     enum class BackupType {
@@ -109,6 +185,8 @@ object Constants {
     OpenApp,
     OpenAppDrawer,
     OpenNotificationsScreen,
+    OpenRecentsScreen,
+    OpenSimpleTray,
     EinkRefresh,
     Brightness, // New action for brightness control
     LockScreen,
@@ -123,9 +201,10 @@ object Constants {
             return when (this) {
                 OpenApp -> context.getString(R.string.open_app)
                 TogglePrivateSpace -> context.getString(R.string.private_space)
-                // NextPage/PreviousPage removed
                 RestartApp -> context.getString(R.string.restart_launcher)
                 OpenNotificationsScreen -> context.getString(R.string.notifications_screen_title)
+                OpenRecentsScreen -> "Recents"
+                OpenSimpleTray -> context.getString(R.string.simple_tray_title)
                 OpenAppDrawer -> context.getString(R.string.app_drawer)
                 EinkRefresh -> context.getString(R.string.eink_refresh)
                 ExitLauncher -> context.getString(R.string.settings_exit_inkos_title)
@@ -143,9 +222,10 @@ object Constants {
             return when (this) {
                 OpenApp -> stringResource(R.string.open_app)
                 TogglePrivateSpace -> stringResource(R.string.private_space)
-                // NextPage/PreviousPage removed
                 RestartApp -> stringResource(R.string.restart_launcher)
                 OpenNotificationsScreen -> stringResource(R.string.notifications_screen_title)
+                OpenRecentsScreen -> "Recents"
+                OpenSimpleTray -> stringResource(R.string.simple_tray_title)
                 OpenAppDrawer -> stringResource(R.string.app_drawer)
                 EinkRefresh -> stringResource(R.string.eink_refresh)
                 ExitLauncher -> stringResource(R.string.settings_exit_inkos_title)
@@ -160,14 +240,11 @@ object Constants {
     }
 
     enum class Theme : EnumOption {
-        System,
         Dark,
         Light;
 
-        // Function to get a string from a context (for non-Composable use)
         fun getString(context: Context): String {
             return when (this) {
-                System -> context.getString(R.string.system_default)
                 Dark -> context.getString(R.string.dark)
                 Light -> context.getString(R.string.light)
             }
@@ -177,7 +254,6 @@ object Constants {
         @Composable
         override fun string(): String {
             return when (this) {
-                System -> stringResource(R.string.system_default)
                 Dark -> stringResource(R.string.dark)
                 Light -> stringResource(R.string.light)
             }
@@ -185,10 +261,13 @@ object Constants {
     }
 
     enum class FontFamily : EnumOption {
+        PublicSans,
+        Vollkorn,
         System,
         SpaceGrotesk,
-        PlusJakarta,
         Merriweather,
+        PlusJakarta,
+        Shortstack,
         Manrope,
         Hoog,
         Custom; // Add Custom for user-uploaded font
@@ -197,6 +276,9 @@ object Constants {
             val prefs = Prefs(context)
             return when (this) {
                 System -> getTrueSystemFont()
+                Shortstack -> ResourcesCompat.getFont(context, R.font.shortstack)
+                PublicSans -> ResourcesCompat.getFont(context, R.font.publicsans)
+                Vollkorn -> ResourcesCompat.getFont(context, R.font.vollkorn)
                 Custom -> {
                     val path = customPath ?: prefs.customFontPath
                     if (!path.isNullOrBlank()) {
@@ -204,7 +286,7 @@ object Constants {
                         if (file.exists()) {
                             try {
                                 Typeface.createFromFile(path)
-                            } catch (e: Exception) {
+                            } catch (_: Exception) {
                                 getTrueSystemFont()
                             }
                         } else {
@@ -224,6 +306,9 @@ object Constants {
         fun getString(context: Context): String {
             return when (this) {
                 System -> context.getString(R.string.system_default)
+                Shortstack -> "Shortstack"
+                PublicSans -> "Public Sans"
+                Vollkorn -> "Vollkorn"
                 SpaceGrotesk -> "Space Grotesk"
                 PlusJakarta -> "Plus Jakarta"
                 Merriweather -> context.getString(R.string.settings_font_merriweather)
@@ -248,6 +333,9 @@ object Constants {
         override fun string(): String {
             return when (this) {
                 System -> stringResource(R.string.system_default)
+                Shortstack -> "Shortstack"
+                PublicSans -> "Public Sans"
+                Vollkorn -> "Vollkorn"
                 SpaceGrotesk -> "Space Grotesk"
                 PlusJakarta -> "Plus Jakarta"
                 Merriweather -> stringResource(R.string.settings_font_merriweather)

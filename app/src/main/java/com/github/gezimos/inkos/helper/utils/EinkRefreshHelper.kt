@@ -7,7 +7,6 @@ import android.view.View
 import android.view.ViewGroup
 import com.github.gezimos.inkos.data.Constants
 import com.github.gezimos.inkos.data.Prefs
-import com.github.gezimos.inkos.helper.isSystemInDarkMode
 
 object EinkRefreshHelper {
     /**
@@ -29,11 +28,7 @@ object EinkRefreshHelper {
 
         // Ensure UI operations are performed on the main thread
         Handler(Looper.getMainLooper()).post {
-            val isDark = when (prefs.appTheme) {
-                Constants.Theme.Light -> false
-                Constants.Theme.Dark -> true
-                Constants.Theme.System -> isSystemInDarkMode(context)
-            }
+            val isDark = prefs.appTheme == Constants.Theme.Dark
             val overlayColor =
                 if (isDark) android.graphics.Color.WHITE else android.graphics.Color.BLACK
             val overlay = View(context)
@@ -73,11 +68,7 @@ object EinkRefreshHelper {
     ) {
         // Ensure UI operations are performed on the main thread
         Handler(Looper.getMainLooper()).post {
-            val isDark = when (prefs.appTheme) {
-                Constants.Theme.Light -> false
-                Constants.Theme.Dark -> true
-                Constants.Theme.System -> isSystemInDarkMode(context)
-            }
+            val isDark = prefs.appTheme == Constants.Theme.Dark
             val overlayColor =
                 if (isDark) android.graphics.Color.WHITE else android.graphics.Color.BLACK
             val overlay = View(context)

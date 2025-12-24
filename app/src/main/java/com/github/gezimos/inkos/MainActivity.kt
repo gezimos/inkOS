@@ -1,36 +1,44 @@
 package com.github.gezimos.inkos
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
+import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
-import android.provider.Settings
 import android.util.Log
 import android.view.KeyEvent
-import android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+import android.view.MotionEvent
+import android.view.WindowManager.LayoutParams
+import androidx.activity.OnBackPressedCallback
+import androidx.annotation.RequiresPermission
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.compose.ui.platform.ComposeView
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.graphics.drawable.toDrawable
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.NavController
 import androidx.navigation.findNavController
-import androidx.activity.OnBackPressedCallback
-import androidx.core.graphics.drawable.toDrawable
 import com.github.gezimos.common.CrashHandler
 import com.github.gezimos.inkos.data.Constants
 import com.github.gezimos.inkos.data.Migration
 import com.github.gezimos.inkos.data.Prefs
 import com.github.gezimos.inkos.databinding.ActivityMainBinding
-import com.github.gezimos.inkos.helper.isTablet
-import com.github.gezimos.inkos.helper.isinkosDefault
 import com.github.gezimos.inkos.helper.AudioWidgetHelper
+import com.github.gezimos.inkos.helper.hideNavigationBar
+import com.github.gezimos.inkos.helper.isTablet
+import com.github.gezimos.inkos.helper.showNavigationBar
+import com.github.gezimos.inkos.ui.compose.GuideScreen
+import com.github.gezimos.inkos.ui.compose.OnboardingScreen
 import com.github.gezimos.inkos.ui.dialogs.DialogManager
 import java.io.BufferedReader
 import java.io.FileOutputStream
 import java.io.InputStreamReader
+import com.github.gezimos.inkos.helper.utils.VibrationHelper as VH
 
 class MainActivity : AppCompatActivity() {
 
@@ -40,9 +48,16 @@ class MainActivity : AppCompatActivity() {
     private lateinit var viewModel: MainViewModel
     private lateinit var binding: ActivityMainBinding
     private var isOnboarding = false
+    private var isGuide = false
 
+    
     // Eink helper instance
     private var einkHelper: EinkHelper? = null
+    // Track whether Activity was backgrounded so we can detect returns
+    private var wasInBackground: Boolean = false
+    // Edge-swipe back support (app-wide). Fragments can opt-out via `allowEdgeSwipeBack`.
+    var allowEdgeSwipeBack: Boolean = true
+    private var backGesture: com.github.gezimos.inkos.helper.BackGesture? = null
 
     companion object {
         private const val TAG = "MainActivity"
@@ -62,7 +77,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (isOnboarding) {
+        if (isOnboarding || isGuide) {
             return true
         }
         return when (keyCode) {
@@ -78,33 +93,13 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            KeyEvent.KEYCODE_A, KeyEvent.KEYCODE_B, KeyEvent.KEYCODE_C, KeyEvent.KEYCODE_D,
-            KeyEvent.KEYCODE_E, KeyEvent.KEYCODE_F, KeyEvent.KEYCODE_G, KeyEvent.KEYCODE_H,
-            KeyEvent.KEYCODE_I, KeyEvent.KEYCODE_J, KeyEvent.KEYCODE_K, KeyEvent.KEYCODE_L,
-            KeyEvent.KEYCODE_M, KeyEvent.KEYCODE_N, KeyEvent.KEYCODE_O, KeyEvent.KEYCODE_P,
-            KeyEvent.KEYCODE_Q, KeyEvent.KEYCODE_R, KeyEvent.KEYCODE_S, KeyEvent.KEYCODE_T,
-            KeyEvent.KEYCODE_U, KeyEvent.KEYCODE_V, KeyEvent.KEYCODE_W, KeyEvent.KEYCODE_X,
-            KeyEvent.KEYCODE_Y, KeyEvent.KEYCODE_Z -> {
-                when (navController.currentDestination?.id) {
-                    R.id.mainFragment -> {
-                        val bundle = Bundle()
-                        bundle.putInt("letterKeyCode", keyCode)
-                        this.findNavController(R.id.nav_host_fragment)
-                            .navigate(R.id.action_mainFragment_to_appListFragment, bundle)
-                        true
-                    }
-
-                    else -> false
-                }
-            }
-
             KeyEvent.KEYCODE_ESCAPE -> {
                 backToHomeScreen()
                 true
             }
 
             KeyEvent.KEYCODE_HOME -> {
-                com.github.gezimos.inkos.ui.HomeFragment.sendGoToFirstPageSignal()
+                com.github.gezimos.inkos.ui.HomeFragmentCompose.sendGoToFirstPageSignal()
                 backToHomeScreen()
                 true
             }
@@ -114,7 +109,13 @@ class MainActivity : AppCompatActivity() {
                 return super.onKeyDown(keyCode, event)
             }
 
-            else -> super.onKeyDown(keyCode, event)
+            else -> {
+                // Default: leave non-system keys to the normal dispatch path.
+                // Home-specific printable/gesture shortcuts are handled by the
+                // visible fragment (e.g. HomeFragmentCompose) via the
+                // Activity.fragmentKeyHandler or Compose onPreviewKeyEvent.
+                return super.onKeyDown(keyCode, event)
+            }
         }
     }
 
@@ -148,11 +149,15 @@ class MainActivity : AppCompatActivity() {
 
     var fragmentKeyHandler: FragmentKeyHandler? = null
 
+    // When true, Activity will NOT intercept keys for search forwarding (e.g. when rename overlay is visible)
+    var suppressKeyForwarding: Boolean = false
+
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        // If onboarding or no handler, use default dispatch
-        if (isOnboarding) return super.dispatchKeyEvent(event)
+        // If onboarding/guide or no handler, use default dispatch
+        if (isOnboarding || isGuide) return super.dispatchKeyEvent(event)
 
         // First give the visible fragment a chance to handle arbitrary keys
+        // (HomeFragment uses this for volume keys and special gesture keys 6/7/8/9)
         val fragHandler = fragmentKeyHandler
         if (event.action == KeyEvent.ACTION_DOWN && fragHandler != null) {
             try {
@@ -198,6 +203,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             // Only handle DPAD / PAGE keys on ACTION_DOWN to mirror existing behaviour
+            // (Used by NotificationsFragment for DPAD-as-page navigation)
             if (event.action == KeyEvent.ACTION_DOWN && handler.handleDpadAsPage) {
                 when (event.keyCode) {
                     KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_PAGE_UP -> {
@@ -212,11 +218,46 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        return super.dispatchKeyEvent(event)
+        // Give the default dispatch a chance first (fragments/Compose can consume keys).
+        val superHandled = super.dispatchKeyEvent(event)
+        if (superHandled) return true
+
+        // If unhandled and forwarding allowed, convert to printable char and forward
+        // to ViewModel so the app drawer can receive it when ready. Also navigate
+        // from Home to the app drawer when typing.
+        try {
+            if (event.action == KeyEvent.ACTION_DOWN && !suppressKeyForwarding) {
+                try {
+                    val ch = com.github.gezimos.inkos.ui.compose.SearchHelper.keyEventToChar(event)
+                    if (ch != null) {
+                        try { viewModel.emitTypedChar(ch) } catch (_: Exception) {}
+                        // If we're on the Home screen, open the apps drawer so search appears
+                        try {
+                            if (::navController.isInitialized && navController.currentDestination?.id == R.id.mainFragment) {
+                                navController.navigate(R.id.action_mainFragment_to_appListFragment)
+                            }
+                        } catch (_: Exception) {}
+                        return true
+                    }
+                } catch (_: Exception) {}
+
+                if (event.keyCode == KeyEvent.KEYCODE_DEL) {
+                    try { viewModel.emitBackspaceEvent() } catch (_: Exception) {}
+                    try {
+                        if (::navController.isInitialized && navController.currentDestination?.id == R.id.mainFragment) {
+                            navController.navigate(R.id.action_mainFragment_to_appListFragment)
+                        }
+                    } catch (_: Exception) {}
+                    return true
+                }
+            }
+        } catch (_: Exception) {}
+
+        return false
     }
 
     override fun onNewIntent(intent: Intent) {
-        if (isOnboarding) return
+        if (isOnboarding || isGuide) return
         super.onNewIntent(intent)
         if (intent.action == Intent.ACTION_MAIN) {
             backToHomeScreen()
@@ -226,8 +267,19 @@ class MainActivity : AppCompatActivity() {
     private fun backToHomeScreen() {
         if (!::navController.isInitialized) return
         navController.popBackStack(R.id.mainFragment, false)
+        // Trigger an E-Ink refresh when returning to home from other apps
+        try {
+            com.github.gezimos.inkos.helper.utils.EinkRefreshHelper.refreshEink(
+                this,
+                prefs,
+                null,
+                prefs.einkRefreshDelay,
+                useActivityRoot = true
+            )
+        } catch (_: Exception) {}
     }
 
+    @RequiresPermission(anyOf = ["android.permission.READ_WALLPAPER_INTERNAL", Manifest.permission.MANAGE_EXTERNAL_STORAGE])
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -240,6 +292,10 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         prefs = Prefs(this)
+        // Initialize centralized vibration helper
+        try {
+            VH.init(applicationContext, prefs)
+        } catch (_: Exception) {}
         migration = Migration(this)
 
         // Initialize EinkHelper only if enabled
@@ -249,94 +305,203 @@ class MainActivity : AppCompatActivity() {
             einkHelper!!.initializeMeinkService()
         }
 
+        viewModel = ViewModelProvider(this)[MainViewModel::class.java]
+
         Thread.setDefaultUncaughtExceptionHandler(CrashHandler(applicationContext))
 
         if (prefs.firstOpen) {
             isOnboarding = true
-            val composeView = androidx.compose.ui.platform.ComposeView(this)
+            val composeView = ComposeView(this)
             setContentView(composeView)
             composeView.setContent {
-                com.github.gezimos.inkos.ui.compose.OnboardingScreen.Show(
+                OnboardingScreen.Show(
                     onFinish = {
-                        prefs.firstOpen = false
+                        viewModel.setFirstOpen(false)
                         isOnboarding = false
-                        // Add delay to ensure theme changes are fully applied before recreate
-                        window.decorView.postDelayed({
-                            recreate()
-                        }, 150)
-                    },
-                    onRequestNotificationPermission = {
-                        if (Build.VERSION.SDK_INT >= 33) {
-                            if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                                requestPermissions(
-                                    arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),
-                                    1001
+                        // After onboarding, check if guide should be shown
+                        if (!prefs.guideShown) {
+                            isGuide = true
+                            composeView.setContent {
+                                GuideScreen.Show(
+                                    onFinish = {
+                                        prefs.guideShown = true
+                                        isGuide = false
+                                        // Add delay to ensure theme changes are fully applied before recreate
+                                        window.decorView.postDelayed({
+                                            recreate()
+                                        }, 150)
+                                    }
                                 )
                             }
                         } else {
-                            val areEnabled =
-                                NotificationManagerCompat.from(this).areNotificationsEnabled()
-                            if (!areEnabled) {
-                                val intent =
-                                    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
-                                        putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
-                                    }
-                                startActivity(intent)
-                            }
+                            // Add delay to ensure theme changes are fully applied before recreate
+                            window.decorView.postDelayed({
+                                recreate()
+                            }, 150)
                         }
                     }
                 )
             }
             return
         }
-
-        val themeMode = when (prefs.appTheme) {
-            Constants.Theme.Light -> AppCompatDelegate.MODE_NIGHT_NO
-            Constants.Theme.Dark -> AppCompatDelegate.MODE_NIGHT_YES
-            Constants.Theme.System -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+        
+        // Check if guide should be shown (onboarding completed but guide not shown)
+        if (!prefs.guideShown) {
+            isGuide = true
+            val composeView = ComposeView(this)
+            setContentView(composeView)
+            composeView.setContent {
+                GuideScreen.Show(
+                    onFinish = {
+                        prefs.guideShown = true
+                        isGuide = false
+                        // Add delay to ensure theme changes are fully applied before recreate
+                        window.decorView.postDelayed({
+                            recreate()
+                        }, 150)
+                    }
+                )
+            }
+            return
         }
+
+        val themeMode = if (prefs.appTheme == Constants.Theme.Light) AppCompatDelegate.MODE_NIGHT_NO else AppCompatDelegate.MODE_NIGHT_YES
         AppCompatDelegate.setDefaultNightMode(themeMode)
 
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
-        val isDarkTheme = when (prefs.appTheme) {
-            Constants.Theme.Dark -> true
-            Constants.Theme.Light -> false
-            Constants.Theme.System -> (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-        }
+        val isDarkTheme = prefs.appTheme == Constants.Theme.Dark
         windowInsetsController.isAppearanceLightNavigationBars = !isDarkTheme
         windowInsetsController.isAppearanceLightStatusBars = !isDarkTheme
 
+        // Ensure status/navigation bars use the app background color (opaque) so they
+        // don't appear as translucent black/gray in light mode. Some OEMs or
+        // system settings render these bars translucent when content is drawn
+        // behind them; explicitly set opaque colors to match the app background.
+        try {
+            val rawBg = try { com.github.gezimos.inkos.style.resolveThemeColors(this).second } catch (_: Exception) { prefs.backgroundColor }
+            // Force full opacity for system bars to avoid translucency artifacts
+            val opaqueBg = if ((rawBg ushr 24) == 0) rawBg or (0xFF shl 24) else rawBg
+
+            // Use modern WindowInsetsController for appearance and avoid legacy translucent flags.
+            try {
+                // Set system bar colors (keep opaque). These assignments may be deprecated
+                // on some toolchains; scope suppression narrowly so lint is satisfied.
+                @Suppress("DEPRECATION")
+                try {
+                    window.statusBarColor = opaqueBg
+                    window.navigationBarColor = opaqueBg
+                } catch (_: Exception) {}
+
+                // On API levels that support a nav divider color, set it as well.
+                // Note: navigationBarDividerColor is deprecated in API 35+, but still functional on older APIs
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    @Suppress("DEPRECATION")
+                    try { window.navigationBarDividerColor = opaqueBg } catch (_: Exception) {}
+                }
+
+                // Rely on WindowCompat.getInsetsController(...) (already set above)
+                // to control light/dark appearance and behavior. Avoid using
+                // deprecated contrast-enforcement flags.
+            } catch (_: Exception) {}
+        } catch (_: Exception) {}
+
         if (prefs.showNavigationBar) {
-            com.github.gezimos.inkos.helper.showNavigationBar(this)
+            showNavigationBar(this)
         } else {
-            com.github.gezimos.inkos.helper.hideNavigationBar(this)
+            hideNavigationBar(this)
         }
 
         migration.migratePreferencesOnVersionUpdate(prefs)
 
-        window.setBackgroundDrawable(prefs.backgroundColor.toDrawable())
+        // Wallpaper is handled automatically by android:windowShowWallpaper in styles.xml
+        // No manual processing needed - system handles it efficiently
 
         navController = this.findNavController(R.id.nav_host_fragment)
+        // Initialize BackGesture helper to centralize edge-swipe detection.
+        try {
+            backGesture = com.github.gezimos.inkos.helper.BackGesture(
+                binding.root,
+                navController,
+                prefs
+            ) { allowEdgeSwipeBack && prefs.edgeSwipeBackEnabled }
+        } catch (_: Exception) {}
         viewModel = ViewModelProvider(this)[MainViewModel::class.java]
         viewModel.getAppList(includeHiddenApps = true)
-        setupOrientation()
-
-        window.addFlags(FLAG_LAYOUT_NO_LIMITS)
-
-        if (!isNotificationServiceEnabled()) {
-            val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
-            startActivity(intent)
+        
+        // Register package install receiver to detect new app installations
+        // This is more efficient than refreshing on every fragment resume
+        try {
+            val appsRepository = com.github.gezimos.inkos.data.repository.AppsRepository.getInstance(application)
+            appsRepository.registerPackageReceiver(this)
+        } catch (_: Exception) {
+            // Silently ignore registration errors
         }
+        
+        setupOrientation()
+        // Central E-Ink refresh on navigation: attach to decorView so it covers Compose roots.
+        // Uses `refreshEink` so user preference (`einkRefreshEnabled`) is respected.
+        try {
+            val skipIds = emptySet<Int>()
+            navController.addOnDestinationChangedListener { _: NavController, destination: androidx.navigation.NavDestination, _: Bundle? ->
+                try {
+                    if (destination.id in skipIds) return@addOnDestinationChangedListener
+                    // Only perform auto refresh on navigation when Auto mode enabled and Home-only mode is NOT active
+                    if (prefs.einkRefreshEnabled && !prefs.einkRefreshHomeButtonOnly) {
+                        com.github.gezimos.inkos.helper.utils.EinkRefreshHelper.refreshEink(
+                            this,
+                            prefs,
+                            null,
+                            prefs.einkRefreshDelay,
+                            useActivityRoot = true
+                        )
+                    }
+                } catch (_: Exception) {}
+            }
+        } catch (_: Exception) {}
+
+        window.addFlags(LayoutParams.FLAG_LAYOUT_NO_LIMITS)
+
+        // Don't automatically open notification listener settings
+        // Only request permission when user explicitly enables notifications in onboarding
     }
 
     override fun onResume() {
         super.onResume()
 
+        // If we are returning from background and Home-only refresh is enabled,
+        // trigger a single refresh when arriving at the Home destination.
+        try {
+            if (wasInBackground) {
+                wasInBackground = false
+                try {
+                    if (prefs.einkRefreshHomeButtonOnly) {
+                        if (::navController.isInitialized && navController.currentDestination?.id == R.id.mainFragment) {
+                            com.github.gezimos.inkos.helper.utils.EinkRefreshHelper.refreshEink(
+                                this,
+                                prefs,
+                                null,
+                                prefs.einkRefreshDelay,
+                                useActivityRoot = true
+                            )
+                        }
+                    }
+                } catch (_: Exception) {}
+            }
+        } catch (_: Exception) {}
+
         if (prefs.showNavigationBar) {
-            com.github.gezimos.inkos.helper.showNavigationBar(this)
+            showNavigationBar(this)
         } else {
-            com.github.gezimos.inkos.helper.hideNavigationBar(this)
+            hideNavigationBar(this)
         }
+
+        if (prefs.showStatusBar) {
+            com.github.gezimos.inkos.helper.showStatusBar(this)
+        } else {
+            com.github.gezimos.inkos.helper.hideStatusBar(this)
+        }
+
+        // Wallpaper updates automatically via windowShowWallpaper - no manual refresh needed
 
         window.decorView.postDelayed({
             // Defensive: avoid touching window/UI when activity is finishing/destroyed/stopped
@@ -363,10 +528,70 @@ class MainActivity : AppCompatActivity() {
         }, 100)
     }
 
+    override fun onPause() {
+        super.onPause()
+        try {
+            wasInBackground = true
+        } catch (_: Exception) {}
+    }
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        try {
+            if (backGesture?.onTouchEvent(ev) == true) return true
+        } catch (_: Exception) {}
+        return super.dispatchTouchEvent(ev)
+    }
+
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         Log.d(TAG, "Configuration changed, reinitializing MeInk service")
         einkHelper?.reinitializeMeinkService()
+
+        // If the user chose System theme, update window/system bar appearances
+        // and notify viewmodel so Views/Compose that rely on resolved colors
+        // can refresh without requiring a full process restart.
+        // No-op: System theme removed; fragment backgrounds and viewmodel state
+        // will be updated below for general configuration changes.
+
+        // Additionally, walk fragments and update their root view backgrounds so
+        // view-based fragments that set background once at creation will reflect
+        // the new system-derived theme color immediately.
+        try {
+            val fragments = supportFragmentManager.fragments
+            for (frag in fragments) {
+                // Skip HomeFragmentCompose as it handles its own background/transparency
+                if (frag is com.github.gezimos.inkos.ui.HomeFragmentCompose) continue
+
+                // Skip NavHostFragment root view to avoid blocking wallpaper with opaque background
+                // (NavHostFragment is just a container; we only want to color its children)
+                if (frag !is androidx.navigation.fragment.NavHostFragment) {
+                    try {
+                        val fview = frag.view
+                        if (fview != null) {
+                            val bg = try { com.github.gezimos.inkos.style.resolveThemeColors(frag.requireContext()).second } catch (_: Exception) { null }
+                            if (bg != null) {
+                                try { fview.setBackgroundColor(bg) } catch (_: Exception) {}
+                            }
+                        }
+                    } catch (_: Exception) {}
+                }
+
+                // Also update any child fragments
+                try {
+                    val childFrags = frag.childFragmentManager.fragments
+                    for (cf in childFrags) {
+                        // Skip nested HomeFragmentCompose
+                        if (cf is com.github.gezimos.inkos.ui.HomeFragmentCompose) continue
+
+                        val cv = cf.view
+                        if (cv != null) {
+                            val cbg = try { com.github.gezimos.inkos.style.resolveThemeColors(cf.requireContext()).second } catch (_: Exception) { null }
+                            if (cbg != null) try { cv.setBackgroundColor(cbg) } catch (_: Exception) {}
+                        }
+                    }
+                } catch (_: Exception) {}
+            }
+        } catch (_: Exception) {}
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -375,8 +600,8 @@ class MainActivity : AppCompatActivity() {
         if (hasFocus) {
             val fragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment)
             val homeFragment =
-                fragment?.childFragmentManager?.fragments?.find { it is com.github.gezimos.inkos.ui.HomeFragment } as? com.github.gezimos.inkos.ui.HomeFragment
-            if (homeFragment != null && com.github.gezimos.inkos.ui.HomeFragment.isHomeVisible) {
+                fragment?.childFragmentManager?.fragments?.find { it is com.github.gezimos.inkos.ui.HomeFragmentCompose } as? com.github.gezimos.inkos.ui.HomeFragmentCompose
+            if (homeFragment != null && com.github.gezimos.inkos.ui.HomeFragmentCompose.isHomeVisible) {
                 homeFragment.onWindowFocusGained()
             }
             // Re-apply MeInk mode when gaining focus
@@ -388,14 +613,43 @@ class MainActivity : AppCompatActivity() {
                     }, 200)
                 }
             }
+
+            // Defensive: when the window regains focus system bars may become
+            // visible due to user taps or gesture navigation — re-apply the
+            // user's preference for hiding/showing the status and nav bars.
+            window.decorView.postDelayed({
+                try {
+                    if (prefs.showNavigationBar) {
+                        showNavigationBar(this)
+                    } else {
+                        hideNavigationBar(this)
+                    }
+
+                    if (prefs.showStatusBar) {
+                        com.github.gezimos.inkos.helper.showStatusBar(this)
+                    } else {
+                        com.github.gezimos.inkos.helper.hideStatusBar(this)
+                    }
+                } catch (_: Exception) {}
+            }, 150)
+            
+            // Wallpaper updates automatically via windowShowWallpaper - no manual refresh needed
         }
     }
+    
 
     override fun onDestroy() {
         super.onDestroy()
         einkHelper?.let {
             lifecycle.removeObserver(it)
             it.cleanup()
+        }
+        // Unregister package install receiver
+        try {
+            val appsRepository = com.github.gezimos.inkos.data.repository.AppsRepository.getInstance(application)
+            appsRepository.unregisterPackageReceiver(this)
+        } catch (_: Exception) {
+            // Silently ignore unregistration errors
         }
     }
 
@@ -407,9 +661,21 @@ class MainActivity : AppCompatActivity() {
         einkHelper?.setMeinkMode(mode)
     }
 
+    // Fragments may toggle the public `allowEdgeSwipeBack` property directly when needed.
+
     private fun isNotificationServiceEnabled(): Boolean {
         return NotificationManagerCompat.getEnabledListenerPackages(this)
             .contains(packageName)
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        // No permission results to handle - we only use Notification Listener Service
+        // which is enabled via system settings, not runtime permissions
     }
 
     @Deprecated("Deprecated in Java")
@@ -417,12 +683,8 @@ class MainActivity : AppCompatActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         when (requestCode) {
             Constants.REQUEST_SET_DEFAULT_HOME -> {
-                val isDefault = isinkosDefault(this)
-                if (isDefault) {
-                    viewModel.setDefaultLauncher(false)
-                } else {
-                    viewModel.setDefaultLauncher(true)
-                }
+                // Returned from default-home chooser. No action required here;
+                // UI updates are handled elsewhere (no-op removed from ViewModel).
             }
 
             Constants.BACKUP_READ -> {

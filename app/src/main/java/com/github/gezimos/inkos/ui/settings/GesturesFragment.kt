@@ -11,10 +11,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+ 
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalDensity
@@ -23,7 +22,6 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.sp
-// removed unused import androidx.core.content.ContentProviderCompat.requireContext
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.widget.NestedScrollView
@@ -31,18 +29,16 @@ import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.github.gezimos.inkos.R
 import com.github.gezimos.inkos.data.AppListItem
+import com.github.gezimos.inkos.data.Constants
 import com.github.gezimos.inkos.data.Constants.Action
 import com.github.gezimos.inkos.data.Constants.AppDrawerFlag
 import com.github.gezimos.inkos.data.Constants.Theme.Dark
-import com.github.gezimos.inkos.data.Constants.Theme.Light
-import com.github.gezimos.inkos.data.Constants.Theme.System
 import com.github.gezimos.inkos.data.Prefs
 import com.github.gezimos.inkos.helper.getHexForOpacity
 import com.github.gezimos.inkos.helper.isSystemInDarkMode
 import com.github.gezimos.inkos.helper.utils.EinkScrollBehavior
 import com.github.gezimos.inkos.helper.utils.PrivateSpaceManager
 import com.github.gezimos.inkos.style.SettingsTheme
-import com.github.gezimos.inkos.ui.compose.SettingsComposable.DashedSeparator
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.PageHeader
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.PageIndicator
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsSelect
@@ -52,6 +48,7 @@ import com.github.gezimos.inkos.ui.dialogs.DialogManager
 class GesturesFragment : Fragment() {
 
     private lateinit var prefs: Prefs
+    private lateinit var viewModel: com.github.gezimos.inkos.MainViewModel
     private lateinit var dialogBuilder: DialogManager
 
     override fun onCreateView(
@@ -59,15 +56,11 @@ class GesturesFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        prefs = Prefs(requireContext())
+        viewModel = androidx.lifecycle.ViewModelProvider(requireActivity())[com.github.gezimos.inkos.MainViewModel::class.java]
+        prefs = viewModel.getPrefs()
         dialogBuilder = DialogManager(requireContext(), requireActivity())
-        val isDark = when (prefs.appTheme) {
-            Light -> false
-            Dark -> true
-            System -> isSystemInDarkMode(requireContext())
-        }
-        val settingsSize = (prefs.settingsSize - 3)
-        val backgroundColor = getHexForOpacity(prefs)
+        val isDark = prefs.appTheme == Dark
+        val backgroundColor = getHexForOpacity(requireContext())
         val context = requireContext()
         val currentPage = intArrayOf(0)
         val pageCount = intArrayOf(1)
@@ -92,6 +85,8 @@ class GesturesFragment : Fragment() {
         // Add sticky header ComposeView
         val headerView = ComposeView(context).apply {
             setContent {
+                val homeUiState by viewModel.homeUiState.collectAsState()
+                val settingsSize = (homeUiState.settingsSize - 3)
                 val density = LocalDensity.current
                 val bottomInsetDp = with(density) { bottomInsetPx.toDp() }
                 SettingsTheme(isDark) {
@@ -100,7 +95,7 @@ class GesturesFragment : Fragment() {
                             iconRes = R.drawable.ic_back,
                             title = stringResource(R.string.gestures_settings_title),
                             onClick = { findNavController().popBackStack() },
-                            showStatusBar = prefs.showStatusBar,
+                            showStatusBar = homeUiState.showStatusBar,
                             pageIndicator = {
                                 PageIndicator(
                                     currentPage = currentPage[0],
@@ -126,6 +121,8 @@ class GesturesFragment : Fragment() {
             addView(
                 ComposeView(context).apply {
                     setContent {
+                        val homeUiState by viewModel.homeUiState.collectAsState()
+                        val settingsSize = (homeUiState.settingsSize - 3)
                         val density = LocalDensity.current
                         val bottomInsetDp = with(density) { bottomInsetPx.toDp() }
                         SettingsTheme(isDark) {
@@ -166,6 +163,8 @@ class GesturesFragment : Fragment() {
             pageCount[0] = pages
             currentPage[0] = page
             headerView.setContent {
+                val homeUiState by viewModel.homeUiState.collectAsState()
+                val settingsSize = (homeUiState.settingsSize - 3)
                 val density = LocalDensity.current
                 val bottomInsetDp = with(density) { bottomInsetPx.toDp() }
                 SettingsTheme(isDark) {
@@ -174,7 +173,7 @@ class GesturesFragment : Fragment() {
                             iconRes = R.drawable.ic_back,
                             title = stringResource(R.string.gestures_settings_title),
                             onClick = { findNavController().popBackStack() },
-                            showStatusBar = prefs.showStatusBar,
+                            showStatusBar = homeUiState.showStatusBar,
                             pageIndicator = {
                                 PageIndicator(
                                     currentPage = currentPage[0],
@@ -207,12 +206,8 @@ class GesturesFragment : Fragment() {
         val navController = findNavController()
         val isDark = isSystemInDarkMode(requireContext())
         val titleFontSize = if (fontSize.isSpecified) (fontSize.value * 1.5).sp else fontSize
-        var selectedDoubleTapAction by remember { mutableStateOf(prefs.doubleTapAction) }
-        var selectedClickClockAction by remember { mutableStateOf(prefs.clickClockAction) }
-        var selectedClickDateAction by remember { mutableStateOf(prefs.clickDateAction) }
-    var selectedSwipeLeftAction by remember { mutableStateOf(prefs.swipeLeftAction) }
-    var selectedSwipeRightAction by remember { mutableStateOf(prefs.swipeRightAction) }
-        var selectedQuoteAction by remember { mutableStateOf(prefs.quoteAction) }
+        val uiState by viewModel.homeUiState.collectAsState()
+        
         val actions = Action.entries
         val filteredActions =
             if (!PrivateSpaceManager(requireContext()).isPrivateSpaceSupported()) {
@@ -221,7 +216,7 @@ class GesturesFragment : Fragment() {
         val doubleTapGestureActions = filteredActions.filter { action ->
         action != Action.OpenApp &&
             when (action) {
-                        Action.OpenNotificationsScreen -> prefs.notificationsEnabled
+                        Action.OpenNotificationsScreen -> uiState.notificationsEnabled
                         else -> true
                     }
         }.toMutableList().apply {
@@ -229,7 +224,7 @@ class GesturesFragment : Fragment() {
         }
     val clickClockGestureActions = filteredActions.filter { action ->
             when (action) {
-                        Action.OpenNotificationsScreen -> prefs.notificationsEnabled
+                        Action.OpenNotificationsScreen -> uiState.notificationsEnabled
                         else -> true
                     }
         }.toMutableList().apply {
@@ -237,7 +232,7 @@ class GesturesFragment : Fragment() {
         }
     val clickDateGestureActions = filteredActions.filter { action ->
             when (action) {
-                        Action.OpenNotificationsScreen -> prefs.notificationsEnabled
+                        Action.OpenNotificationsScreen -> uiState.notificationsEnabled
                         else -> true
                     }
         }.toMutableList().apply {
@@ -245,7 +240,7 @@ class GesturesFragment : Fragment() {
         }
         val gestureActions = filteredActions.filter { action ->
             when (action) {
-                Action.OpenNotificationsScreen -> prefs.notificationsEnabled
+                Action.OpenNotificationsScreen -> uiState.notificationsEnabled
                 else -> true
             }
         }.toMutableList()
@@ -341,35 +336,37 @@ class GesturesFragment : Fragment() {
         val appLabelQuoteAction = getOpenAppLabel(prefs.appQuoteWidget.activityLabel)
         val appLabelSwipeLeftAction = getOpenAppLabel(prefs.appSwipeLeft.activityLabel)
         val appLabelSwipeRightAction = getOpenAppLabel(prefs.appSwipeRight.activityLabel)
+        val appLabelSwipeUpAction = getOpenAppLabel(prefs.appSwipeUp.activityLabel)
+        val appLabelSwipeDownAction = getOpenAppLabel(prefs.appSwipeDown.activityLabel)
 
         Column(modifier = Modifier.fillMaxSize()) {
-            DashedSeparator()
+                // DashedSeparator removed
             SettingsTitle(
                 text = stringResource(R.string.tap_click_actions),
                 fontSize = titleFontSize,
             )
-            DashedSeparator()
+                // DashedSeparator removed
             SettingsSelect(
                 title = "${stringResource(R.string.double_tap)} (2)",
-                option = if (selectedDoubleTapAction == Action.OpenApp) {
+                option = if (uiState.doubleTapAction == Action.OpenApp) {
                     openAppDisplay(appLabelDoubleTapAction)
                 } else {
-                    selectedDoubleTapAction.string()
+                    uiState.doubleTapAction.string()
                 },
                 fontSize = titleFontSize,
                 onClick = {
                     // compute selectedIndex so the dialog shows the checked radio
-                    val currentDoubleTapIndex = doubleTapGestureActions.indexOf(selectedDoubleTapAction)
+                    val currentDoubleTapIndex = doubleTapGestureActions.indexOf(uiState.doubleTapAction)
                     dialogBuilder.showSingleChoiceDialog(
                         context = requireContext(),
                         options = doubleTapActionStrings,
                         titleResId = R.string.double_tap,
                         selectedIndex = if (currentDoubleTapIndex >= 0) currentDoubleTapIndex else null,
+                        maxHeightRatio = 0.50f, // Make gesture dialogs taller (50% of screen)
                         onItemSelected = { newDoubleTapAction: String ->
                             val selectedAction =
                                 doubleTapGestureActions.firstOrNull { it.getString(requireContext()) == newDoubleTapAction }
                             if (selectedAction != null) {
-                                selectedDoubleTapAction = selectedAction
                                 setGesture(AppDrawerFlag.SetDoubleTap, selectedAction)
                             }
                         },
@@ -377,22 +374,23 @@ class GesturesFragment : Fragment() {
                     )
                 }
             )
-            DashedSeparator()
+                // DashedSeparator removed
             SettingsSelect(
                 title = "${stringResource(R.string.clock_click_app)} (6)",
-                option = when (selectedClickClockAction) {
+                option = when (uiState.clickClockAction) {
                     Action.OpenApp -> openAppDisplay(appLabelClickClockAction)
                     Action.OpenAppDrawer -> getString(R.string.app_drawer)
-                    else -> selectedClickClockAction.string()
+                    else -> uiState.clickClockAction.string()
                 },
                 fontSize = titleFontSize,
                 onClick = {
-                    val currentClickClockIndex = clickClockGestureActions.indexOf(selectedClickClockAction)
+                    val currentClickClockIndex = clickClockGestureActions.indexOf(uiState.clickClockAction)
                     dialogBuilder.showSingleChoiceDialog(
                         context = requireContext(),
                         options = clickClockActionStrings,
                         titleResId = R.string.clock_click_app,
                         selectedIndex = if (currentClickClockIndex >= 0) currentClickClockIndex else null,
+                        maxHeightRatio = 0.50f, // Make gesture dialogs taller (50% of screen)
                         onItemSelected = { newClickClock: String ->
                             val selectedAction =
                                 clickClockGestureActions.firstOrNull {
@@ -405,7 +403,6 @@ class GesturesFragment : Fragment() {
                                         putString("flag", AppDrawerFlag.SetClickClock.name)
                                     })
                                 } else {
-                                    selectedClickClockAction = selectedAction
                                     setGesture(AppDrawerFlag.SetClickClock, selectedAction)
                                 }
                             }
@@ -414,22 +411,23 @@ class GesturesFragment : Fragment() {
                     )
                 }
             )
-            DashedSeparator()
+                // DashedSeparator removed
             SettingsSelect(
                 title = "${stringResource(R.string.date_click_app)} (7)",
-                option = when (selectedClickDateAction) {
+                option = when (uiState.clickDateAction) {
                     Action.OpenApp -> openAppDisplay(appLabelClickDateAction)
                     Action.OpenAppDrawer -> getString(R.string.app_drawer)
-                    else -> selectedClickDateAction.string()
+                    else -> uiState.clickDateAction.string()
                 },
                 fontSize = titleFontSize,
                 onClick = {
-                    val currentClickDateIndex = clickDateGestureActions.indexOf(selectedClickDateAction)
+                    val currentClickDateIndex = clickDateGestureActions.indexOf(uiState.clickDateAction)
                     dialogBuilder.showSingleChoiceDialog(
                         context = requireContext(),
                         options = clickDateActionStrings,
                         titleResId = R.string.date_click_app,
                         selectedIndex = if (currentClickDateIndex >= 0) currentClickDateIndex else null,
+                        maxHeightRatio = 0.50f, // Make gesture dialogs taller (50% of screen)
                         onItemSelected = { newClickDate: String ->
                             val selectedAction =
                                 clickDateGestureActions.firstOrNull {
@@ -442,8 +440,6 @@ class GesturesFragment : Fragment() {
                                         putString("flag", AppDrawerFlag.SetClickDate.name)
                                     })
                                 } else {
-                                    prefs.clickDateAction = selectedAction
-                                    selectedClickDateAction = selectedAction
                                     setGesture(AppDrawerFlag.SetClickDate, selectedAction)
                                 }
                             }
@@ -452,22 +448,23 @@ class GesturesFragment : Fragment() {
                     )
                 }
             )
-            DashedSeparator()
+                // DashedSeparator removed
             SettingsSelect(
                 title = "${stringResource(R.string.quote_click_app)} (8)",
-                option = when (selectedQuoteAction) {
+                option = when (uiState.quoteAction) {
                     Action.OpenApp -> openAppDisplay(appLabelQuoteAction)
                     Action.OpenAppDrawer -> getString(R.string.app_drawer)
-                    else -> selectedQuoteAction.string()
+                    else -> uiState.quoteAction.string()
                 },
                 fontSize = titleFontSize,
                 onClick = {
-                    val currentQuoteIndex = quoteGestureActions.indexOf(selectedQuoteAction)
+                    val currentQuoteIndex = quoteGestureActions.indexOf(uiState.quoteAction)
                     dialogBuilder.showSingleChoiceDialog(
                         context = requireContext(),
                         options = quoteActionStrings,
                         titleResId = R.string.quote_click_app,
                         selectedIndex = if (currentQuoteIndex >= 0) currentQuoteIndex else null,
+                        maxHeightRatio = 0.50f, // Make gesture dialogs taller (50% of screen)
                         onItemSelected = { newQuoteAction: String ->
                             val selectedAction = quoteGestureActions.firstOrNull {
                                 if (it == Action.OpenAppDrawer) getString(R.string.app_drawer) == newQuoteAction
@@ -479,15 +476,16 @@ class GesturesFragment : Fragment() {
                                         putString("flag", AppDrawerFlag.SetQuoteWidget.name)
                                     })
                                     } else {
-                                    prefs.appQuoteWidget = AppListItem(
-                                        activityLabel = "",
-                                        activityPackage = "",
-                                        activityClass = "",
-                                        user = prefs.appClickClock.user,
-                                        customLabel = ""
+                                    viewModel.selectAppForFlag(
+                                        AppListItem(
+                                            activityLabel = "",
+                                            activityPackage = "",
+                                            activityClass = "",
+                                            user = prefs.appClickClock.user,
+                                            customLabel = ""
+                                        ),
+                                        AppDrawerFlag.SetQuoteWidget
                                     )
-                                    prefs.quoteAction = selectedAction
-                                    selectedQuoteAction = selectedAction
                                     setGesture(AppDrawerFlag.SetQuoteWidget, selectedAction)
                                 }
                             }
@@ -496,27 +494,28 @@ class GesturesFragment : Fragment() {
                     )
                 }
             )
-            DashedSeparator()
+                // DashedSeparator removed
             SettingsTitle(
                 text = stringResource(R.string.swipe_movement),
                 fontSize = titleFontSize,
             )
-            DashedSeparator()
+                // DashedSeparator removed
             SettingsSelect(
                 title = "${stringResource(R.string.swipe_left_app)} (>)",
-                option = when (selectedSwipeLeftAction) {
+                option = when (uiState.swipeLeftAction) {
                     Action.OpenApp -> openAppDisplay(appLabelSwipeLeftAction)
                     Action.OpenAppDrawer -> getString(R.string.app_drawer)
-                    else -> selectedSwipeLeftAction.string()
+                    else -> uiState.swipeLeftAction.string()
                 },
                 fontSize = titleFontSize,
                 onClick = {
-                    val currentSwipeLeftIndex = gestureActions.indexOf(selectedSwipeLeftAction)
+                    val currentSwipeLeftIndex = gestureActions.indexOf(uiState.swipeLeftAction)
                     dialogBuilder.showSingleChoiceDialog(
                         context = requireContext(),
                         options = actionStrings,
                         titleResId = R.string.swipe_left_app,
                         selectedIndex = if (currentSwipeLeftIndex >= 0) currentSwipeLeftIndex else null,
+                        maxHeightRatio = 0.50f, // Make gesture dialogs taller (50% of screen)
                         onItemSelected = { newAction: String ->
                             val selectedAction =
                                 gestureActions.firstOrNull {
@@ -529,7 +528,6 @@ class GesturesFragment : Fragment() {
                                         putString("flag", AppDrawerFlag.SetSwipeLeft.name)
                                     })
                                 } else {
-                                    selectedSwipeLeftAction = selectedAction
                                     setGesture(AppDrawerFlag.SetSwipeLeft, selectedAction)
                                 }
                             }
@@ -538,23 +536,24 @@ class GesturesFragment : Fragment() {
                     )
                 }
             )
-            DashedSeparator()
+                // DashedSeparator removed
             SettingsSelect(
                 title = "${stringResource(R.string.swipe_right_app)} (<)",
-                option = when (selectedSwipeRightAction) {
+                option = when (uiState.swipeRightAction) {
                     Action.OpenApp -> openAppDisplay(appLabelSwipeRightAction)
                     Action.OpenAppDrawer -> getString(R.string.app_drawer)
                     Action.Disabled -> stringResource(R.string.disabled)
-                    else -> selectedSwipeRightAction.string()
+                    else -> uiState.swipeRightAction.string()
                 },
                 fontSize = titleFontSize,
                 onClick = {
-                    val currentSwipeRightIndex = gestureActions.indexOf(selectedSwipeRightAction)
+                    val currentSwipeRightIndex = gestureActions.indexOf(uiState.swipeRightAction)
                     dialogBuilder.showSingleChoiceDialog(
                         context = requireContext(),
                         options = actionStrings,
                         titleResId = R.string.swipe_right_app,
                         selectedIndex = if (currentSwipeRightIndex >= 0) currentSwipeRightIndex else null,
+                        maxHeightRatio = 0.50f, // Make gesture dialogs taller (50% of screen)
                         onItemSelected = { newAction: String ->
                             val selectedAction =
                                 gestureActions.firstOrNull {
@@ -567,7 +566,6 @@ class GesturesFragment : Fragment() {
                                         putString("flag", AppDrawerFlag.SetSwipeRight.name)
                                     })
                                 } else {
-                                    selectedSwipeRightAction = selectedAction
                                     setGesture(AppDrawerFlag.SetSwipeRight, selectedAction)
                                 }
                             }
@@ -576,19 +574,162 @@ class GesturesFragment : Fragment() {
                     )
                 }
             )
-            DashedSeparator()
-            Spacer(modifier = Modifier.height(24.dp))
+                // DashedSeparator removed
+            SettingsSelect(
+                title = "${stringResource(R.string.swipe_up_app)} (^)",
+                option = when (uiState.swipeUpAction) {
+                    Action.OpenApp -> openAppDisplay(appLabelSwipeUpAction)
+                    Action.OpenAppDrawer -> getString(R.string.app_drawer)
+                    Action.Disabled -> stringResource(R.string.disabled)
+                    else -> uiState.swipeUpAction.string()
+                },
+                fontSize = titleFontSize,
+                onClick = {
+                    val currentSwipeUpIndex = gestureActions.indexOf(uiState.swipeUpAction)
+                    dialogBuilder.showSingleChoiceDialog(
+                        context = requireContext(),
+                        options = actionStrings,
+                        titleResId = R.string.swipe_up_app,
+                        selectedIndex = if (currentSwipeUpIndex >= 0) currentSwipeUpIndex else null,
+                        maxHeightRatio = 0.50f, // Make gesture dialogs taller (50% of screen)
+                        onItemSelected = { newAction: String ->
+                            val selectedAction =
+                                gestureActions.firstOrNull {
+                                    if (it == Action.OpenAppDrawer) getString(R.string.app_drawer) == newAction
+                                    else it.getString(requireContext()) == newAction
+                                }
+                            if (selectedAction != null) {
+                                if (selectedAction == Action.OpenApp) {
+                                    navController.navigate(R.id.appListFragment, Bundle().apply {
+                                        putString("flag", AppDrawerFlag.SetSwipeUp.name)
+                                    })
+                                } else {
+                                    setGesture(AppDrawerFlag.SetSwipeUp, selectedAction)
+                                }
+                            }
+                        },
+                        showButtons = false
+                    )
+                }
+            )
+                // DashedSeparator removed
+            SettingsSelect(
+                title = "${stringResource(R.string.swipe_down_app)} (v)",
+                option = when (uiState.swipeDownAction) {
+                    Action.OpenApp -> openAppDisplay(appLabelSwipeDownAction)
+                    Action.OpenAppDrawer -> getString(R.string.app_drawer)
+                    Action.Disabled -> stringResource(R.string.disabled)
+                    else -> uiState.swipeDownAction.string()
+                },
+                fontSize = titleFontSize,
+                onClick = {
+                    val currentSwipeDownIndex = gestureActions.indexOf(uiState.swipeDownAction)
+                    dialogBuilder.showSingleChoiceDialog(
+                        context = requireContext(),
+                        options = actionStrings,
+                        titleResId = R.string.swipe_down_app,
+                        selectedIndex = if (currentSwipeDownIndex >= 0) currentSwipeDownIndex else null,
+                        maxHeightRatio = 0.50f, // Make gesture dialogs taller (50% of screen)
+                        onItemSelected = { newAction: String ->
+                            val selectedAction =
+                                gestureActions.firstOrNull {
+                                    if (it == Action.OpenAppDrawer) getString(R.string.app_drawer) == newAction
+                                    else it.getString(requireContext()) == newAction
+                                }
+                            if (selectedAction != null) {
+                                if (selectedAction == Action.OpenApp) {
+                                    navController.navigate(R.id.appListFragment, Bundle().apply {
+                                        putString("flag", AppDrawerFlag.SetSwipeDown.name)
+                                    })
+                                } else {
+                                    setGesture(AppDrawerFlag.SetSwipeDown, selectedAction)
+                                }
+                            }
+                        },
+                        showButtons = false
+                    )
+                }
+            )
+                // DashedSeparator removed
+            SettingsTitle(
+                text = stringResource(R.string.swipe_threshold_ratios),
+                fontSize = titleFontSize
+            )
+                // DashedSeparator removed
+            SettingsSelect(
+                title = stringResource(R.string.short_swipe_ratio),
+                option = stringResource(R.string.swipe_ratio_display_format, uiState.shortSwipeThresholdRatio),
+                fontSize = titleFontSize,
+                onClick = {
+                    showSwipeRatioSlider(
+                        R.string.short_swipe_ratio,
+                        uiState.shortSwipeThresholdRatio,
+                        Constants.MIN_SHORT_SWIPE_RATIO,
+                        Constants.MAX_SHORT_SWIPE_RATIO
+                    ) { clamped ->
+                        viewModel.setShortSwipeThresholdRatio(clamped)
+                    }
+                }
+            )
+                // DashedSeparator removed
+            SettingsSelect(
+                title = stringResource(R.string.long_swipe_ratio),
+                option = stringResource(R.string.swipe_ratio_display_format, uiState.longSwipeThresholdRatio),
+                fontSize = titleFontSize,
+                onClick = {
+                    showSwipeRatioSlider(
+                        R.string.long_swipe_ratio,
+                        uiState.longSwipeThresholdRatio,
+                        Constants.MIN_LONG_SWIPE_RATIO,
+                        Constants.MAX_LONG_SWIPE_RATIO
+                    ) { clamped ->
+                        viewModel.setLongSwipeThresholdRatio(clamped)
+                    }
+                }
+            )
+
+            com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsSwitch(
+                text = stringResource(R.string.edge_swipe_back),
+                fontSize = titleFontSize,
+                defaultState = uiState.edgeSwipeBackEnabled,
+                onCheckedChange = { enabled -> viewModel.setEdgeSwipeBackEnabled(enabled) }
+
+            )
+                        Spacer(modifier = Modifier.height(24.dp))
+
         }
+    }
+
+    private fun showSwipeRatioSlider(
+        titleRes: Int,
+        currentValue: Float,
+        minValue: Float,
+        maxValue: Float,
+        onValueSelected: (Float) -> Unit
+    ) {
+        val multiplier = 100
+        dialogBuilder.showSliderDialog(
+            context = requireContext(),
+            title = getString(titleRes),
+            minValue = (minValue * multiplier).toInt(),
+            maxValue = (maxValue * multiplier).toInt(),
+            currentValue = (currentValue * multiplier).toInt(),
+            onValueSelected = { newValue ->
+                onValueSelected(newValue / multiplier.toFloat())
+            }
+        )
     }
 
     private fun setGesture(flag: AppDrawerFlag, action: Action) {
         when (flag) {
-            AppDrawerFlag.SetDoubleTap -> prefs.doubleTapAction = action
-            AppDrawerFlag.SetClickClock -> prefs.clickClockAction = action
-            AppDrawerFlag.SetClickDate -> prefs.clickDateAction = action
-            AppDrawerFlag.SetSwipeLeft -> prefs.swipeLeftAction = action
-            AppDrawerFlag.SetSwipeRight -> prefs.swipeRightAction = action
-            AppDrawerFlag.SetQuoteWidget -> prefs.quoteAction = action
+            AppDrawerFlag.SetDoubleTap -> viewModel.setDoubleTapAction(action)
+            AppDrawerFlag.SetClickClock -> viewModel.setClickClockAction(action)
+            AppDrawerFlag.SetClickDate -> viewModel.setClickDateAction(action)
+            AppDrawerFlag.SetSwipeLeft -> viewModel.setSwipeLeftAction(action)
+            AppDrawerFlag.SetSwipeRight -> viewModel.setSwipeRightAction(action)
+            AppDrawerFlag.SetSwipeUp -> viewModel.setSwipeUpAction(action)
+            AppDrawerFlag.SetSwipeDown -> viewModel.setSwipeDownAction(action)
+            AppDrawerFlag.SetQuoteWidget -> viewModel.setQuoteAction(action)
             AppDrawerFlag.LaunchApp,
             AppDrawerFlag.HiddenApps,
             AppDrawerFlag.PrivateApps,

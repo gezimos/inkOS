@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Features - inkOS</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="header-content">
+                <a href="index.html" class="logo" style="text-decoration: none; color: inherit;">
+                    <img src="img/inkos.svg" alt="inkOS logo" />
+                    <h1>inkOS</h1>
+                </a>
+                <nav class="nav-links">
+                    <a href="index.html#intro">Intro</a>
+                    <a href="index.html#features">Features</a>
+                    <a href="faq.html">FAQ</a>
+                    <a href="https://youtube.com/@gezimos" target="_blank" rel="noopener">Video</a>
+                </nav>
+                <a class="header-action" href="https://www.buymeacoffee.com/gezimos" target="_blank" rel="noopener">Buy me a coffee</a>
+            </div>
+        </div>
+    </header>
+
+    <section class="section">
+        <div class="container">
+            <h2 class="section-title" style="text-align: left; margin-left: 0;">Features</h2>
+            <div style="width: 100%;">
+                
+                <div style="margin-bottom: 3rem;">
+                    <h3 style="font-size: 1.5rem; margin-bottom: 1.5rem; color: #000; font-weight: 700;">Home Features</h3>
+                    
+                    <h4 style="font-size: 1.2rem; margin-top: 1.5rem; margin-bottom: 1rem; color: #000; font-weight: 600;">Layout & Positioning</h4>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Gap between apps</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Controls the gap between home app items. Font family and size can affect this spacing, so it's recommended to adjust it for better visibility.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Home Apps Y Offset</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Adjusts the vertical position of home apps on the screen (makes them off-centre).
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Top Widget Margin</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Adjusts the top margin for the clock/date widget.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Bottom Widget Margin</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Adjusts the bottom margin for the media/quote widget.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Home Alignment</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Sets the horizontal alignment of home apps (Left, Center, Right).
+                        </p>
+                    </div>
+
+                    <hr style="border: none; border-top: 1px dashed #ccc; margin: 2rem 0;">
+                    <h4 style="font-size: 1.2rem; margin-top: 1.5rem; margin-bottom: 1rem; color: #000; font-weight: 600;">Home Apps</h4>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Apps on Home Screen</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Sets how many apps in total are featured on the home screen.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Pages on Home Screen</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Determines the total number of pages. Apps will be auto-divided across pages.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Enable Page Indicator</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Displays dots on the right side to indicate the current page.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Home Page Reset</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            When enabled, pressing the home button will reset to the 1st page (by default, it remembers your last page).
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Extend Home Apps Area</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Makes the full horizontal area of app names clickable. E.g., <code>[Calendar] → [      Calendar      ]</code>
+                        </p>
+                    </div>
+
+                    <hr style="border: none; border-top: 1px dashed #ccc; margin: 2rem 0;">
+                    <h4 style="font-size: 1.2rem; margin-top: 1.5rem; margin-bottom: 1rem; color: #000; font-weight: 600;">Top Widgets</h4>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Show Clock</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Enables the clock widget at the top of the home screen.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Clock Format</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Choose between System, 24-hour, or 12-hour format.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Show AM/PM</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Displays AM/PM indicator for 12-hour format.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Dual Clocks</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Enables a second clock display.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Second Clock Offset</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Sets the timezone offset for the second clock (when dual clocks is enabled).
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Show Date</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Displays the date widget on the home screen.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Show Battery</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Enables the battery widget at the bottom of the home screen (shown with date).
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Show Notification Count</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Displays the count of notifications in the top widget area.
+                        </p>
+                    </div>
+
+                    <hr style="border: none; border-top: 1px dashed #ccc; margin: 2rem 0;">
+                    <h4 style="font-size: 1.2rem; margin-top: 1.5rem; margin-bottom: 1rem; color: #000; font-weight: 600;">Bottom Widgets</h4>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Show Audio Widget</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Widget appears when audio is playing, remains even if paused, and can be dismissed by clicking stop.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Show Quote</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Enables a custom quote text widget at the bottom of the home screen.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Quote Text</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Sets the custom quote text to display (only shown when quote widget is enabled).
+                        </p>
+                    </div>
+                </div>
+
+                <hr style="border: none; border-top: 2px dashed #999; margin: 3rem 0;">
+                <div style="margin-bottom: 3rem;">
+                    <h3 style="font-size: 1.5rem; margin-bottom: 1.5rem; color: #000; font-weight: 700;">Fonts</h3>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Universal Custom Font</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Sets a single font family for all font-selectable items. When enabled, only text size can be modified. <em>Tip: Set a universal font, then disable it to customize specific fonts (e.g., a display font for the clock).</em>
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Settings Font</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Controls font family for all settings menus (disabled when universal font is enabled).
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Settings Text Size</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Controls text size for all settings menus.
+                        </p>
+                    </div>
+
+                    <hr style="border: none; border-top: 1px dashed #ccc; margin: 2rem 0;">
+                    <h4 style="font-size: 1.2rem; margin-top: 1.5rem; margin-bottom: 1rem; color: #000; font-weight: 600;">Home Fonts</h4>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Apps Font</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Controls font family for home menu apps, app drawer, and hidden apps (disabled when universal font is enabled).
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">App Text Size</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Controls text size for home menu apps.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">App Name Mode</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Choose between Normal, Small Caps, or All Caps for app names.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Clock Font</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Controls font family for the Clock widget (disabled when universal font is enabled).
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Clock Text Size</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Controls text size for the Clock widget.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Date Font</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Controls font family for the Date widget (disabled when universal font is enabled).
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Date Text Size</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Controls text size for the Date widget.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Quote Font</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Controls font family for the Quote widget (disabled when universal font is enabled).
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Quote Text Size</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Controls text size for the Quote widget.
+                        </p>
+                    </div>
+
+                    <hr style="border: none; border-top: 1px dashed #ccc; margin: 2rem 0;">
+                    <h4 style="font-size: 1.2rem; margin-top: 1.5rem; margin-bottom: 1rem; color: #000; font-weight: 600;">Label Notifications</h4>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Label Notifications Font</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Controls font family for notification previews under app names (disabled when universal font is enabled).
+                        </p>
+                    </div>
+
+                    <hr style="border: none; border-top: 1px dashed #ccc; margin: 2rem 0;">
+                    <h4 style="font-size: 1.2rem; margin-top: 1.5rem; margin-bottom: 1rem; color: #000; font-weight: 600;">Notifications Window</h4>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Window Title</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Sets the title string for the notification window (opened by swiping left).
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Title Font</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Controls font family for the notification window title (disabled when universal font is enabled).
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Title Size</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Controls text size for the notification window title.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Body Font</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Controls font family for the body text in the notification window (disabled when universal font is enabled).
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Body Text Size</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Controls text size for the body text in the notification window.
+                        </p>
+                    </div>
+                </div>
+
+                <hr style="border: none; border-top: 2px dashed #999; margin: 3rem 0;">
+                <div style="margin-bottom: 3rem;">
+                    <h3 style="font-size: 1.5rem; margin-bottom: 1.5rem; color: #000; font-weight: 700;">Look & Feel</h3>
+                    
+                    <h4 style="font-size: 1.2rem; margin-top: 1.5rem; margin-bottom: 1rem; color: #000; font-weight: 600;">Visibility & Display</h4>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Theme Mode</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Switch between Light and Dark themes.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Vibration Feedback</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Enables vibration feedback for gestures, apps, widgets, and interactions.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Show Status Bar</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Displays the top status bar (carrier, clock, battery, Wi-Fi, Bluetooth).
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Show Navigation Bar</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Option to show/hide the navigation bar for fullscreen look.
+                        </p>
+                    </div>
+
+                    <hr style="border: none; border-top: 1px dashed #ccc; margin: 2rem 0;">
+                    <h4 style="font-size: 1.2rem; margin-top: 1.5rem; margin-bottom: 1rem; color: #000; font-weight: 600;">Element Colors</h4>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Set Wallpaper</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Opens the wallpaper selection screen to set a custom background image.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Background Opacity</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Adjusts the opacity of the background color (0-255), which in turn controls how visible the background image is. Lower values make the background color more transparent, allowing the image to show through more clearly. Higher values make the background color more opaque, obscuring the image.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Background Color</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Allows setting a custom background color. <em>Recommended only for AMOLED displays. Not suitable for e-ink screens.</em>
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Text Color</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Allows setting a custom text color. <em>Recommended only for AMOLED displays. Not suitable for e-ink screens.</em>
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Reset</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Resets all element colors to default (black/white based on theme).
+                        </p>
+                    </div>
+
+                    <hr style="border: none; border-top: 1px dashed #ccc; margin: 2rem 0;">
+                    <h4 style="font-size: 1.2rem; margin-top: 1.5rem; margin-bottom: 1rem; color: #000; font-weight: 600;">Text Islands</h4>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Enable Text Islands</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Enables rounded/pill-shaped backgrounds behind text elements.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Invert Islands</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Inverts the colors of text islands (white text on black background becomes black text on white background).
+                        </p>
+                    </div>
+
+                    <hr style="border: none; border-top: 1px dashed #ccc; margin: 2rem 0;">
+                    <h4 style="font-size: 1.2rem; margin-top: 1.5rem; margin-bottom: 1rem; color: #000; font-weight: 600;">Icons & Buttons</h4>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Show Icons</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Display text app icons next to app names.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Corners</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Choose the corner style for text islands and buttons: Pill, Rounded, or Square.
+                        </p>
+                    </div>
+                </div>
+
+                <hr style="border: none; border-top: 2px dashed #999; margin: 3rem 0;">
+                <div style="margin-bottom: 3rem;">
+                    <h3 style="font-size: 1.5rem; margin-bottom: 1.5rem; color: #000; font-weight: 700;">Gestures</h3>
+                    
+                    <h4 style="font-size: 1.2rem; margin-top: 1.5rem; margin-bottom: 1rem; color: #000; font-weight: 600;">Tap & Click Actions</h4>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Double Tap (2)</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333; margin-bottom: 0.5rem;">
+                            Customize double tap to open an app or perform an action:
+                        </p>
+                        <ol style="font-size: 1rem; line-height: 1.7; color: #333; margin-left: 1.5rem; padding-left: 0;">
+                            <li>Open App (select any installed app)</li>
+                            <li>Open App Drawer</li>
+                            <li>Open Notifications Screen</li>
+                            <li>Open Recents Screen</li>
+                            <li>Open Simple Tray</li>
+                            <li>Manual E-Ink Refresh</li>
+                            <li>Brightness on/off</li>
+                            <li>Lock Screen</li>
+                            <li>Show Recents</li>
+                            <li>Open Quick Settings</li>
+                            <li>Open Power Dialog</li>
+                            <li>Restart Launcher</li>
+                            <li>Exit inkOS (switch between launchers)</li>
+                            <li>Toggle Private Space (if supported)</li>
+                            <li>Disabled</li>
+                        </ol>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Click on Clock (6)</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Customize clock tap to open an app or perform an action (same options as Double Tap).
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Click on Date (7)</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Customize date tap to open an app or perform an action (same options as Double Tap).
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Click on Quote (8)</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Customize quote widget tap to open an app or perform an action (same options as Double Tap).
+                        </p>
+                    </div>
+
+                    <hr style="border: none; border-top: 1px dashed #ccc; margin: 2rem 0;">
+                    <h4 style="font-size: 1.2rem; margin-top: 1.5rem; margin-bottom: 1rem; color: #000; font-weight: 600;">Swipe Gestures</h4>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Swipe Left (>)</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Customize left swipe to open an app or perform an action (same options as Double Tap).
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Swipe Right (<)</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Customize right swipe to open an app or perform an action (same options as Double Tap, can be disabled).
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Swipe Up (^)</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Customize up swipe to open an app or perform an action (same options as Double Tap, can be disabled).
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Swipe Down (v)</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Customize down swipe to open an app or perform an action (same options as Double Tap, can be disabled).
+                        </p>
+                    </div>
+
+                    <hr style="border: none; border-top: 1px dashed #ccc; margin: 2rem 0;">
+                    <h4 style="font-size: 1.2rem; margin-top: 1.5rem; margin-bottom: 1rem; color: #000; font-weight: 600;">Swipe Threshold Ratios</h4>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Short Swipe Ratio</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Adjusts the sensitivity threshold for short swipes (0.01 to 1.0). Lower values make swipes more sensitive.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Long Swipe Ratio</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Adjusts the sensitivity threshold for long swipes (1.1 to 5.0). Higher values require longer swipes to trigger.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Edge Swipe Back</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Enables edge swipe back gesture functionality.
+                        </p>
+                    </div>
+                </div>
+
+                <hr style="border: none; border-top: 2px dashed #999; margin: 3rem 0;">
+                <div style="margin-bottom: 3rem;">
+                    <h3 style="font-size: 1.5rem; margin-bottom: 1.5rem; color: #000; font-weight: 700;">Notifications</h3>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Push Notifications</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Enable or disable notifications system-wide. <em>System permission dialog will guide you to enable notification listener access.</em>
+                        </p>
+                    </div>
+
+                    <hr style="border: none; border-top: 1px dashed #ccc; margin: 2rem 0;">
+                    <h4 style="font-size: 1.2rem; margin-top: 1.5rem; margin-bottom: 1rem; color: #000; font-weight: 600;">Notification Home</h4>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Asterisk Notification</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Adds a <code>*</code> next to app names with pending notifications.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">*Label Notifications**</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Shows actual notification content below app names. <em>Great for chat/media apps.</em>
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Media Playing Asterisk</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Displays a <code>*</code> beside apps currently playing media.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Show Media Playing Name</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Displays the name of currently playing media (e.g., song, podcast, audio file).
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Home Notifications Allowlist</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Choose which apps can show label notifications on the home screen. <em>Highly recommended for focus and clarity.</em>
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Badge Character Limit</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Sets the maximum number of characters to display in notification previews (5-50). <em>Important for layout stability—depends on font and size.</em>
+                        </p>
+                    </div>
+
+                    <hr style="border: none; border-top: 1px dashed #ccc; margin: 2rem 0;">
+                    <h4 style="font-size: 1.2rem; margin-top: 1.5rem; margin-bottom: 1rem; color: #000; font-weight: 600;">Chat Notifications</h4>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Show Sender Name</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Displays the sender's name in notification previews.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Show Conversation/Group Name</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Displays the conversation or group name in notification previews.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Show Message</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Displays the message preview in notification previews.
+                        </p>
+                    </div>
+
+                    <hr style="border: none; border-top: 1px dashed #ccc; margin: 2rem 0;">
+                    <h4 style="font-size: 1.2rem; margin-top: 1.5rem; margin-bottom: 1rem; color: #000; font-weight: 600;">Notifications Window</h4>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Enable Notifications</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Enables the dedicated notification window to read full messages.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Clear Conversation on App Open</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Automatically clears notifications when you open the app.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Notification Allowlist</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Choose which apps can show notifications in the notification window. <em>Has a separate allowlist from home notifications.</em>
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Keypad shortcuts:</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            1 to dismiss notifications, 3 to open notifications (for keypad phones).
+                        </p>
+                    </div>
+
+                    <hr style="border: none; border-top: 1px dashed #ccc; margin: 2rem 0;">
+                    <h4 style="font-size: 1.2rem; margin-top: 1.5rem; margin-bottom: 1rem; color: #000; font-weight: 600;">Simple Tray</h4>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Notifications Per Page</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Sets how many notifications to display per page in Simple Tray (1, 2, or 3).
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Enable Bottom Navigation</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Shows navigation controls at the bottom of Simple Tray.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Simple Tray Allowlist</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Choose which apps can show notifications in Simple Tray.
+                        </p>
+                    </div>
+                </div>
+
+                <hr style="border: none; border-top: 2px dashed #999; margin: 3rem 0;">
+                <div style="margin-bottom: 3rem;">
+                    <h3 style="font-size: 1.5rem; margin-bottom: 1.5rem; color: #000; font-weight: 700;">Advanced</h3>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Lock Home Apps</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Prevents app changes on the home screen via long press.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Long Press for App Info</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Opens the system dialog to uninstall or force stop apps when long-pressing apps (only available when home apps are locked). <em>Especially useful for phones with no recents menu.</em>
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Lock Settings</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Lock the Settings menu with fingerprint or PIN to avoid accidental changes.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Backup / Restore</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            <strong>Backup:</strong> Save current settings for future restoration (e.g., factory reset or new device). <strong>Restore:</strong> Load saved settings. <strong>Clear All Data:</strong> Clears all settings and data for inkOS, so you can start from scratch. <em>Note: Custom fonts are not backed up.</em>
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Change Default Launcher</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Opens system settings to set inkOS as the default launcher.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Restart Launcher</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Restarts the inkOS launcher.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Exit inkOS</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Opens the launcher chooser to switch to another launcher.
+                        </p>
+                    </div>
+                </div>
+
+                <hr style="border: none; border-top: 2px dashed #999; margin: 3rem 0;">
+                <div style="margin-bottom: 3rem;">
+                    <h3 style="font-size: 1.5rem; margin-bottom: 1.5rem; color: #000; font-weight: 700;">App Drawer</h3>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Displays a scrollable list of all installed apps.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Long Press Options</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            1. <strong>Delete:</strong> Uninstalls the app<br>
+                            2. <strong>Rename:</strong> Change app name/alias (affects home too)<br>
+                            3. <strong>Hide:</strong> Moves the app to the hidden apps list<br>
+                            4. <strong>Lock:</strong> Requires fingerprint/PIN to open<br>
+                            5. <strong>Info:</strong> Opens the system info dialog
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">App Drawer as an App</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            App Drawer can be added as an app in the app list.
+                        </p>
+                    </div>
+
+                    <hr style="border: none; border-top: 1px dashed #ccc; margin: 2rem 0;">
+                    <h4 style="font-size: 1.2rem; margin-top: 1.5rem; margin-bottom: 1rem; color: #000; font-weight: 600;">Customizations</h4>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">App Size</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Controls the size of app items in the app drawer.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">App Padding Size</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Controls the gap between app items in the app drawer.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">App Drawer Alignment</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Sets the horizontal alignment of apps in the drawer (Left, Center, Right).
+                        </p>
+                    </div>
+
+                    <hr style="border: none; border-top: 1px dashed #ccc; margin: 2rem 0;">
+                    <h4 style="font-size: 1.2rem; margin-top: 1.5rem; margin-bottom: 1rem; color: #000; font-weight: 600;">Filtering</h4>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">AZ Filter</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Enables alphabetical filtering/sorting of apps in the drawer.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Hide Home Apps</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Hides apps that are already on the home screen from the app drawer.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">System Shortcuts</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Select which system shortcuts (e.g., Settings, Phone, Messages) to show in the app drawer.
+                        </p>
+                    </div>
+
+                    <hr style="border: none; border-top: 1px dashed #ccc; margin: 2rem 0;">
+                    <h4 style="font-size: 1.2rem; margin-top: 1.5rem; margin-bottom: 1rem; color: #000; font-weight: 600;">Search</h4>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Enable Search</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Enables the search functionality in the app drawer.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Auto Show Keyboard</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Automatically shows the keyboard when opening the app drawer search (requires search to be enabled).
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Auto-launch result</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Automatically launches the first search result when typing in the app drawer search.
+                        </p>
+                    </div>
+                </div>
+
+                <hr style="border: none; border-top: 2px dashed #999; margin: 3rem 0;">
+                <div style="margin-bottom: 3rem;">
+                    <h3 style="font-size: 1.5rem; margin-bottom: 1.5rem; color: #000; font-weight: 700;">Extras</h3>
+                    
+                    <h4 style="font-size: 1.2rem; margin-top: 1.5rem; margin-bottom: 1rem; color: #000; font-weight: 600;">E-Ink Features</h4>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">E-Ink Auto Mode</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Taps in E-ink auto mode for Mudita Kompakt devices (Mudita Kompakt only).
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Auto E-Ink Refresh</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Optimized for e-ink devices. Flashes the screen after exiting apps to clean ghosting artifacts. <em>Note: Doesn't apply to overlays like quick settings; press the home button to exit.</em>
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Auto Refresh Only in Home</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            When enabled, auto refresh only occurs when returning to the home screen (requires Auto E-Ink Refresh to be enabled).
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">E-Ink Refresh Delay</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Sets the delay in milliseconds before the e-ink refresh occurs (adjustable in 25ms increments).
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h5 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #000; font-weight: 600;">Use Volume Keys for Pages</h5>
+                        <p style="font-size: 1rem; line-height: 1.7; color: #333;">
+                            Navigate between pages using the volume keys.
+                        </p>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-logo">
+                    <a href="index.html" class="logo" style="text-decoration: none; color: inherit;">
+                        <img src="img/inkos.svg" alt="inkOS logo" />
+                        <h1>inkOS</h1>
+                    </a>
+                    <p>&copy; 2025 inkOS.</p>
+                </div>
+                <div class="footer-sitemap">
+                    <div class="sitemap-column">
+                        <h3>inkOS</h3>
+                        <a href="#">About</a>
+                        <a href="https://youtube.com/@gezimos" target="_blank" rel="noopener">YouTube</a>
+                        <a href="#">Blog</a>
+                    </div>
+                    <div class="sitemap-column">
+                        <h3>Navigation</h3>
+                        <a href="index.html#intro">Intro</a>
+                        <a href="index.html#features">Features</a>
+                        <a href="faq.html">FAQ</a>
+                    </div>
+                    <div class="sitemap-column">
+                        <h3>Legal</h3>
+                        <a href="privacy.html">Privacy Policy</a>
+                        <a href="permissions.html">Permissions</a>
+                        <a href="https://github.com/gezimos/inkOS/blob/main/LICENSE">License</a>
+                    </div>
+                    <div class="sitemap-column">
+                        <h3>GitHub</h3>
+                        <a href="https://github.com/gezimos/inkOS">Repository</a>
+                        <a href="https://github.com/gezimos/inkOS/issues">Issues</a>
+                        <a href="https://github.com/gezimos/inkOS/releases">Releases</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
+

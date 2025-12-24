@@ -1,17 +1,33 @@
 package com.github.gezimos.inkos.helper
 
+import android.annotation.SuppressLint
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.media.MediaMetadata
 import android.media.session.MediaController
-import android.media.session.MediaSession
+import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
-import android.os.Handler
-import android.os.Looper
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 
+@SuppressLint("StaticFieldLeak")
 class AudioWidgetHelper private constructor(private val context: Context) {
 
+    data class MediaState(
+        val packageName: String,
+        val controller: MediaController,
+        val metadata: MediaMetadata?,
+        val playbackState: PlaybackState?,
+        val isPlaying: Boolean
+    ) {
+        val title: String? get() = metadata?.description?.title?.toString()
+        val artist: String? get() = metadata?.description?.subtitle?.toString()
+    }
+
+    private val _mediaState = MutableStateFlow<MediaState?>(null)
+
+    // Legacy compatibility - expose as MediaPlayerInfo for existing UI code
     data class MediaPlayerInfo(
         val packageName: String,
         val isPlaying: Boolean,
@@ -20,21 +36,19 @@ class AudioWidgetHelper private constructor(private val context: Context) {
         val controller: MediaController?
     )
 
-    // Callback interface for notification updates
-    interface MediaActionCallback {
-        fun onMediaActionPerformed(packageName: String)
-    }
+    val mediaPlayerState: StateFlow<MediaPlayerInfo?> = MutableStateFlow<MediaPlayerInfo?>(null)
+    private val _mediaPlayerState get() = mediaPlayerState as MutableStateFlow<MediaPlayerInfo?>
 
-    // Media player state management for widget
-    private var _currentMediaPlayer: MediaPlayerInfo? = null
-    private val _mediaPlayerLiveData = MutableLiveData<MediaPlayerInfo?>()
-    val mediaPlayerLiveData: LiveData<MediaPlayerInfo?> = _mediaPlayerLiveData
-    private var userDismissedPlayer = false
-    private var mediaActionCallback: MediaActionCallback? = null
+    private var mediaSessionManager: MediaSessionManager? = null
+    private var activeSessionsListener: MediaSessionManager.OnActiveSessionsChangedListener? = null
+    private var currentController: MediaController? = null
+    private var currentCallback: MediaController.Callback? = null
+    private var userDismissed = false
 
     companion object {
         @Volatile
         private var INSTANCE: AudioWidgetHelper? = null
+
         fun getInstance(context: Context): AudioWidgetHelper {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: AudioWidgetHelper(context.applicationContext).also { INSTANCE = it }
@@ -42,188 +56,211 @@ class AudioWidgetHelper private constructor(private val context: Context) {
         }
     }
 
-    fun setMediaActionCallback(callback: MediaActionCallback?) {
-        mediaActionCallback = callback
+    /**
+     * Initialize the helper with a component name for notification listener access.
+     * Call this from NotificationService.onListenerConnected()
+     */
+    fun initialize(componentName: ComponentName) {
+        mediaSessionManager = context.getSystemService(Context.MEDIA_SESSION_SERVICE) as? MediaSessionManager
+        setupActiveSessionsListener(componentName)
     }
 
-    fun updateMediaPlayer(
-        packageName: String,
-        token: MediaSession.Token?,
-        isPlaying: Boolean,
-        title: String?,
-        artist: String?
-    ) {
-        val controller = token?.let {
-            try {
-                MediaController(context, it)
-            } catch (e: Exception) {
-                null
-            }
+    /**
+     * Clean up resources. Call from NotificationService.onDestroy()
+     */
+    fun cleanup() {
+        activeSessionsListener?.let { listener ->
+            mediaSessionManager?.removeOnActiveSessionsChangedListener(listener)
+        }
+        activeSessionsListener = null
+        unregisterCurrentCallback()
+        mediaSessionManager = null
+    }
+
+    private fun setupActiveSessionsListener(componentName: ComponentName) {
+        val manager = mediaSessionManager ?: return
+
+        val listener = MediaSessionManager.OnActiveSessionsChangedListener { controllers ->
+            handleActiveSessionsChanged(controllers)
         }
 
-        // The controller is the source of truth for playback state.
-        val definitiveIsPlaying = controller?.playbackState?.state == PlaybackState.STATE_PLAYING
-        val currentPlayer = _currentMediaPlayer
+        activeSessionsListener = listener
 
-        // If a different app is reporting, only accept it if it's actively playing.
-        // This prevents a "paused" notification from an old app from overwriting the current one.
-        if (currentPlayer != null && currentPlayer.packageName != packageName) {
-            if (!definitiveIsPlaying) {
-                return // Ignore paused/stopped notifications from non-active media apps.
-            }
-            // New app is playing, so it will take over. Reset dismissal state.
-            userDismissedPlayer = false
+        try {
+            manager.addOnActiveSessionsChangedListener(listener, componentName)
+            // Check initial sessions
+            val controllers = manager.getActiveSessions(componentName)
+            handleActiveSessionsChanged(controllers)
+        } catch (e: Exception) {
+            android.util.Log.e("AudioWidgetHelper", "Failed to set up sessions listener", e)
+        }
+    }
+
+    private fun handleActiveSessionsChanged(controllers: List<MediaController>?) {
+        // Find the first active (playing or paused) controller
+        val activeController = controllers?.firstOrNull { controller ->
+            val state = controller.playbackState?.state
+            state == PlaybackState.STATE_PLAYING || state == PlaybackState.STATE_PAUSED
         }
 
-        // If the user dismissed the widget, don't show it again unless it starts playing.
-        if (userDismissedPlayer && currentPlayer?.packageName == packageName && !definitiveIsPlaying) {
+        if (activeController != null) {
+            // If user dismissed and this is the same package that's paused, don't show
+            if (userDismissed && 
+                activeController.packageName == currentController?.packageName &&
+                activeController.playbackState?.state != PlaybackState.STATE_PLAYING) {
+                return
+            }
+            
+            // Reset dismissal if a new package starts playing or current starts playing again
+            if (activeController.playbackState?.state == PlaybackState.STATE_PLAYING) {
+                userDismissed = false
+            }
+            
+            registerControllerCallback(activeController)
+            updateState(activeController)
+        } else {
+            // No active sessions - clear state
+            unregisterCurrentCallback()
+            clearState()
+        }
+    }
+
+    private fun registerControllerCallback(controller: MediaController) {
+        // Only re-register if it's a different controller
+        if (currentController?.sessionToken == controller.sessionToken) {
             return
         }
 
-        // If we're updating a player to a "playing" state, reset any prior dismissal.
-        if (definitiveIsPlaying) {
-            userDismissedPlayer = false
+        unregisterCurrentCallback()
+
+        val callback = object : MediaController.Callback() {
+            override fun onMetadataChanged(metadata: MediaMetadata?) {
+                updateState(controller)
+            }
+
+            override fun onPlaybackStateChanged(state: PlaybackState?) {
+                if (state?.state == PlaybackState.STATE_STOPPED) {
+                    clearState()
+                } else {
+                    updateState(controller)
+                }
+            }
+
+            override fun onSessionDestroyed() {
+                clearState()
+            }
         }
 
-        val mediaInfo = MediaPlayerInfo(
-            packageName = packageName,
-            isPlaying = definitiveIsPlaying,
-            title = title,
-            artist = artist,
+        try {
+            controller.registerCallback(callback)
+            currentController = controller
+            currentCallback = callback
+        } catch (e: Exception) {
+            android.util.Log.e("AudioWidgetHelper", "Failed to register callback", e)
+        }
+    }
+
+    private fun unregisterCurrentCallback() {
+        currentCallback?.let { callback ->
+            try {
+                currentController?.unregisterCallback(callback)
+            } catch (_: Exception) {}
+        }
+        currentCallback = null
+        currentController = null
+    }
+
+    private fun updateState(controller: MediaController) {
+        if (userDismissed && controller.playbackState?.state != PlaybackState.STATE_PLAYING) {
+            return
+        }
+
+        val metadata = controller.metadata
+        val playbackState = controller.playbackState
+        val isPlaying = playbackState?.state == PlaybackState.STATE_PLAYING
+
+        val state = MediaState(
+            packageName = controller.packageName,
+            controller = controller,
+            metadata = metadata,
+            playbackState = playbackState,
+            isPlaying = isPlaying
+        )
+        _mediaState.value = state
+
+        // Update legacy state for compatibility
+        _mediaPlayerState.value = MediaPlayerInfo(
+            packageName = controller.packageName,
+            isPlaying = isPlaying,
+            title = state.title,
+            artist = state.artist,
             controller = controller
         )
-
-        _currentMediaPlayer = mediaInfo
-        _mediaPlayerLiveData.postValue(mediaInfo)
     }
 
-    fun clearMediaPlayer() {
-        _currentMediaPlayer = null
-        _mediaPlayerLiveData.postValue(null)
-        userDismissedPlayer = false
+    private fun clearState() {
+        _mediaState.value = null
+        _mediaPlayerState.value = null
     }
 
-    fun dismissMediaPlayer() {
-        userDismissedPlayer = true
-        _currentMediaPlayer = null
-        _mediaPlayerLiveData.postValue(null)
-    }
-
-    fun resetDismissalState() {
-        userDismissedPlayer = false
-    }
-
-    fun forceRefreshState() {
-        // Re-post current state to trigger UI updates
-        _mediaPlayerLiveData.postValue(_currentMediaPlayer)
-    }
+    // ========== Public Control Methods ==========
 
     fun playPauseMedia(): Boolean {
-        val controller = _currentMediaPlayer?.controller
-        val packageName = _currentMediaPlayer?.packageName
-
-        return if (controller != null && packageName != null) {
-            try {
-                val playbackState = controller.playbackState
-
-                val newState = when (playbackState?.state) {
-                    PlaybackState.STATE_PLAYING -> {
-                        controller.transportControls.pause()
-                        false // Will be paused
-                    }
-
-                    PlaybackState.STATE_PAUSED, PlaybackState.STATE_STOPPED -> {
-                        controller.transportControls.play()
-                        true // Will be playing
-                    }
-
-                    else -> {
-                        return false
-                    }
-                }
-
-                // Update local state immediately for responsive UI
-                _currentMediaPlayer = _currentMediaPlayer?.copy(isPlaying = newState)
-                _mediaPlayerLiveData.postValue(_currentMediaPlayer)
-
-                // Trigger notification refresh after a short delay to sync with media session
-                mediaActionCallback?.onMediaActionPerformed(packageName)
-
-                // Post delayed sync to ensure state consistency
-                Handler(Looper.getMainLooper()).postDelayed({
-                    // Verify actual controller state and sync if needed
-                    try {
-                        val actualState = controller.playbackState?.state
-                        val expectedPlaying = when (actualState) {
-                            PlaybackState.STATE_PLAYING -> true
-                            PlaybackState.STATE_PAUSED, PlaybackState.STATE_STOPPED -> false
-                            else -> null
-                        }
-
-                        if (expectedPlaying != null && expectedPlaying != _currentMediaPlayer?.isPlaying) {
-                            _currentMediaPlayer =
-                                _currentMediaPlayer?.copy(isPlaying = expectedPlaying)
-                            _mediaPlayerLiveData.postValue(_currentMediaPlayer)
-                        }
-                    } catch (e: Exception) {
-                        // Ignore sync errors
-                    }
-                }, 150)
-
-                true
-            } catch (e: Exception) {
-                false
+        val controller = _mediaState.value?.controller ?: return false
+        return try {
+            val isPlaying = controller.playbackState?.state == PlaybackState.STATE_PLAYING
+            if (isPlaying) {
+                controller.transportControls.pause()
+            } else {
+                controller.transportControls.play()
             }
-        } else {
+            true
+        } catch (_: Exception) {
             false
         }
     }
 
     fun skipToNext(): Boolean {
-        val controller = _currentMediaPlayer?.controller
-        val packageName = _currentMediaPlayer?.packageName
-        return if (controller != null && packageName != null) {
+        val controller = _mediaState.value?.controller ?: return false
+        return try {
             controller.transportControls.skipToNext()
-            // Trigger notification refresh for track change
-            mediaActionCallback?.onMediaActionPerformed(packageName)
             true
-        } else false
+        } catch (_: Exception) {
+            false
+        }
     }
 
     fun skipToPrevious(): Boolean {
-        val controller = _currentMediaPlayer?.controller
-        val packageName = _currentMediaPlayer?.packageName
-        return if (controller != null && packageName != null) {
+        val controller = _mediaState.value?.controller ?: return false
+        return try {
             controller.transportControls.skipToPrevious()
-            // Trigger notification refresh for track change
-            mediaActionCallback?.onMediaActionPerformed(packageName)
             true
-        } else false
+        } catch (_: Exception) {
+            false
+        }
     }
 
     fun stopMedia(): Boolean {
-        val controller = _currentMediaPlayer?.controller
-        val packageName = _currentMediaPlayer?.packageName
-        return if (controller != null && packageName != null) {
-            try {
-                controller.transportControls.stop()
-            } catch (e: Exception) {
-                // The controller might be stale, but we still want to dismiss the widget.
-            }
-
-            // Immediately dismiss the widget when stop is pressed
+        val controller = _mediaState.value?.controller ?: return false
+        return try {
+            controller.transportControls.stop()
             dismissMediaPlayer()
-
-            // Trigger notification refresh to clear media badges
-            mediaActionCallback?.onMediaActionPerformed(packageName)
-
             true
-        } else false
+        } catch (_: Exception) {
+            dismissMediaPlayer()
+            false
+        }
     }
 
     fun openMediaApp(): Boolean {
-        val packageName = _currentMediaPlayer?.packageName
-        return if (packageName != null) {
+        val packageName = _mediaState.value?.packageName ?: return false
+        return try {
+            // First try session activity (opens directly to player)
+            val controller = _mediaState.value?.controller
+            controller?.sessionActivity?.send()
+            true
+        } catch (_: Exception) {
+            // Fallback to launching the app normally
             try {
                 val intent = context.packageManager.getLaunchIntentForPackage(packageName)
                 intent?.let {
@@ -231,11 +268,66 @@ class AudioWidgetHelper private constructor(private val context: Context) {
                     context.startActivity(it)
                     true
                 } ?: false
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 false
             }
-        } else false
+        }
     }
 
-    fun getCurrentMediaPlayer(): MediaPlayerInfo? = _currentMediaPlayer
+    fun dismissMediaPlayer() {
+        userDismissed = true
+        clearState()
+    }
+
+    fun resetDismissalState() {
+        userDismissed = false
+        // Re-check active sessions to potentially restore widget
+        val manager = mediaSessionManager ?: return
+        val componentName = ComponentName(context, com.github.gezimos.inkos.services.NotificationService::class.java)
+        try {
+            val controllers = manager.getActiveSessions(componentName)
+            handleActiveSessionsChanged(controllers)
+        } catch (_: Exception) {}
+    }
+
+    // Legacy compatibility methods
+    fun getCurrentMediaPlayer(): MediaPlayerInfo? = _mediaPlayerState.value
+    
+    @Suppress("unused")
+    fun clearMediaPlayer() {
+        clearState()
+    }
+
+    @Suppress("unused")
+    fun forceRefreshState() {
+        val manager = mediaSessionManager ?: return
+        val componentName = ComponentName(context, com.github.gezimos.inkos.services.NotificationService::class.java)
+        try {
+            val controllers = manager.getActiveSessions(componentName)
+            handleActiveSessionsChanged(controllers)
+        } catch (_: Exception) {}
+    }
+
+    // Legacy methods that are no longer needed but kept for compatibility
+    @Deprecated("No longer needed - MediaSessionManager handles this automatically")
+    @Suppress("UNUSED_PARAMETER", "unused")
+    fun updateMediaPlayer(
+        packageName: String,
+        token: android.media.session.MediaSession.Token?,
+        isPlaying: Boolean,
+        title: String?,
+        artist: String?
+    ) {
+        // No-op - MediaSessionManager now handles all updates
+    }
+
+    interface MediaActionCallback {
+        fun onMediaActionPerformed(packageName: String)
+    }
+
+    @Deprecated("No longer needed - callbacks are handled internally")
+    @Suppress("UNUSED_PARAMETER", "unused")
+    fun setMediaActionCallback(callback: MediaActionCallback?) {
+        // No-op - kept for compatibility
+    }
 }

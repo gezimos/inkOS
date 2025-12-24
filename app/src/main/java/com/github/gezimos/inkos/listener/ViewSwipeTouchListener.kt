@@ -9,6 +9,13 @@ import android.view.View
 import android.view.View.OnTouchListener
 import kotlin.math.abs
 
+/**
+ * LEGACY: View-based touch listener with swipe, tap, and long-press detection.
+ * 
+ * For Compose UI, use:
+ * - Modifier.gestureHelper() for low-level gesture detection
+ * - GestureHelper.handleSwipeLeft/Right/etc() for gesture execution
+ */
 internal open class ViewSwipeTouchListener(c: Context?, v: View) : OnTouchListener {
     private val gestureDetector: GestureDetector = GestureDetector(c, GestureListener(v))
 

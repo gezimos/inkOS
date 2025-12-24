@@ -9,8 +9,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.res.stringResource
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.TextUnit
@@ -21,15 +22,13 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.widget.NestedScrollView
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
+import com.github.gezimos.inkos.EinkHelper
 import com.github.gezimos.inkos.R
 import com.github.gezimos.inkos.data.Constants
 import com.github.gezimos.inkos.data.Constants.Theme.Dark
-import com.github.gezimos.inkos.data.Constants.Theme.Light
-import com.github.gezimos.inkos.data.Constants.Theme.System
 import com.github.gezimos.inkos.data.Prefs
 import com.github.gezimos.inkos.helper.utils.EinkScrollBehavior
 import com.github.gezimos.inkos.style.SettingsTheme
-import com.github.gezimos.inkos.ui.compose.SettingsComposable.DashedSeparator
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.PageHeader
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsSelect
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsSwitch
@@ -37,6 +36,7 @@ import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsTitle
 import com.github.gezimos.inkos.ui.dialogs.DialogManager
 class ExtrasFragment : Fragment() {
     private lateinit var prefs: Prefs
+    private lateinit var viewModel: com.github.gezimos.inkos.MainViewModel
     private lateinit var dialogBuilder: DialogManager
 
     // Paging state
@@ -49,15 +49,11 @@ class ExtrasFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        prefs = Prefs(requireContext())
+        viewModel = androidx.lifecycle.ViewModelProvider(requireActivity())[com.github.gezimos.inkos.MainViewModel::class.java]
+        prefs = viewModel.getPrefs()
         dialogBuilder = DialogManager(requireContext(), requireActivity())
-        val isDark = when (prefs.appTheme) {
-            Light -> false
-            Dark -> true
-            System -> com.github.gezimos.inkos.helper.isSystemInDarkMode(requireContext())
-        }
-        val backgroundColor = com.github.gezimos.inkos.helper.getHexForOpacity(prefs)
-        val settingsSize = (prefs.settingsSize - 3)
+            val isDark = prefs.appTheme == Dark
+        val backgroundColor = com.github.gezimos.inkos.helper.getHexForOpacity(requireContext())
         val context = requireContext()
 
         val rootLayout = android.widget.LinearLayout(context).apply {
@@ -72,19 +68,20 @@ class ExtrasFragment : Fragment() {
         // Sticky header ComposeView
         val headerView = androidx.compose.ui.platform.ComposeView(context).apply {
             setContent {
+                val homeUiState by viewModel.homeUiState.collectAsState()
+                val settingsSize = (homeUiState.settingsSize - 3)
                 SettingsTheme(isDark) {
                     Column(Modifier.fillMaxWidth()) {
                         PageHeader(
                             iconRes = R.drawable.ic_back,
                             title = "Extras",
                             onClick = { findNavController().popBackStack() },
-                            showStatusBar = prefs.showStatusBar,
+                            showStatusBar = homeUiState.showStatusBar,
                             pageIndicator = {
-                                if (pageCount[0] > 1)
-                                    com.github.gezimos.inkos.ui.compose.SettingsComposable.PageIndicator(
-                                        currentPage = currentPage[0],
-                                        pageCount = pageCount[0]
-                                    )
+                                com.github.gezimos.inkos.ui.compose.SettingsComposable.PageIndicator(
+                                    currentPage = currentPage[0],
+                                    pageCount = pageCount[0]
+                                )
                             },
                             titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else TextUnit.Unspecified
                         )
@@ -101,6 +98,8 @@ class ExtrasFragment : Fragment() {
             addView(
                 androidx.compose.ui.platform.ComposeView(context).apply {
                     setContent {
+                        val homeUiState by viewModel.homeUiState.collectAsState()
+                        val settingsSize = (homeUiState.settingsSize - 3)
                         SettingsTheme(isDark) {
                             Box(Modifier.fillMaxSize()) {
                                 Column {
@@ -145,19 +144,20 @@ class ExtrasFragment : Fragment() {
             pageCount[0] = pages
             currentPage[0] = page
             headerView.setContent {
+                val homeUiState by viewModel.homeUiState.collectAsState()
+                val settingsSize = (homeUiState.settingsSize - 3)
                 SettingsTheme(isDark) {
                     Column(Modifier.fillMaxWidth()) {
                         PageHeader(
                             iconRes = R.drawable.ic_back,
                             title = "Extras",
                             onClick = { findNavController().popBackStack() },
-                            showStatusBar = prefs.showStatusBar,
+                            showStatusBar = homeUiState.showStatusBar,
                             pageIndicator = {
-                                if (pageCount[0] > 1)
-                                    com.github.gezimos.inkos.ui.compose.SettingsComposable.PageIndicator(
-                                        currentPage = currentPage[0],
-                                        pageCount = pageCount[0]
-                                    )
+                                com.github.gezimos.inkos.ui.compose.SettingsComposable.PageIndicator(
+                                    currentPage = currentPage[0],
+                                    pageCount = pageCount[0]
+                                )
                             },
                             titleFontSize = if (settingsSize > 0) (settingsSize * 1.5).sp else TextUnit.Unspecified
                         )
@@ -173,48 +173,57 @@ class ExtrasFragment : Fragment() {
     @Composable
     fun ExtrasSettingsAllInOne(fontSize: TextUnit = TextUnit.Unspecified, isDark: Boolean) {
         val titleFontSize = if (fontSize.isSpecified) (fontSize.value * 1.5).sp else fontSize
-        val einkRefreshEnabled = remember { mutableStateOf(prefs.einkRefreshEnabled) }
-        val einkRefreshDelayState = remember { mutableStateOf(prefs.einkRefreshDelay) }
-        val useVolumeKeys = remember { mutableStateOf(prefs.useVolumeKeysForPages) }
-        val selectedShortcuts = remember { mutableStateOf(prefs.selectedSystemShortcuts.toSet()) }
-        val einkHelperEnabled = remember { mutableStateOf(prefs.einkHelperEnabled) }
+        val uiState by viewModel.homeUiState.collectAsState()
+        
+        val isMuditaDevice = remember { EinkHelper.isMuditaKompakt() }
         val navController = findNavController()
         Column(modifier = Modifier.fillMaxSize()) {
-            DashedSeparator()
-            SettingsTitle(
-                text = stringResource(R.string.eink_auto_mode),
-                fontSize = titleFontSize,
-            )
-            DashedSeparator()
-            SettingsSwitch(
-                text = stringResource(R.string.eink_auto_mode),
-                fontSize = titleFontSize,
-                defaultState = einkHelperEnabled.value,
-                onCheckedChange = {
-                    einkHelperEnabled.value = it
-                    prefs.einkHelperEnabled = it
-                    requireActivity().recreate()
-                }
-            )
-            DashedSeparator()
+            // Only show EinkHelper settings on Mudita Kompakt devices
+            if (isMuditaDevice) {
+                SettingsTitle(
+                    text = stringResource(R.string.eink_auto_mode),
+                    fontSize = titleFontSize,
+                )
+                SettingsSwitch(
+                    text = stringResource(R.string.eink_auto_mode),
+                    fontSize = titleFontSize,
+                    defaultState = uiState.einkHelperEnabled,
+                    onCheckedChange = {
+                        viewModel.setEinkHelperEnabled(it)
+                        requireActivity().recreate()
+                    }
+                )
+            }
+
             SettingsTitle(
                 text = "Extra Features",
                 fontSize = titleFontSize,
             )
-            DashedSeparator()
+
             SettingsSwitch(
                 text = "Auto E-Ink Refresh",
                 fontSize = titleFontSize,
-                defaultState = einkRefreshEnabled.value,
+                defaultState = uiState.einkRefreshEnabled,
                 onCheckedChange = {
-                    einkRefreshEnabled.value = it
-                    prefs.einkRefreshEnabled = it
+                    viewModel.setEinkRefreshEnabled(it)
                 }
             )
-            DashedSeparator()
+
+            // Show the Home-only option only when Auto (master) refresh is enabled.
+            if (uiState.einkRefreshEnabled) {
+                SettingsSwitch(
+                    text = "Auto Refresh Only in Home",
+                    fontSize = titleFontSize,
+                    defaultState = uiState.einkRefreshHomeButtonOnly,
+                    onCheckedChange = {
+                        viewModel.setEinkRefreshHomeButtonOnly(it)
+                    }
+                )
+            }
+
             SettingsSelect(
                 title = "E-Ink Refresh Delay",
-                option = "${einkRefreshDelayState.value} ms",
+                option = "${uiState.einkRefreshDelay} ms",
                 fontSize = titleFontSize,
                 onClick = {
                     dialogBuilder.showSliderDialog(
@@ -222,71 +231,23 @@ class ExtrasFragment : Fragment() {
                         title = "E-Ink Refresh Delay",
                         minValue = Constants.MIN_EINK_REFRESH_DELAY,
                         maxValue = Constants.MAX_EINK_REFRESH_DELAY,
-                        currentValue = einkRefreshDelayState.value,
+                        currentValue = uiState.einkRefreshDelay.toInt(),
                         onValueSelected = { newDelay: Int ->
                             val snapped = ((newDelay + 12) / 25) * 25
-                            einkRefreshDelayState.value = snapped
-                            prefs.einkRefreshDelay = snapped
+                            viewModel.setEinkRefreshDelay(snapped)
                         }
                     )
                 }
             )
-            DashedSeparator()
+
             SettingsSwitch(
                 text = getString(R.string.use_volume_keys_for_pages),
                 fontSize = titleFontSize,
-                defaultState = useVolumeKeys.value,
+                defaultState = uiState.useVolumeKeysForPages,
                 onCheckedChange = {
-                    useVolumeKeys.value = it
-                    prefs.useVolumeKeysForPages = it
+                    viewModel.setUseVolumeKeysForPages(it)
                 }
             )
-            DashedSeparator()
-            SettingsSelect(
-                title = getString(R.string.system_shortcuts),
-                option = if (selectedShortcuts.value.isEmpty()) "None" else "${selectedShortcuts.value.size} selected",
-                fontSize = titleFontSize,
-                onClick = {
-                    val allShortcuts =
-                        com.github.gezimos.inkos.helper.SystemShortcutHelper.systemShortcuts
-                            .sortedBy { it.displayName.lowercase() }
-                    val shortcutLabels = allShortcuts.map { it.displayName }
-                    val shortcutIds = allShortcuts.map { it.packageId }
-                    val checked =
-                        shortcutIds.map { selectedShortcuts.value.contains(it) }.toBooleanArray()
-                    dialogBuilder.showMultiChoiceDialog(
-                        context = requireContext(),
-                        title = getString(R.string.system_shortcuts),
-                        items = shortcutLabels.toTypedArray(),
-                        initialChecked = checked,
-                        onConfirm = { selectedIndices ->
-                            val selected = selectedIndices.map { shortcutIds[it] }.toMutableSet()
-                            selectedShortcuts.value = selected
-                            prefs.selectedSystemShortcuts = selected
-
-                            // Remove hidden status for unchecked system shortcuts
-                            val hiddenAppsSet = prefs.hiddenApps.toMutableSet()
-                            val allShortcutKeys = shortcutIds.map {
-                                it + "|" + android.os.Process.myUserHandle().toString()
-                            }
-                            val uncheckedShortcutKeys =
-                                allShortcutKeys.filter { !selected.contains(it.substringBefore("|")) }
-                            hiddenAppsSet.removeAll(uncheckedShortcutKeys)
-                            prefs.hiddenApps = hiddenAppsSet
-                        }
-                    )
-                }
-            )
-            DashedSeparator()
-            SettingsSelect(
-                title = "mKompakt Bluetooth",
-                option = "Devices",
-                fontSize = titleFontSize,
-                onClick = {
-                    navController.navigate(R.id.bluetoothFragment)
-                }
-            )
-            DashedSeparator()
         }
     }
 }

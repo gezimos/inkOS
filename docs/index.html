@@ -4,440 +4,330 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>inkOS - Minimalist Android Launcher</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 20px;
-        }
-
-        header {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            padding: 1rem 0;
-            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-
-        .header-content {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .logo-icon {
-            width: 50px;
-            height: 50px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 24px;
-            font-weight: bold;
-        }
-
-        .logo h1 {
-            font-size: 2rem;
-            font-weight: 700;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .nav-links {
-            display: flex;
-            gap: 30px;
-        }
-
-        .nav-links a {
-            text-decoration: none;
-            color: #333;
-            font-weight: 500;
-            transition: color 0.3s ease;
-        }
-
-        .nav-links a:hover {
-            color: #667eea;
-        }
-
-        .hero {
-            text-align: center;
-            padding: 80px 0;
-            color: white;
-        }
-
-        .hero h2 {
-            font-size: 3.5rem;
-            font-weight: 700;
-            margin-bottom: 20px;
-            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-        }
-
-        .hero p {
-            font-size: 1.3rem;
-            margin-bottom: 40px;
-            opacity: 0.9;
-            max-width: 600px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        .cta-buttons {
-            display: flex;
-            gap: 20px;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-
-        .btn {
-            padding: 15px 30px;
-            border-radius: 50px;
-            text-decoration: none;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .btn-primary {
-            background: white;
-            color: #667eea;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 25px rgba(0, 0, 0, 0.3);
-        }
-
-        .btn-secondary {
-            background: rgba(255, 255, 255, 0.2);
-            color: white;
-            border: 2px solid white;
-        }
-
-        .btn-secondary:hover {
-            background: white;
-            color: #667eea;
-        }
-
-        .features {
-            background: white;
-            padding: 80px 0;
-        }
-
-        .features h2 {
-            text-align: center;
-            font-size: 2.5rem;
-            margin-bottom: 60px;
-            color: #333;
-        }
-
-        .features-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 40px;
-        }
-
-        .feature-card {
-            background: #f8f9fa;
-            padding: 30px;
-            border-radius: 15px;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-            border: 1px solid #e9ecef;
-        }
-
-        .feature-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-        }
-
-        .feature-icon {
-            width: 60px;
-            height: 60px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 20px;
-            color: white;
-            font-size: 24px;
-        }
-
-        .feature-card h3 {
-            font-size: 1.4rem;
-            margin-bottom: 15px;
-            color: #333;
-        }
-
-        .feature-card p {
-            color: #666;
-            line-height: 1.6;
-        }
-
-        .section {
-            padding: 60px 0;
-        }
-
-        .section-title {
-            text-align: center;
-            font-size: 2.2rem;
-            margin-bottom: 50px;
-            color: #333;
-        }
-
-        .highlight {
-            background: #f8f9fa;
-            padding: 60px 0;
-        }
-
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 30px;
-            text-align: center;
-        }
-
-        .stat-item {
-            background: white;
-            padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-        }
-
-        .stat-number {
-            font-size: 2.5rem;
-            font-weight: 700;
-            color: #667eea;
-            margin-bottom: 10px;
-        }
-
-        .stat-label {
-            color: #666;
-            font-weight: 500;
-        }
-
-        footer {
-            background: #333;
-            color: white;
-            text-align: center;
-            padding: 40px 0;
-        }
-
-        .footer-content {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 20px;
-        }
-
-        .footer-links {
-            display: flex;
-            gap: 30px;
-            flex-wrap: wrap;
-        }
-
-        .footer-links a {
-            color: #ccc;
-            text-decoration: none;
-            transition: color 0.3s ease;
-        }
-
-        .footer-links a:hover {
-            color: white;
-        }
-
-        @media (max-width: 768px) {
-            .hero h2 {
-                font-size: 2.5rem;
-            }
-
-            .features-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .nav-links {
-                display: none;
-            }
-
-            .cta-buttons {
-                flex-direction: column;
-                align-items: center;
-            }
-
-            .footer-content {
-                flex-direction: column;
-                text-align: center;
-            }
-        }
-    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <header>
         <div class="container">
             <div class="header-content">
-                <div class="logo">
-                    <div class="logo-icon">📱</div>
+                <a href="index.html" class="logo" style="text-decoration: none; color: inherit;">
+                    <img src="img/inkos.svg" alt="inkOS logo" />
                     <h1>inkOS</h1>
-                </div>
+                </a>
                 <nav class="nav-links">
-                    <a href="#features">Features</a>
-                    <a href="#customization">Customization</a>
-                    <a href="#download">Download</a>
-                    <a href="https://github.com/gezimos/inkOS">GitHub</a>
+                    <a href="#intro">Intro</a>
+                    <a href="features.html">Features</a>
+                    <a href="faq.html">FAQ</a>
+                    <a href="https://youtube.com/@gezimos" target="_blank" rel="noopener">Video</a>
                 </nav>
+                <a class="header-action" href="https://www.buymeacoffee.com/gezimos" target="_blank" rel="noopener">Buy me a coffee</a>
             </div>
         </div>
     </header>
 
     <section class="hero">
         <div class="container">
-            <h2>Minimalist Android Launcher</h2>
-            <p>A clean, customizable, and feature-rich launcher designed for simplicity and productivity. Perfect for e-ink devices and minimalist enthusiasts.</p>
-            <div class="cta-buttons">
-                <a href="#download" class="btn btn-primary">📥 Download APK</a>
-                <a href="https://github.com/gezimos/inkOS" class="btn btn-secondary">⭐ View on GitHub</a>
+            <div class="hero-top">
+                <a href="https://github.com/gezimos/inkOS/releases" class="btn btn-secondary">Download apk</a>
+                <svg class="hero-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 72" aria-label="inkOS logo">
+                    <path fill="#fff" stroke="#000" stroke-width="2" d="M72,36C56.18,28.55,43.45,15.82,36,0h0C28.55,15.82,15.82,28.55,0,36h0c15.82,7.45,28.55,20.18,36,36h0s0,0,0,0c7.45-15.82,20.18-28.55,36-36h0s0,0,0,0Z"/>
+                </svg>
+                <a href="https://github.com/gezimos/inkOS" class="btn btn-secondary">Source Code</a>
+            </div>
+            <div class="hero-content">
+                <h2>inkOS is a minimal text launcher</h2>
+                <p>optimized for e-ink devices and keypad/qwerty phones</p>
+                <div class="hero-phones" aria-hidden="true">
+                <div class="hero-mockup side">
+                    <img class="frame" src="img/mockup.svg" alt="device frame">
+                    <img class="shot" src="img/screenshots/2_simple.png" alt="inkOS screenshot">
+                </div>
+                <div class="hero-mockup center">
+                    <img class="frame" src="img/mockup.svg" alt="device frame">
+                    <video id="hero-video" class="shot-video" autoplay loop muted playsinline preload="auto">
+                        <source src="img/video.mp4" type="video/mp4">
+                    </video>
+                </div>
+                <div class="hero-mockup side">
+                    <img class="frame" src="img/mockup.svg" alt="device frame">
+                    <img class="shot" src="img/screenshots/8_azfilter.png" alt="inkOS screenshot">
+                </div>
+            </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="section" id="intro">
+        <div class="container">
+            <h2 class="section-title">What is the point of inkOS?</h2>
+            <p style="max-width: 50rem; margin: 0 auto; font-size: 1.1rem; line-height: 1.7; color: #333; text-align: center;">
+                inkOS is different from other minimalist android launchers because it's optimized for e-ink, keypad and qwerty phones. Almost all of the interface is operable with D-pad, so touch input is optional. It removes all animations and replaces smooth scrolling with discrete, paged navigation, making it comfortable for users who are sensitive to motion and ideal for slow-refresh e-ink displays. To reduce distraction and app hopping, inkOS surfaces notifications directly on the launcher, letting you stay informed without constantly opening apps.            </p>
+        </div>
+    </section>
+
+    <section class="highlight" id="customization">
+        <div class="container">
+            <div class="section-title-row">
+                <button class="carousel-btn prev perfect-prev" aria-label="Previous screenshots">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M15 18l-6-6 6-6"/>
+                    </svg>
+                </button>
+            <h2 class="section-title">Screenshots</h2>
+                <button class="carousel-btn next perfect-next" aria-label="Next screenshots">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 18l6-6-6-6"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="perfect-carousel-wrapper">
+                <div class="stats">
+                <div class="stat-item">
+                    <div class="screenshot-label"><span class="screenshot-name">Widgets</span></div>
+                    <div class="screenshot-frame screenshot-carousel">
+                        <img class="frame" src="img/mockup.svg" alt="device frame">
+                        <img class="shot" src="img/screenshots/1_widgets.png" alt="inkOS screenshot">
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="screenshot-label"><span class="screenshot-name">Simple</span></div>
+                    <div class="screenshot-frame screenshot-carousel">
+                        <img class="frame" src="img/mockup.svg" alt="device frame">
+                        <img class="shot" src="img/screenshots/2_simple.png" alt="inkOS screenshot">
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="screenshot-label"><span class="screenshot-name">Alignment</span></div>
+                    <div class="screenshot-frame screenshot-carousel">
+                        <img class="frame" src="img/mockup.svg" alt="device frame">
+                        <img class="shot" src="img/screenshots/3_alignment.png" alt="inkOS screenshot">
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="screenshot-label"><span class="screenshot-name">Icons</span></div>
+                    <div class="screenshot-frame screenshot-carousel">
+                        <img class="frame" src="img/mockup.svg" alt="device frame">
+                        <img class="shot" src="img/screenshots/4_icons.png" alt="inkOS screenshot">
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="screenshot-label"><span class="screenshot-name">Ripples</span></div>
+                    <div class="screenshot-frame screenshot-carousel">
+                        <img class="frame" src="img/mockup.svg" alt="device frame">
+                        <img class="shot" src="img/screenshots/5_ripples.png" alt="inkOS screenshot">
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="screenshot-label"><span class="screenshot-name">Simple 2</span></div>
+                    <div class="screenshot-frame screenshot-carousel">
+                        <img class="frame" src="img/mockup.svg" alt="device frame">
+                        <img class="shot" src="img/screenshots/6_simple2.png" alt="inkOS screenshot">
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="screenshot-label"><span class="screenshot-name">Invert</span></div>
+                    <div class="screenshot-frame screenshot-carousel">
+                        <img class="frame" src="img/mockup.svg" alt="device frame">
+                        <img class="shot" src="img/screenshots/7_invert.png" alt="inkOS screenshot">
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="screenshot-label"><span class="screenshot-name">A/Z Filter</span></div>
+                    <div class="screenshot-frame screenshot-carousel">
+                        <img class="frame" src="img/mockup.svg" alt="device frame">
+                        <img class="shot" src="img/screenshots/8_azfilter.png" alt="inkOS screenshot">
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="screenshot-label"><span class="screenshot-name">Search</span></div>
+                    <div class="screenshot-frame screenshot-carousel">
+                        <img class="frame" src="img/mockup.svg" alt="device frame">
+                        <img class="shot" src="img/screenshots/9_search.png" alt="inkOS screenshot">
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="screenshot-label"><span class="screenshot-name">A/Z</span></div>
+                    <div class="screenshot-frame screenshot-carousel">
+                        <img class="frame" src="img/mockup.svg" alt="device frame">
+                        <img class="shot" src="img/screenshots/10_az.png" alt="inkOS screenshot">
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="screenshot-label"><span class="screenshot-name">Most Used</span></div>
+                    <div class="screenshot-frame screenshot-carousel">
+                        <img class="frame" src="img/mockup.svg" alt="device frame">
+                        <img class="shot" src="img/screenshots/11_mostused.png" alt="inkOS screenshot">
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="screenshot-label"><span class="screenshot-name">Recents</span></div>
+                    <div class="screenshot-frame screenshot-carousel">
+                        <img class="frame" src="img/mockup.svg" alt="device frame">
+                        <img class="shot" src="img/screenshots/12_recents.png" alt="inkOS screenshot">
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="screenshot-label"><span class="screenshot-name">Simple Tray</span></div>
+                    <div class="screenshot-frame screenshot-carousel">
+                        <img class="frame" src="img/mockup.svg" alt="device frame">
+                        <img class="shot" src="img/screenshots/13_simpletray.png" alt="inkOS screenshot">
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="screenshot-label"><span class="screenshot-name">Letters</span></div>
+                    <div class="screenshot-frame screenshot-carousel">
+                        <img class="frame" src="img/mockup.svg" alt="device frame">
+                        <img class="shot" src="img/screenshots/14_letters.png" alt="inkOS screenshot">
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="screenshot-label"><span class="screenshot-name">Wallpapers</span></div>
+                    <div class="screenshot-frame screenshot-carousel">
+                        <img class="frame" src="img/mockup.svg" alt="device frame">
+                        <img class="shot" src="img/screenshots/15_wallpapers.png" alt="inkOS screenshot">
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="screenshot-label"><span class="screenshot-name">Wallpaper Editor</span></div>
+                    <div class="screenshot-frame screenshot-carousel">
+                        <img class="frame" src="img/mockup.svg" alt="device frame">
+                        <img class="shot" src="img/screenshots/16_wallpapereditor.png" alt="inkOS screenshot">
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="screenshot-label"><span class="screenshot-name">Fonts</span></div>
+                    <div class="screenshot-frame screenshot-carousel">
+                        <img class="frame" src="img/mockup.svg" alt="device frame">
+                        <img class="shot" src="img/screenshots/17_fonts.png" alt="inkOS screenshot">
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="screenshot-label"><span class="screenshot-name">Settings</span></div>
+                    <div class="screenshot-frame screenshot-carousel">
+                        <img class="frame" src="img/mockup.svg" alt="device frame">
+                        <img class="shot" src="img/screenshots/19_settings.png" alt="inkOS screenshot">
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="screenshot-label"><span class="screenshot-name">Settings</span></div>
+                    <div class="screenshot-frame screenshot-carousel">
+                        <img class="frame" src="img/mockup.svg" alt="device frame">
+                        <img class="shot" src="img/screenshots/20_settings.png" alt="inkOS screenshot">
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="screenshot-label"><span class="screenshot-name">Settings</span></div>
+                    <div class="screenshot-frame screenshot-carousel">
+                        <img class="frame" src="img/mockup.svg" alt="device frame">
+                        <img class="shot" src="img/screenshots/21_settings.png" alt="inkOS screenshot">
+                    </div>
+                </div>
+            </div>
             </div>
         </div>
     </section>
 
     <section class="features" id="features">
         <div class="container">
-            <h2>🔧 Core Features</h2>
+            <h2 class="section-title">Core Features</h2>
             <div class="features-grid">
                 <div class="feature-card">
-                    <div class="feature-icon">🏠</div>
+                    <div class="feature-icon">
+                        <img src="img/screenshots/2_simple.png" alt="Customizable Home Screen">
+                    </div>
                     <h3>Customizable Home Screen</h3>
                     <p>Set the number of home apps, pages, and easily drag & drop to rearrange. Auto-divide apps across multiple pages with visual indicators.</p>
                 </div>
 
                 <div class="feature-card">
-                    <div class="feature-icon">🅰</div>
+                    <div class="feature-icon">
+                        <img src="img/screenshots/12_recents.png" alt="Flexible Typography">
+                    </div>
                     <h3>Flexible Typography</h3>
                     <p>Universal font support with individual customization for apps, clock, battery, and notifications. Adjustable text sizes for perfect readability.</p>
                 </div>
 
                 <div class="feature-card">
-                    <div class="feature-icon">🎨</div>
+                    <div class="feature-icon">
+                        <img src="img/screenshots/14_letters.png" alt="Theme & Visual Customization">
+                    </div>
                     <h3>Theme & Visual Customization</h3>
                     <p>Light/dark themes with custom element colors. E-ink optimization with auto-refresh. Show/hide status bar and UI elements as needed.</p>
                 </div>
 
                 <div class="feature-card">
-                    <div class="feature-icon">✋</div>
+                    <div class="feature-icon">
+                        <img src="img/screenshots/13_simpletray.png" alt="Smart Gestures">
+                    </div>
                     <h3>Smart Gestures</h3>
                     <p>Volume key navigation, customizable double-tap actions, swipe gestures for quick access to notifications and apps.</p>
                 </div>
-
-                <div class="feature-card">
-                    <div class="feature-icon">🔔</div>
-                    <h3>Advanced Notifications</h3>
-                    <p>Smart notification system with asterisk indicators, label previews, media playing status, and dedicated notification window.</p>
-                </div>
-
-                <div class="feature-card">
-                    <div class="feature-icon">⚙️</div>
-                    <h3>Advanced Controls</h3>
-                    <p>Hide apps, lock settings with biometrics, backup/restore settings, and comprehensive app management with long-press actions.</p>
-                </div>
             </div>
         </div>
     </section>
 
-    <section class="highlight" id="customization">
+    <section class="section" id="faq">
         <div class="container">
-            <h2 class="section-title">🎯 Perfect For</h2>
-            <div class="stats">
-                <div class="stat-item">
-                    <div class="stat-number">📖</div>
-                    <div class="stat-label">E-ink Devices<br><small>Optimized for Mudita Kompakt & similar</small></div>
+            <h2 class="section-title">FAQ</h2>
+            <div class="faq-list">
+                <div class="faq-item">
+                    <button class="faq-question">
+                        <span>How do I install inkOS?</span>
+                        <span class="faq-icon">+</span>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Download the latest APK from the GitHub releases page and install it on your Android device. Make sure to enable "Install from unknown sources" in your device settings.</p>
+                    </div>
                 </div>
-                <div class="stat-item">
-                    <div class="stat-number">🎯</div>
-                    <div class="stat-label">Minimalists<br><small>Clean, distraction-free interface</small></div>
+                <div class="faq-item">
+                    <button class="faq-question">
+                        <span>Is inkOS compatible with all Android devices?</span>
+                        <span class="faq-icon">+</span>
+                    </button>
+                    <div class="faq-answer">
+                        <p>It is mostly compatible on devices Android 8+, however it should be more compatible on devices 11+. inkOS is specifically optimized for e-ink phones and devices with physical keyboards or keypads. It works best on devices that support D-pad navigation.</p>
+                    </div>
                 </div>
-                <div class="stat-item">
-                    <div class="stat-number">⚡</div>
-                    <div class="stat-label">Power Users<br><small>Extensive customization options</small></div>
+                <div class="faq-item">
+                    <button class="faq-question">
+                        <span>Can I use inkOS without touch input?</span>
+                        <span class="faq-icon">+</span>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Yes! You can use 99% of inkOS with a D-pad, so you can use it mostly without touching the screen. This makes it perfect for devices with physical keyboards.</p>
+                    </div>
                 </div>
-                <div class="stat-item">
-                    <div class="stat-number">🔒</div>
-                    <div class="stat-label">Privacy Focused<br><small>App locking & hidden apps</small></div>
+                <div class="faq-item">
+                    <button class="faq-question">
+                        <span>Does inkOS have animations?</span>
+                        <span class="faq-icon">+</span>
+                    </button>
+                    <div class="faq-answer">
+                        <p>No, inkOS has no animations and uses paged scrolling instead of smooth scrolling. This makes it ideal for e-ink displays and for users who are sensitive to motion.</p>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question">
+                        <span>How do I customize my home screen?</span>
+                        <span class="faq-icon">+</span>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Go to Settings / Home to customize the number of apps per page, rearrange apps by dragging and dropping, and configure visual indicators for multiple pages.</p>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question">
+                        <span>How to add apps in home?</span>
+                        <span class="faq-icon">+</span>
+                    </button>
+                    <div class="faq-answer">
+                        <p>When you complete startup you'll be in home, longpress in "select app" to choose your favorite apps for each shortcut.</p>
+                    </div>
                 </div>
             </div>
-        </div>
-    </section>
-
-    <section class="section">
-        <div class="container">
-            <h2 class="section-title">✨ Key Highlights</h2>
-            <div class="features-grid">
-                <div class="feature-card">
-                    <div class="feature-icon">📱</div>
-                    <h3>Re-order Apps</h3>
-                    <p>Drag and drop interface for easy app rearrangement. Visual numbering system helps you organize your home screen exactly how you want it.</p>
-                </div>
-
-                <div class="feature-card">
-                    <div class="feature-icon">🎵</div>
-                    <h3>Media Integration</h3>
-                    <p>Shows currently playing media with music note indicators and track names. Perfect for music and podcast lovers.</p>
-                </div>
-
-                <div class="feature-card">
-                    <div class="feature-icon">🔐</div>
-                    <h3>App Security</h3>
-                    <p>Lock individual apps with fingerprint or PIN. Hide sensitive apps from the drawer while keeping them accessible when needed.</p>
-                </div>
-
-                <div class="feature-card">
-                    <div class="feature-icon">💾</div>
-                    <h3>Backup & Restore</h3>
-                    <p>Save your perfect setup and restore it anytime. Essential for device changes or factory resets.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <section class="highlight" id="download">
-        <div class="container">
-            <div style="text-align: center;">
-                <h2 class="section-title">📥 Get inkOS</h2>
-                <p style="font-size: 1.2rem; color: #666; margin-bottom: 40px; max-width: 600px; margin-left: auto; margin-right: auto;">
-                    Ready to transform your Android experience? Download the latest version or explore the source code.
-                </p>
-                <div class="cta-buttons">
-                    <a href="https://github.com/gezimos/inkOS/releases/latest" class="btn btn-primary">📱 Download Latest APK</a>
-                    <a href="https://github.com/gezimos/inkOS" class="btn btn-secondary">👨‍💻 View Source Code</a>
-                </div>
+            <div style="text-align: center; margin-top: 2rem;">
+                <a href="faq.html" class="btn btn-primary">View All FAQs</a>
             </div>
         </div>
     </section>
@@ -445,17 +335,171 @@
     <footer>
         <div class="container">
             <div class="footer-content">
-                <div>
-                    <p>&copy; 2025 inkOS. Open source Android launcher.</p>
+                <div class="footer-logo">
+                    <a href="index.html" class="logo" style="text-decoration: none; color: inherit;">
+                        <img src="img/inkos.svg" alt="inkOS logo" />
+                        <h1>inkOS</h1>
+                    </a>
+                    <p>&copy; 2025 inkOS.</p>
                 </div>
-                <div class="footer-links">
-                    <a href="https://github.com/gezimos/inkOS">GitHub</a>
-                    <a href="https://github.com/gezimos/inkOS/issues">Issues</a>
-                    <a href="https://github.com/gezimos/inkOS/releases">Releases</a>
-                    <a href="https://github.com/gezimos/inkOS/blob/main/LICENSE">License</a>
+                <div class="footer-sitemap">
+                    <div class="sitemap-column">
+                        <h3>inkOS</h3>
+                        <a href="#">About</a>
+                        <a href="https://youtube.com/@gezimos" target="_blank" rel="noopener">YouTube</a>
+                        <a href="#">Blog</a>
+                    </div>
+                    <div class="sitemap-column">
+                        <h3>Navigation</h3>
+                        <a href="#intro">Intro</a>
+                        <a href="features.html">Features</a>
+                        <a href="faq.html">FAQ</a>
+                    </div>
+                    <div class="sitemap-column">
+                        <h3>Legal</h3>
+                        <a href="privacy.html">Privacy Policy</a>
+                        <a href="permissions.html">Permissions</a>
+                        <a href="https://github.com/gezimos/inkOS/blob/main/LICENSE">License</a>
+                    </div>
+                    <div class="sitemap-column">
+                        <h3>GitHub</h3>
+                        <a href="https://github.com/gezimos/inkOS">Repository</a>
+                        <a href="https://github.com/gezimos/inkOS/issues">Issues</a>
+                        <a href="https://github.com/gezimos/inkOS/releases">Releases</a>
+                    </div>
                 </div>
             </div>
         </div>
     </footer>
+    <script>
+        (function() {
+            const screenshots = [
+                { file: "1_widgets.png", title: "Widgets" },
+                { file: "2_simple.png", title: "Simple" },
+                { file: "3_alignment.png", title: "Alignment" },
+                { file: "4_icons.png", title: "Icons" },
+                { file: "5_ripples.png", title: "Ripples" },
+                { file: "6_simple2.png", title: "Simple 2" },
+                { file: "7_invert.png", title: "Invert" },
+                { file: "8_azfilter.png", title: "A/Z Filter" },
+                { file: "9_search.png", title: "Search" },
+                { file: "10_az.png", title: "A/Z" },
+                { file: "11_mostused.png", title: "Most Used" },
+                { file: "12_recents.png", title: "Recents" },
+                { file: "13_simpletray.png", title: "Simple Tray" },
+                { file: "14_letters.png", title: "Letters" },
+                { file: "15_wallpapers.png", title: "Wallpapers" },
+                { file: "16_wallpapereditor.png", title: "Wallpaper Editor" },
+                { file: "17_fonts.png", title: "Fonts" },
+                { file: "19_settings.png", title: "Settings" },
+                { file: "20_settings.png", title: "Settings" },
+                { file: "21_settings.png", title: "Settings" }
+            ];
+
+            // Perfect For carousel
+            const perfectStats = document.querySelector('.stats');
+            const perfectPrev = document.querySelector('.perfect-prev');
+            const perfectNext = document.querySelector('.perfect-next');
+            let perfectIndex = 0;
+            const totalPerfectItems = 20;
+
+            function getVisiblePerfectItems() {
+                if (!perfectStats || !perfectStats.children[0]) return 4;
+                const wrapper = perfectStats.parentElement;
+                if (!wrapper) return 4;
+                const wrapperWidth = wrapper.clientWidth;
+                const firstItem = perfectStats.children[0];
+                const itemWidth = firstItem.offsetWidth;
+                const gap = parseFloat(getComputedStyle(perfectStats).gap) || 32;
+                const visible = Math.floor((wrapperWidth + gap) / (itemWidth + gap));
+                return Math.max(1, Math.min(visible, totalPerfectItems));
+            }
+
+            function updatePerfectCarousel() {
+                if (!perfectStats || !perfectStats.children[0]) return;
+                const visiblePerfectItems = getVisiblePerfectItems();
+                const firstItem = perfectStats.children[0];
+                const itemWidth = firstItem.offsetWidth;
+                const gap = parseFloat(getComputedStyle(perfectStats).gap) || 32;
+                
+                // Clamp index to valid range
+                const maxIndex = Math.max(0, Math.ceil((totalPerfectItems - visiblePerfectItems) / visiblePerfectItems));
+                if (perfectIndex > maxIndex) {
+                    perfectIndex = maxIndex;
+                }
+                
+                // Move multiple items at once (4 on desktop), but with no animation
+                const slideDistance = visiblePerfectItems * (itemWidth + gap);
+                const translateX = -perfectIndex * slideDistance;
+                perfectStats.style.transition = 'none';
+                perfectStats.style.transform = `translateX(${translateX}px)`;
+                
+                // Disable buttons at boundaries
+                if (perfectPrev) {
+                    perfectPrev.disabled = perfectIndex === 0;
+                }
+                if (perfectNext) {
+                    perfectNext.disabled = perfectIndex >= maxIndex;
+                }
+            }
+
+            if (perfectPrev) {
+                perfectPrev.addEventListener('click', () => {
+                    if (perfectIndex > 0) {
+                        perfectIndex--;
+                        updatePerfectCarousel();
+                    }
+                });
+            }
+
+            if (perfectNext) {
+                perfectNext.addEventListener('click', () => {
+                    const visiblePerfectItems = getVisiblePerfectItems();
+                    const maxIndex = Math.ceil((totalPerfectItems - visiblePerfectItems) / visiblePerfectItems);
+                    if (perfectIndex < maxIndex) {
+                        perfectIndex++;
+                        updatePerfectCarousel();
+                    }
+                });
+            }
+
+            // Initialize
+            if (perfectStats) {
+                updatePerfectCarousel();
+                window.addEventListener('resize', updatePerfectCarousel);
+            }
+
+            const heroVideo = document.getElementById('hero-video');
+            if (heroVideo) {
+                heroVideo.muted = true;
+                heroVideo.play().then(() => {
+                    heroVideo.classList.add('ready');
+                }).catch(() => {
+                    // Autoplay blocked; try once metadata is loaded
+                });
+                heroVideo.addEventListener('loadeddata', () => {
+                    heroVideo.classList.add('ready');
+                    heroVideo.play().catch(() => {});
+                });
+            }
+
+            // FAQ Accordion
+            const faqItems = document.querySelectorAll('.faq-item');
+            faqItems.forEach(item => {
+                const question = item.querySelector('.faq-question');
+                if (question) {
+                    question.addEventListener('click', () => {
+                        const isActive = item.classList.contains('active');
+                        // Close all items
+                        faqItems.forEach(i => i.classList.remove('active'));
+                        // Open clicked item if it wasn't active
+                        if (!isActive) {
+                            item.classList.add('active');
+                        }
+                    });
+                }
+            });
+        })();
+    </script>
 </body>
 </html>

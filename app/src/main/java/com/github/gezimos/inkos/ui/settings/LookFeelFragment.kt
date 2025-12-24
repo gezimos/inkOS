@@ -3,13 +3,10 @@ package com.github.gezimos.inkos.ui.settings
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
-import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,8 +18,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -32,6 +29,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.sp
+import androidx.core.graphics.ColorUtils
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
@@ -39,20 +37,15 @@ import com.github.gezimos.common.showShortToast
 import com.github.gezimos.inkos.MainViewModel
 import com.github.gezimos.inkos.R
 import com.github.gezimos.inkos.data.Constants
-import com.github.gezimos.inkos.data.Constants.Theme.Dark
-import com.github.gezimos.inkos.data.Constants.Theme.Light
-import com.github.gezimos.inkos.data.Constants.Theme.System
 import com.github.gezimos.inkos.data.Prefs
 import com.github.gezimos.inkos.helper.getHexForOpacity
 import com.github.gezimos.inkos.helper.hideNavigationBar
 import com.github.gezimos.inkos.helper.hideStatusBar
-import com.github.gezimos.inkos.helper.isSystemInDarkMode
-import com.github.gezimos.inkos.helper.setThemeMode
 import com.github.gezimos.inkos.helper.showNavigationBar
 import com.github.gezimos.inkos.helper.showStatusBar
+import com.github.gezimos.inkos.helper.utils.VibrationHelper
 import com.github.gezimos.inkos.listener.DeviceAdmin
 import com.github.gezimos.inkos.style.SettingsTheme
-import com.github.gezimos.inkos.ui.compose.SettingsComposable.DashedSeparator
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.PageHeader
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsSelect
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsSelectWithColorPreview
@@ -69,79 +62,23 @@ class LookFeelFragment : Fragment() {
     private lateinit var dialogBuilder: DialogManager
 
     // Callbacks for updating UI state
-    private var onHomeImageChanged: ((String?) -> Unit)? = null
-    private var onHomeImageOpacityChanged: ((Int) -> Unit)? = null
-
-    // Activity result launchers for image picking
-    private val homeBackgroundImagePicker = registerForActivityResult(
-        ActivityResultContracts.OpenDocument()
-    ) { uri: Uri? ->
-        uri?.let {
-            // Check if image needs optimization before setting
-            try {
-                val contentResolver = requireContext().contentResolver
-                val dimensionOptions = android.graphics.BitmapFactory.Options().apply {
-                    inJustDecodeBounds = true
-                }
-
-                contentResolver.openInputStream(it)?.use { inputStream ->
-                    android.graphics.BitmapFactory.decodeStream(inputStream, null, dimensionOptions)
-                }
-
-                val originalWidth = dimensionOptions.outWidth
-                val originalHeight = dimensionOptions.outHeight
-
-                // Calculate screen size limits (2x resolution max)
-                val displayMetrics = requireContext().resources.displayMetrics
-                val screenWidth = displayMetrics.widthPixels
-                val screenHeight = displayMetrics.heightPixels
-                val maxWidth = screenWidth * 2
-                val maxHeight = screenHeight * 2
-
-                // Show optimization notice if image will be downsampled
-                if (originalWidth > maxWidth || originalHeight > maxHeight) {
-                    showShortToast("Large image will be optimized for performance (${originalWidth}×${originalHeight} → ~${maxWidth}×${maxHeight})")
-                }
-
-            } catch (e: Exception) {
-                android.util.Log.e(
-                    "LookFeelFragment",
-                    "Error checking image dimensions: ${e.message}"
-                )
-            }
-
-            // Persist URI permission
-            try {
-                requireContext().contentResolver.takePersistableUriPermission(
-                    it, Intent.FLAG_GRANT_READ_URI_PERMISSION
-                )
-                prefs.homeBackgroundImageUri = it.toString()
-                // Trigger MainViewModel LiveData update
-                viewModel.homeBackgroundImageUri.postValue(it.toString())
-                onHomeImageChanged?.invoke(it.toString())
-            } catch (e: Exception) {
-                android.util.Log.e(
-                    "LookFeelFragment",
-                    "Error persisting home background URI: ${e.message}"
-                )
-            }
-        }
-    }
+    private var onBackgroundOpacityChanged: ((Int) -> Unit)? = null
+    // Minimum acceptable contrast ratio between text and background
+    private val MIN_CONTRAST = 3.0
 
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        prefs = Prefs(requireContext())
+        // Initialize ViewModel early so Compose content can read its state immediately.
+        viewModel = activity?.run {
+            ViewModelProvider(this)[MainViewModel::class.java]
+        } ?: throw Exception("Invalid Activity")
+        prefs = viewModel.getPrefs()
         dialogBuilder = DialogManager(requireContext(), requireActivity())
-        val backgroundColor = getHexForOpacity(prefs)
-        val isDark = when (prefs.appTheme) {
-            Light -> false
-            Dark -> true
-            System -> isSystemInDarkMode(requireContext())
-        }
-        val settingsSize = (prefs.settingsSize - 3)
+        val backgroundColor = getHexForOpacity(requireContext())
+        val isDark = prefs.appTheme == Constants.Theme.Dark
         val context = requireContext()
         val currentPage = intArrayOf(0)
         val pageCount = intArrayOf(1)
@@ -167,6 +104,9 @@ class LookFeelFragment : Fragment() {
         @Composable
         fun HeaderContent() {
             androidx.compose.ui.platform.LocalDensity.current
+            // Observe settingsSize from ViewModel so header updates when font size changes
+            val homeUiStateValue by viewModel.homeUiState.collectAsState()
+            val settingsSize = (homeUiStateValue.settingsSize - 3)
             // Remove bottomInsetDp from header
             SettingsTheme(isDark) {
                 Column(Modifier.fillMaxWidth()) {
@@ -174,7 +114,7 @@ class LookFeelFragment : Fragment() {
                         iconRes = R.drawable.ic_back,
                         title = stringResource(R.string.look_feel_settings_title),
                         onClick = { findNavController().popBackStack() },
-                        showStatusBar = prefs.showStatusBar,
+                        showStatusBar = homeUiStateValue.showStatusBar,
                         pageIndicator = {
                             com.github.gezimos.inkos.ui.compose.SettingsComposable.PageIndicator(
                                 currentPage = currentPage[0],
@@ -192,31 +132,44 @@ class LookFeelFragment : Fragment() {
         }
         rootLayout.addView(headerView)
 
+        val contentComposeView = androidx.compose.ui.platform.ComposeView(context)
         val nestedScrollView = androidx.core.widget.NestedScrollView(context).apply {
             isFillViewport = true
             setBackgroundColor(backgroundColor)
             addView(
-                androidx.compose.ui.platform.ComposeView(context).apply {
-                    setContent {
-                        val density = androidx.compose.ui.platform.LocalDensity.current
-                        val bottomInsetDp = with(density) { bottomInsetPx.toDp() }
-                        SettingsTheme(isDark) {
-                            Box(Modifier.fillMaxSize()) {
-                                Column {
-                                    LookFeelSettingsAllInOne(settingsSize.sp, isDark)
-                                    if (bottomInsetDp > 0.dp) {
-                                        Spacer(modifier = Modifier.height(bottomInsetDp))
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
+                contentComposeView,
                 ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT
                 )
             )
+        }
+        
+        contentComposeView.setContent {
+            val density = androidx.compose.ui.platform.LocalDensity.current
+            val bottomInsetDp = with(density) { bottomInsetPx.toDp() }
+            // Observe settingsSize from ViewModel so content recomposes when font size changes
+            val homeUiStateValue by viewModel.homeUiState.collectAsState()
+            val settingsSize = (homeUiStateValue.settingsSize - 3)
+            
+            // Force scroll view to remeasure when settingsSize changes
+            androidx.compose.runtime.LaunchedEffect(homeUiStateValue.settingsSize) {
+                nestedScrollView.post {
+                    nestedScrollView.requestLayout()
+                    contentComposeView.requestLayout()
+                }
+            }
+            
+            SettingsTheme(isDark) {
+                Box(Modifier.fillMaxSize()) {
+                    Column {
+                        LookFeelSettingsAllInOne(settingsSize.sp, isDark)
+                        if (bottomInsetDp > 0.dp) {
+                            Spacer(modifier = Modifier.height(bottomInsetDp))
+                        }
+                    }
+                }
+            }
         }
         com.github.gezimos.inkos.helper.utils.EinkScrollBehavior(context)
             .attachToScrollView(nestedScrollView)
@@ -248,366 +201,252 @@ class LookFeelFragment : Fragment() {
     fun LookFeelSettingsAllInOne(fontSize: TextUnit = TextUnit.Unspecified, isDark: Boolean) {
         findNavController()
         val titleFontSize = if (fontSize.isSpecified) (fontSize.value * 1.5).sp else fontSize
-        val toggledShowStatusBar = remember { mutableStateOf(prefs.showStatusBar) }
-        val toggledShowNavigationBar = remember { mutableStateOf(prefs.showNavigationBar) }
-        val selectedTheme = remember { mutableStateOf(prefs.appTheme) }
-        val selectedBackgroundColor = remember { mutableStateOf(prefs.backgroundColor) }
-        val selectedAppColor = remember { mutableStateOf(prefs.appColor) }
-        val selectedClockColor = remember { mutableStateOf(prefs.clockColor) }
-        val selectedBatteryColor = remember { mutableStateOf(prefs.batteryColor) }
-        val selectedDateColor = remember { mutableStateOf(prefs.dateColor) }
-        val selectedQuoteColor = remember { mutableStateOf(prefs.quoteColor) }
-        val selectedAudioWidgetColor = remember { mutableStateOf<Int>(prefs.audioWidgetColor) }
-        val vibrationForPaging = remember { mutableStateOf(prefs.useVibrationForPaging) }
-        val homeBackgroundImageUri = remember { mutableStateOf(prefs.homeBackgroundImageUri) }
-        val homeBackgroundImageOpacity =
-            remember { mutableStateOf(prefs.homeBackgroundImageOpacity) }
-
-        // Set up callbacks for updating state
-        onHomeImageChanged = { uri -> homeBackgroundImageUri.value = uri }
-        onHomeImageOpacityChanged = { opacity -> homeBackgroundImageOpacity.value = opacity }
-
-        // Clean up callbacks when composable is disposed
-        androidx.compose.runtime.DisposableEffect(Unit) {
-            onDispose {
-                onHomeImageChanged = null
-                onHomeImageOpacityChanged = null
-            }
+        // Ensure ViewModel is initialized before observing (prevents Android 15-16 lifecycle race)
+        if (!::viewModel.isInitialized) {
+            // Fallback UI or loading indicator if ViewModel isn't ready yet
+            return
         }
-
+        // Observe values from ViewModel so Compose updates when prefs change elsewhere
+        val uiState by viewModel.homeUiState.collectAsState()
+        
         Constants.updateMaxHomePages(requireContext())
-        Column(modifier = Modifier.fillMaxSize()) {
+        SettingsTheme(isDark) {
+            Column(modifier = Modifier.fillMaxSize()) {
             // Theme Mode
-            DashedSeparator()
+                    // DashedSeparator() removed as per patch requirement
 
             // Visibility & Display
             SettingsTitle(
                 text = stringResource(R.string.visibility_display),
                 fontSize = titleFontSize,
             )
-            DashedSeparator()
+                    // DashedSeparator() removed as per patch requirement
             SettingsSelect(
                 title = stringResource(id = R.string.theme_mode),
-                option = when (selectedTheme.value) {
-                    System -> "System"
-                    Light -> "Light"
-                    Dark -> "Dark"
-                },
+                option = if (uiState.appTheme == Constants.Theme.Dark) "Dark" else "Light",
                 fontSize = titleFontSize,
                 onClick = {
-                    selectedTheme.value = when (selectedTheme.value) {
-                        System -> Light
-                        Light -> Dark
-                        Dark -> System
-                    }
-                    prefs.appTheme = selectedTheme.value
-                    val isDark = when (selectedTheme.value) {
-                        Light -> false
-                        Dark -> true
-                        System -> isSystemInDarkMode(requireContext())
-                    }
-                    selectedBackgroundColor.value =
-                        if (isDark) Color.Black.toArgb() else Color.White.toArgb()
-                    selectedAppColor.value =
-                        if (isDark) Color.White.toArgb() else Color.Black.toArgb()
-                    selectedClockColor.value =
-                        if (isDark) Color.White.toArgb() else Color.Black.toArgb()
-                    selectedBatteryColor.value =
-                        if (isDark) Color.White.toArgb() else Color.Black.toArgb()
-                    selectedDateColor.value =
-                        if (isDark) Color.White.toArgb() else Color.Black.toArgb()
-                    selectedQuoteColor.value =
-                        if (isDark) Color.White.toArgb() else Color.Black.toArgb()
-                    selectedAudioWidgetColor.value =
-                        if (isDark) Color.White.toArgb() else Color.Black.toArgb()
-                    prefs.backgroundColor = selectedBackgroundColor.value
-                    prefs.appColor = selectedAppColor.value
-                    prefs.clockColor = selectedClockColor.value
-                    prefs.batteryColor = selectedBatteryColor.value
-                    prefs.dateColor = selectedDateColor.value
-                    prefs.quoteColor = selectedQuoteColor.value
-                    prefs.audioWidgetColor = selectedAudioWidgetColor.value
-                    setThemeMode(
-                        requireContext(),
-                        isDark,
-                        requireActivity().window.decorView
-                    )
+                    // Toggle between Light and Dark only (System mode removed)
+                    val newTheme = if (uiState.appTheme == Constants.Theme.Light) Constants.Theme.Dark else Constants.Theme.Light
+                    viewModel.setAppTheme(newTheme)
+                    
+                    val isDarkTheme = newTheme == Constants.Theme.Dark
+                    val bg = if (isDarkTheme) Color.Black.toArgb() else Color.White.toArgb()
+                    val txt = if (isDarkTheme) Color.White.toArgb() else Color.Black.toArgb()
+                    
+                    viewModel.setBackgroundColor(bg)
+                    viewModel.setTextColor(txt)
                     requireActivity().recreate()
                 }
             )
-            DashedSeparator()
+                    // DashedSeparator() removed as per patch requirement
             SettingsSwitch(
                 text = "Vibration Feedback",
                 fontSize = titleFontSize,
-                defaultState = vibrationForPaging.value,
-                onCheckedChange = {
-                    vibrationForPaging.value = it
-                    prefs.useVibrationForPaging = it
+                defaultState = uiState.hapticFeedback,
+                onCheckedChange = { checked ->
+                    viewModel.setHapticFeedback(checked)
+                    try { VibrationHelper.setEnabled(checked) } catch (_: Exception) {}
                 }
             )
-            DashedSeparator()
+                    // DashedSeparator() removed as per patch requirement
             SettingsSwitch(
                 text = stringResource(R.string.show_status_bar),
                 fontSize = titleFontSize,
-                defaultState = toggledShowStatusBar.value,
-                onCheckedChange = {
-                    toggledShowStatusBar.value = !prefs.showStatusBar
-                    prefs.showStatusBar = toggledShowStatusBar.value
-                    if (toggledShowStatusBar.value) showStatusBar(requireActivity()) else hideStatusBar(
-                        requireActivity()
-                    )
+                defaultState = uiState.showStatusBar,
+                onCheckedChange = { checked ->
+                    viewModel.setShowStatusBar(checked)
+                    if (checked) showStatusBar(requireActivity()) else hideStatusBar(requireActivity())
                 }
             )
-            DashedSeparator()
+                    // DashedSeparator() removed as per patch requirement
             SettingsSwitch(
                 text = stringResource(R.string.show_navigation_bar),
                 fontSize = titleFontSize,
-                defaultState = toggledShowNavigationBar.value,
-                onCheckedChange = {
-                    toggledShowNavigationBar.value = !prefs.showNavigationBar
-                    prefs.showNavigationBar = toggledShowNavigationBar.value
-                    if (toggledShowNavigationBar.value) showNavigationBar(requireActivity()) else hideNavigationBar(
-                        requireActivity()
+                defaultState = uiState.showNavigationBar,
+                onCheckedChange = { checked ->
+                    viewModel.setShowNavigationBar(checked)
+                    if (checked) showNavigationBar(requireActivity()) else hideNavigationBar(requireActivity())
+                }
+            )
+            
+            // Element Colors
+                    // DashedSeparator() removed as per patch requirement
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                SettingsTitle(
+                    text = stringResource(R.string.element_colors),
+                    fontSize = titleFontSize,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    text = stringResource(R.string.reset),
+                    style = SettingsTheme.typography.button,
+                    fontSize = if (titleFontSize.isSpecified) (titleFontSize.value * 0.7).sp else 14.sp,
+                    modifier = Modifier
+                        .padding(end = SettingsTheme.color.horizontalPadding)
+                        .clickable {
+                            val isDarkMode = uiState.appTheme == Constants.Theme.Dark
+                            val bg = if (isDarkMode) Color.Black.toArgb() else Color.White.toArgb()
+                            val txt = if (isDarkMode) Color.White.toArgb() else Color.Black.toArgb()
+                            
+                            viewModel.setBackgroundColor(bg)
+                            viewModel.setTextColor(txt)
+                            
+                            val lum = ColorUtils.calculateLuminance(bg)
+                            val newTheme = if (lum < 0.5) Constants.Theme.Dark else Constants.Theme.Light
+                            viewModel.setAppTheme(newTheme)
+                            requireActivity().recreate()
+                        }
+                )
+            }
+                    // DashedSeparator() removed as per patch requirement
+            SettingsSelect(
+                title = "Set Wallpaper",
+                option = "Open",
+                fontSize = titleFontSize,
+                onClick = {
+                    findNavController().navigate(R.id.action_settingsLookFeelFragment_to_wallpaperFragment)
+                }
+            )
+         // DashedSeparator() removed as per patch requirement
+            SettingsSelect(
+                title = "Background Opacity",
+                option = "${uiState.backgroundOpacity.coerceIn(0,255)}",
+                fontSize = titleFontSize,
+                onClick = {
+                    dialogBuilder.showSliderDialog(
+                        context = requireContext(),
+                        title = "Background Opacity",
+                        minValue = 0,
+                        maxValue = 255,
+                        currentValue = uiState.backgroundOpacity,
+                        onValueSelected = { newOpacity ->
+                            viewModel.setBackgroundOpacity(newOpacity)
+                        }
                     )
                 }
             )
 
-            DashedSeparator()
-            // Background Images
-            SettingsTitle(
-                text = "Background Images",
-                fontSize = titleFontSize,
-            )
-            DashedSeparator()
-
-            SettingsSelect(
-                title = "Home Image",
-                option = if (homeBackgroundImageUri.value != null) "Clear" else "Set",
+                    // DashedSeparator() removed as per patch requirement
+            val hexBackgroundColor =
+                String.format("#%06X", (0xFFFFFF and uiState.backgroundColor))
+            SettingsSelectWithColorPreview(
+                title = stringResource(R.string.background_color),
+                hexColor = hexBackgroundColor,
+                previewColor = Color(uiState.backgroundColor),
                 fontSize = titleFontSize,
                 onClick = {
-                    if (homeBackgroundImageUri.value != null) {
-                        // Clear the image
-                        prefs.homeBackgroundImageUri = null
-                        homeBackgroundImageUri.value = null
-                        // Trigger MainViewModel LiveData update
-                        viewModel.homeBackgroundImageUri.postValue(null)
-                    } else {
-                        // Set a new image
-                        homeBackgroundImagePicker.launch(arrayOf("image/*"))
-                    }
+                    dialogBuilder.showColorPickerDialog(
+                        context = requireContext(),
+                        color = uiState.backgroundColor,
+                        titleResId = R.string.background_color,
+                        onItemSelected = { selectedColor ->
+                            val contrast = ColorUtils.calculateContrast(uiState.textColor, selectedColor)
+                            if (contrast < MIN_CONTRAST) {
+                                showShortToast(
+                                    "Selected background color is too similar to text color. Choose a different color."
+                                )
+                            } else {
+                                viewModel.setBackgroundColor(selectedColor)
+                                val lum = ColorUtils.calculateLuminance(selectedColor)
+                                val newTheme = if (lum < 0.5) Constants.Theme.Dark else Constants.Theme.Light
+                                viewModel.setAppTheme(newTheme)
+                                requireActivity().recreate()
+                            }
+                        })
                 }
             )
-
-            if (homeBackgroundImageUri.value != null) {
-                DashedSeparator()
-                SettingsSelect(
-                    title = "Image Opacity",
-                    option = "${homeBackgroundImageOpacity.value}%",
-                    fontSize = titleFontSize,
-                    onClick = {
-                        dialogBuilder.showSliderDialog(
-                            context = requireContext(),
-                            title = "Image Opacity",
-                            minValue = 10,
-                            maxValue = 100,
-                            currentValue = homeBackgroundImageOpacity.value,
-                            onValueSelected = { newOpacity ->
-                                homeBackgroundImageOpacity.value = newOpacity
-                                prefs.homeBackgroundImageOpacity = newOpacity
-                                // Trigger MainViewModel LiveData update
-                                viewModel.homeBackgroundImageOpacity.postValue(newOpacity)
-                                onHomeImageOpacityChanged?.invoke(newOpacity)
-                            }
-                        )
-                    }
-                )
-            }
-
-        }
-
-
-        // Element Colors
-    DashedSeparator()
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            SettingsTitle(
-                text = stringResource(R.string.element_colors),
+                    // DashedSeparator() removed as per patch requirement
+            val hexTextColor = String.format("#%06X", (0xFFFFFF and uiState.textColor))
+            SettingsSelectWithColorPreview(
+                title = "Text Color",
+                hexColor = hexTextColor,
+                previewColor = Color(uiState.textColor),
                 fontSize = titleFontSize,
-                modifier = Modifier.weight(1f)
+                onClick = {
+                    dialogBuilder.showColorPickerDialog(
+                        context = requireContext(),
+                        color = uiState.textColor,
+                        titleResId = R.string.text_color,
+                        onItemSelected = { selectedColor ->
+                            val contrast = ColorUtils.calculateContrast(selectedColor, uiState.backgroundColor)
+                            if (contrast < MIN_CONTRAST) {
+                                showShortToast(
+                                    "Selected text color is too similar to background color. Choose a different color."
+                                )
+                            } else {
+                                viewModel.setTextColor(selectedColor)
+                                // Determine theme from text luminance: dark text -> Light theme
+                                val lum = ColorUtils.calculateLuminance(selectedColor)
+                                val newTheme = if (lum < 0.5) Constants.Theme.Light else Constants.Theme.Dark
+                                viewModel.setAppTheme(newTheme)
+                                requireActivity().recreate()
+                            }
+                        })
+                }
             )
-            Text(
-                text = stringResource(R.string.reset),
-                style = SettingsTheme.typography.button,
-                fontSize = if (titleFontSize.isSpecified) (titleFontSize.value * 0.7).sp else 14.sp,
-                modifier = Modifier
-                    .padding(end = SettingsTheme.color.horizontalPadding)
-                    .clickable {
-                        val isDarkMode = when (prefs.appTheme) {
-                            Dark -> true
-                            Light -> false
-                            System -> isSystemInDarkMode(requireContext())
-                        }
-                        selectedBackgroundColor.value =
-                            if (isDarkMode) Color.Black.toArgb() else Color.White.toArgb()
-                        selectedAppColor.value =
-                            if (isDarkMode) Color.White.toArgb() else Color.Black.toArgb()
-                        selectedClockColor.value =
-                            if (isDarkMode) Color.White.toArgb() else Color.Black.toArgb()
-                        selectedBatteryColor.value =
-                            if (isDarkMode) Color.White.toArgb() else Color.Black.toArgb()
-                        selectedDateColor.value =
-                            if (isDarkMode) Color.White.toArgb() else Color.Black.toArgb()
-                        selectedQuoteColor.value =
-                            if (isDarkMode) Color.White.toArgb() else Color.Black.toArgb()
-                        selectedAudioWidgetColor.value =
-                            if (isDarkMode) Color.White.toArgb() else Color.Black.toArgb()
-                        prefs.backgroundColor = selectedBackgroundColor.value
-                        prefs.appColor = selectedAppColor.value
-                        prefs.clockColor = selectedClockColor.value
-                        prefs.batteryColor = selectedBatteryColor.value
-                        prefs.dateColor = selectedDateColor.value
-                        prefs.quoteColor = selectedQuoteColor.value
-                        prefs.audioWidgetColor = selectedAudioWidgetColor.value
-                    }
+            
+            // Text Islands Section
+            SettingsTitle(
+                text = "Text Islands",
+                fontSize = titleFontSize,
             )
+            SettingsSwitch(
+                text = "Enable Text Islands",
+                fontSize = titleFontSize,
+                defaultState = uiState.textIslands,
+                onCheckedChange = {
+                    viewModel.setTextIslands(it)
+                }
+            )
+            
+            SettingsSwitch(
+                text = "Invert Islands",
+                fontSize = titleFontSize,
+                defaultState = uiState.textIslandsInverted,
+                onCheckedChange = {
+                    viewModel.setTextIslandsInverted(it)
+                }
+            )
+            
+            // Corners selector moved to Icons & Buttons section
+            
+            // Icons Section
+            SettingsTitle(
+                text = "Icons & Buttons",
+                fontSize = titleFontSize,
+            )
+            SettingsSwitch(
+                text = "Show Icons",
+                fontSize = titleFontSize,
+                defaultState = uiState.showIcons,
+                onCheckedChange = {
+                    viewModel.setShowIcons(it)
+                }
+            )
+            // Corners selector (moved here from Text Islands)
+            val shapeLabels = listOf(
+                "Pill",
+                "Rounded",
+                "Square"
+            )
+            SettingsSelect(
+                title = "Corners",
+                option = shapeLabels.getOrElse(uiState.textIslandsShape) { "Pill" },
+                fontSize = titleFontSize,
+                onClick = {
+                    val next = (uiState.textIslandsShape + 1) % 3
+                    viewModel.setTextIslandsShape(next)
+                }
+            )
+                    // DashedSeparator() removed as per patch requirement
+            }
         }
-    DashedSeparator()
-        val hexBackgroundColor =
-            String.format("#%06X", (0xFFFFFF and selectedBackgroundColor.value))
-        SettingsSelectWithColorPreview(
-            title = stringResource(R.string.background_color),
-            hexColor = hexBackgroundColor,
-            previewColor = Color(selectedBackgroundColor.value),
-            fontSize = titleFontSize,
-            onClick = {
-                dialogBuilder.showColorPickerDialog(
-                    context = requireContext(),
-                    color = selectedBackgroundColor.value,
-                    titleResId = R.string.background_color,
-                    onItemSelected = { selectedColor ->
-                        selectedBackgroundColor.value = selectedColor
-                        prefs.backgroundColor = selectedColor
-                    })
-            }
-        )
-        DashedSeparator()
-        val hexAppColor = String.format("#%06X", (0xFFFFFF and selectedAppColor.value))
-        SettingsSelectWithColorPreview(
-            title = stringResource(R.string.app_color),
-            hexColor = hexAppColor,
-            previewColor = Color(selectedAppColor.value),
-            fontSize = titleFontSize,
-            onClick = {
-                dialogBuilder.showColorPickerDialog(
-                    context = requireContext(),
-                    color = selectedAppColor.value,
-                    titleResId = R.string.app_color,
-                    onItemSelected = { selectedColor ->
-                        selectedAppColor.value = selectedColor
-                        prefs.appColor = selectedColor
-                    })
-            }
-        )
-
-        DashedSeparator()
-        val hexClockColor = String.format("#%06X", (0xFFFFFF and selectedClockColor.value))
-        SettingsSelectWithColorPreview(
-            title = stringResource(R.string.clock_color),
-            hexColor = hexClockColor,
-            previewColor = Color(selectedClockColor.value),
-            fontSize = titleFontSize,
-            onClick = {
-                dialogBuilder.showColorPickerDialog(
-                    context = requireContext(),
-                    color = selectedClockColor.value,
-                    titleResId = R.string.clock_color,
-                    onItemSelected = { selectedColor ->
-                        selectedClockColor.value = selectedColor
-                        prefs.clockColor = selectedColor
-                    })
-            }
-        )
-        DashedSeparator()
-        val hexBatteryColor = String.format("#%06X", (0xFFFFFF and selectedBatteryColor.value))
-        SettingsSelectWithColorPreview(
-            title = stringResource(R.string.battery_color),
-            hexColor = hexBatteryColor,
-            previewColor = Color(selectedBatteryColor.value),
-            fontSize = titleFontSize,
-            onClick = {
-                dialogBuilder.showColorPickerDialog(
-                    context = requireContext(),
-                    color = selectedBatteryColor.value,
-                    titleResId = R.string.battery_color,
-                    onItemSelected = { selectedColor ->
-                        selectedBatteryColor.value = selectedColor
-                        prefs.batteryColor = selectedColor
-                    })
-            }
-        )
-        DashedSeparator()
-        val hexDateColor = String.format("#%06X", (0xFFFFFF and selectedDateColor.value))
-        SettingsSelectWithColorPreview(
-            title = stringResource(R.string.date_color),
-            hexColor = hexDateColor,
-            previewColor = Color(selectedDateColor.value),
-            fontSize = titleFontSize,
-            onClick = {
-                dialogBuilder.showColorPickerDialog(
-                    context = requireContext(),
-                    color = selectedDateColor.value,
-                    titleResId = R.string.date_color,
-                    onItemSelected = { selectedColor ->
-                        selectedDateColor.value = selectedColor
-                        prefs.dateColor = selectedColor
-                    })
-            }
-        )
-        DashedSeparator()
-        val hexQuoteColor = String.format("#%06X", (0xFFFFFF and selectedQuoteColor.value))
-        SettingsSelectWithColorPreview(
-            title = stringResource(R.string.quote_color),
-            hexColor = hexQuoteColor,
-            previewColor = Color(selectedQuoteColor.value),
-            fontSize = titleFontSize,
-            onClick = {
-                dialogBuilder.showColorPickerDialog(
-                    context = requireContext(),
-                    color = selectedQuoteColor.value,
-                    titleResId = R.string.quote_color,
-                    onItemSelected = { selectedColor ->
-                        selectedQuoteColor.value = selectedColor
-                        prefs.quoteColor = selectedColor
-                    }
-                )
-            }
-        )            // Audio Widget Color
-        DashedSeparator()
-        val hexAudioWidgetColor =
-            String.format("#%06X", (0xFFFFFF and selectedAudioWidgetColor.value))
-        SettingsSelectWithColorPreview(
-            title = "Audio widget",
-            hexColor = hexAudioWidgetColor,
-            previewColor = Color(selectedAudioWidgetColor.value),
-            fontSize = titleFontSize,
-            onClick = {
-                dialogBuilder.showColorPickerDialog(
-                    context = requireContext(),
-                    color = selectedAudioWidgetColor.value,
-                    titleResId = R.string.quote_color, // Reuse existing string for now
-                    onItemSelected = { selectedColor ->
-                        selectedAudioWidgetColor.value = selectedColor
-                        prefs.audioWidgetColor = selectedColor
-                    }
-                )
-            }
-        )
-    DashedSeparator()
-
-
     }
+
 
     private fun dismissDialogs() {
         dialogBuilder.colorPickerDialog?.dismiss()
@@ -619,13 +458,9 @@ class LookFeelFragment : Fragment() {
     override fun onActivityCreated(savedInstanceState: Bundle?) {
         @Suppress("DEPRECATION")
         super.onActivityCreated(savedInstanceState)
-        dialogBuilder = DialogManager(requireContext(), requireActivity())
-        prefs = Prefs(requireContext())
-        viewModel = activity?.run {
-            ViewModelProvider(this)[MainViewModel::class.java]
-        } ?: throw Exception("Invalid Activity")
-
-        viewModel.isinkosDefault()
+        // Moved viewModel/prefs/dialogBuilder initialization to onCreateView to
+        // ensure Compose content has access to ViewModel state early.
+        // Keep other initializations here.
 
         deviceManager =
             context?.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager

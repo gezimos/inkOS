@@ -3,14 +3,18 @@ package com.github.gezimos.inkos.ui.notifications
 import android.os.Build
 import android.os.Bundle
 import android.os.Vibrator
+import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.content.Context
+import android.content.Intent
+import android.provider.Settings
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,13 +25,18 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material.Icon
 import androidx.compose.material.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,58 +45,56 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.github.gezimos.inkos.R
-import androidx.compose.foundation.layout.size
-import androidx.compose.ui.layout.ContentScale
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.Fragment
-import android.view.KeyEvent
-import com.github.gezimos.common.showShortToast
-import androidx.lifecycle.Observer
 import androidx.navigation.fragment.findNavController
+import com.github.gezimos.common.showShortToast
+import com.github.gezimos.inkos.R
 import com.github.gezimos.inkos.data.Prefs
 import com.github.gezimos.inkos.services.NotificationManager
-import com.github.gezimos.inkos.helper.KeyMapperHelper
 import com.github.gezimos.inkos.style.SettingsTheme
+import com.github.gezimos.inkos.style.Theme
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.DashedSeparator
 import kotlinx.coroutines.launch
 
 class NotificationsFragment : Fragment() {
     private lateinit var prefs: Prefs
     private lateinit var vibrator: Vibrator
+    private var wasPaused = false
+    private var focusRestoreTriggerState: androidx.compose.runtime.MutableState<Int>? = null
 
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        prefs = Prefs(requireContext())
+        val vm = try { androidx.lifecycle.ViewModelProvider(requireActivity())[com.github.gezimos.inkos.MainViewModel::class.java] } catch (_: Exception) { null }
+        prefs = vm?.getPrefs() ?: Prefs(requireContext())
         vibrator = requireContext().getSystemService(Vibrator::class.java)
         val composeView = ComposeView(requireContext())
         composeView.setContent {
-            val isDark = when (prefs.appTheme) {
-                com.github.gezimos.inkos.data.Constants.Theme.Dark -> true
-                com.github.gezimos.inkos.data.Constants.Theme.Light -> false
-                com.github.gezimos.inkos.data.Constants.Theme.System -> com.github.gezimos.inkos.helper.isSystemInDarkMode(
-                    requireContext()
-                )
-            }
-            val backgroundColor = Color(prefs.backgroundColor)
+            val isDark = prefs.appTheme == com.github.gezimos.inkos.data.Constants.Theme.Dark
+            // Create state for focus restoration trigger that can be observed by Compose
+            val triggerState = remember { mutableStateOf(0) }
+            focusRestoreTriggerState = triggerState
             SettingsTheme(isDark = isDark) {
-                NotificationsScreen(backgroundColor, composeView)
+                NotificationsScreen(composeView, focusRestoreTrigger = triggerState.value)
             }
         }
         return composeView
@@ -95,13 +102,14 @@ class NotificationsFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        // Eink refresh: flash overlay if enabled
-        com.github.gezimos.inkos.helper.utils.EinkRefreshHelper.refreshEink(
-            requireContext(), prefs, null, prefs.einkRefreshDelay, useActivityRoot = true
-        )
+        // E-Ink refresh centralized in MainActivity; fragment-level call removed
         // Keep view focus so other key events can be received by the fragment if needed
         view.isFocusable = true
         view.isFocusableInTouchMode = true
+        // Disable default focus highlight to prevent transparent white hue/ripple when accessed via D-pad
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            view.setDefaultFocusHighlightEnabled(false)
+        }
         view.requestFocus()
 
         // Local key listener remains responsible only for actions other than page up/down.
@@ -121,11 +129,11 @@ class NotificationsFragment : Fragment() {
                 }
             }
 
-            val mapped = KeyMapperHelper.mapNotificationsKey(prefs, keyCode, event)
-            if (mapped == KeyMapperHelper.NotificationKeyAction.None) return@setOnKeyListener false
+            val mapped = com.github.gezimos.inkos.ui.compose.NavHelper.mapNotificationsKey(prefs, keyCode, event)
+            if (mapped == com.github.gezimos.inkos.ui.compose.NavHelper.NotificationKeyAction.None) return@setOnKeyListener false
 
             // If the mapped action is PageUp/PageDown, let the Activity handle it via the centralized handler.
-            if (mapped == KeyMapperHelper.NotificationKeyAction.PageUp || mapped == KeyMapperHelper.NotificationKeyAction.PageDown) {
+            if (mapped == com.github.gezimos.inkos.ui.compose.NavHelper.NotificationKeyAction.PageUp || mapped == com.github.gezimos.inkos.ui.compose.NavHelper.NotificationKeyAction.PageDown) {
                 return@setOnKeyListener false
             }
 
@@ -141,9 +149,14 @@ class NotificationsFragment : Fragment() {
             }
 
             when (mapped) {
-                KeyMapperHelper.NotificationKeyAction.Dismiss -> {
+                com.github.gezimos.inkos.ui.compose.NavHelper.NotificationKeyAction.Dismiss -> {
                     // Dismiss current notification
                     val (pkg, notif) = validNotifications.getOrNull(pagerState.currentPage) ?: return@setOnKeyListener true
+                    // Dismiss notification from system tray (mark as read/snooze)
+                    if (notif.notificationKey != null) {
+                        com.github.gezimos.inkos.services.NotificationService.dismissNotification(notif.notificationKey)
+                    }
+                    // Remove from conversation notifications
                     NotificationManager.getInstance(requireContext())
                         .removeConversationNotification(pkg, notif.conversationId)
                     coroutineScope.launch {
@@ -159,21 +172,15 @@ class NotificationsFragment : Fragment() {
                     }
                     true
                 }
-                KeyMapperHelper.NotificationKeyAction.Open -> {
+                com.github.gezimos.inkos.ui.compose.NavHelper.NotificationKeyAction.Open -> {
                     val (pkg, notif) = validNotifications.getOrNull(pagerState.currentPage) ?: return@setOnKeyListener true
-                    try {
-                        val context = requireContext()
-                        val launchIntent = context.packageManager.getLaunchIntentForPackage(pkg)
-                        if (launchIntent != null) {
-                            context.startActivity(launchIntent)
-                        }
-                    } catch (_: Exception) {
-                    }
                     NotificationManager.getInstance(requireContext())
-                        .removeConversationNotification(pkg, notif.conversationId)
+                        .openNotification(pkg, notif.notificationKey, notif.conversationId, removeAfterOpen = true)
+                    // Navigate to previous page if needed
                     coroutineScope.launch {
-                        if (pagerState.currentPage == validNotifications.lastIndex && pagerState.currentPage > 0) {
-                            pagerState.scrollToPage(pagerState.currentPage - 1)
+                        val currentPage = pagerState.currentPage
+                        if (currentPage >= validNotifications.size - 1 && currentPage > 0) {
+                            pagerState.scrollToPage(currentPage - 1)
                         }
                     }
                     true
@@ -187,6 +194,32 @@ class NotificationsFragment : Fragment() {
         super.onResume()
         // Register Activity-level page navigation handler so volume and page/DPAD keys are forwarded
         val act = activity as? com.github.gezimos.inkos.MainActivity ?: return
+        
+        // Always restore focus after screen unlock (when wasPaused is true)
+        // This fixes the issue where D-pad stops working after closing/reopening flip phone
+        if (wasPaused) {
+            wasPaused = false
+            // Restore focus to fragment view
+            view?.postDelayed({
+                val currentView = view
+                if (isAdded && !isDetached && currentView != null) {
+                    try {
+                        currentView.isFocusable = true
+                        currentView.isFocusableInTouchMode = true
+                        // Disable default focus highlight to prevent transparent white hue/ripple
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            currentView.setDefaultFocusHighlightEnabled(false)
+                        }
+                        currentView.requestFocus()
+                    } catch (_: Exception) {}
+                }
+            }, 350) // Delay to let MainActivity's onResume and window focus changes complete
+            
+            // Also trigger Compose focus restoration by incrementing a counter
+            // This will be passed to NotificationsScreen to re-request Compose focus if needed
+            focusRestoreTriggerState?.value = (focusRestoreTriggerState?.value ?: 0) + 1
+        }
+        
         act.pageNavigationHandler = object : com.github.gezimos.inkos.MainActivity.PageNavigationHandler {
             override val handleDpadAsPage: Boolean = true
 
@@ -213,7 +246,7 @@ class NotificationsFragment : Fragment() {
                 val composeView = view as? ComposeView ?: return
                 val pagerState = composeView.getTag(0xdeadbeef.toInt()) as? androidx.compose.foundation.pager.PagerState
                 val coroutineScope = composeView.getTag(0xcafebabe.toInt()) as? kotlinx.coroutines.CoroutineScope
-                val validNotifications = (composeView.getTag(0xabcdef01.toInt()) as? List<*>)
+                (composeView.getTag(0xabcdef01.toInt()) as? List<*>)
                     ?.filterIsInstance<Pair<String, NotificationManager.ConversationNotification>>() ?: return
                 if (pagerState == null || coroutineScope == null) return
 
@@ -232,12 +265,13 @@ class NotificationsFragment : Fragment() {
 
     override fun onPause() {
         super.onPause()
+        wasPaused = true
         val act = activity as? com.github.gezimos.inkos.MainActivity ?: return
         if (act.pageNavigationHandler != null) act.pageNavigationHandler = null
     }
 
     @Composable
-    fun NotificationsScreen(backgroundColor: Color, composeView: ComposeView) {
+    fun NotificationsScreen(composeView: ComposeView, focusRestoreTrigger: Int = 0) {
         val notificationsMap by rememberNotifications()
         
         // Cache font loading to avoid repeated operations
@@ -260,15 +294,7 @@ class NotificationsFragment : Fragment() {
         
         val notifTitleSize = remember { prefs.lettersTitleSize.sp }
 
-        val isDark = remember {
-            when (prefs.appTheme) {
-                com.github.gezimos.inkos.data.Constants.Theme.Dark -> true
-                com.github.gezimos.inkos.data.Constants.Theme.Light -> false
-                com.github.gezimos.inkos.data.Constants.Theme.System -> com.github.gezimos.inkos.helper.isSystemInDarkMode(
-                    requireContext()
-                )
-            }
-        }
+        remember { prefs.appTheme == com.github.gezimos.inkos.data.Constants.Theme.Dark }
 
         // Check if notifications are enabled
         if (!prefs.notificationsEnabled) {
@@ -340,7 +366,7 @@ class NotificationsFragment : Fragment() {
         // Detect navigation bar height for padding
         val view = LocalView.current
         val density = LocalDensity.current
-        val configuration = LocalConfiguration.current
+        LocalConfiguration.current
         var navBarPadding by remember { mutableStateOf(0.dp) }
         var statusBarPadding by remember { mutableStateOf(0.dp) }
         LaunchedEffect(view) {
@@ -370,38 +396,7 @@ class NotificationsFragment : Fragment() {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(backgroundColor)
-                .pointerInput(Unit) {
-                    // Horizontal swipe gesture with edge detection for navigation
-                    val screenWidthPx = configuration.screenWidthDp * density.density
-                    val edgeThresholdPx = 48 * density.density // 48dp edge region
-                    var initialX = 0f
-                    var totalDragX = 0f
-                    
-                    detectHorizontalDragGestures(
-                        onDragStart = { offset ->
-                            initialX = offset.x
-                            totalDragX = 0f
-                        },
-                        onDragEnd = {
-                            // Only treat horizontal fling as back when the gesture STARTS near the left or right edge of the screen
-                            if (initialX <= edgeThresholdPx || initialX >= (screenWidthPx - edgeThresholdPx)) {
-                                val flingThreshold = 48 * density.density // 48dp threshold
-                                if (kotlin.math.abs(totalDragX) > flingThreshold) {
-                                    try {
-                                        findNavController().popBackStack()
-                                        vibratePaging()
-                                    } catch (_: Exception) {}
-                                }
-                            }
-                            totalDragX = 0f
-                        },
-                        onHorizontalDrag = { change, dragAmount ->
-                            change.consume()
-                            totalDragX += dragAmount
-                        }
-                    )
-                }
+                .background(Theme.colors.background)
         ) {
 
             if (validNotifications.isEmpty()) {
@@ -413,20 +408,20 @@ class NotificationsFragment : Fragment() {
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     // Show decorative panda drawable above the empty state text
-                    androidx.compose.foundation.Image(
-                        painter = painterResource(id = R.drawable.panda),
-                        contentDescription = null, // decorative
-                        contentScale = ContentScale.Fit,
+                    Image(
+                        painter = painterResource(id = R.drawable.ic_foreground),
+                        colorFilter = ColorFilter.tint(Theme.colors.text),
+                        contentDescription = null,
                         modifier = Modifier
-                            .size(100.dp)
-                            .padding(bottom = 12.dp)
+                            .size(32.dp)
                     )
-
+                    Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "No notifications",
-                        fontSize = notifTextSize,
+                        text = stringResource(id = R.string.no_notifications),
+                        color = Theme.colors.text,
+                        fontSize = 18.sp,
                         fontFamily = notifFontFamily,
-                        color = SettingsTheme.typography.title.color
+                        textAlign = TextAlign.Center
                     )
                 }
             } else {
@@ -458,7 +453,7 @@ class NotificationsFragment : Fragment() {
                                 fontFamily = notifTitleFontFamily,
                                 modifier = Modifier
                                     .fillMaxWidth(),
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Start
+                                textAlign = TextAlign.Start
                             )
                         }
                         ConversationNotificationItem(
@@ -495,6 +490,11 @@ class NotificationsFragment : Fragment() {
                                             if (canDismiss) {
                                                 val (pkg, notif) = validNotifications.getOrNull(pagerState.currentPage)
                                                     ?: return@detectTapGestures
+                                                // Dismiss notification from system tray (mark as read/snooze)
+                                                if (notif.notificationKey != null) {
+                                                    com.github.gezimos.inkos.services.NotificationService.dismissNotification(notif.notificationKey)
+                                                }
+                                                // Remove from conversation notifications
                                                 NotificationManager.getInstance(requireContext())
                                                     .removeConversationNotification(pkg, notif.conversationId)
                                                 coroutineScope.launch {
@@ -538,22 +538,8 @@ class NotificationsFragment : Fragment() {
                                 .clickable {
                                     val (pkg, notif) = validNotifications.getOrNull(pagerState.currentPage)
                                         ?: return@clickable
-                                    try {
-                                        val context = requireContext()
-                                        val launchIntent =
-                                            context.packageManager.getLaunchIntentForPackage(pkg)
-                                        if (launchIntent != null) {
-                                            context.startActivity(launchIntent)
-                                        }
-                                    } catch (_: Exception) {
-                                    }
                                     NotificationManager.getInstance(requireContext())
-                                        .removeConversationNotification(pkg, notif.conversationId)
-                                    coroutineScope.launch {
-                                        if (pagerState.currentPage == validNotifications.lastIndex && pagerState.currentPage > 0) {
-                                            pagerState.scrollToPage(pagerState.currentPage - 1)
-                                        }
-                                    }
+                                        .openNotification(pkg, notif.notificationKey, notif.conversationId, removeAfterOpen = true)
                                     vibratePaging() // vibrate on open tap if enabled
                                 },
                             contentAlignment = Alignment.CenterEnd
@@ -575,25 +561,20 @@ class NotificationsFragment : Fragment() {
     }
 
     private fun vibratePaging() {
-        if (prefs.useVibrationForPaging) {
-            try {
-                vibrator.vibrate(
-                    android.os.VibrationEffect.createOneShot(
-                        30,
-                        android.os.VibrationEffect.DEFAULT_AMPLITUDE
-                    )
-                )
-            } catch (_: Exception) {
-            }
-        }
+        com.github.gezimos.inkos.helper.utils.VibrationHelper.trigger(com.github.gezimos.inkos.helper.utils.VibrationHelper.Effect.PAGE)
     }
 
     private fun dismissAllNotifications() {
         val notificationManager = NotificationManager.getInstance(requireContext())
         // Get all current notifications and dismiss them
-        val allNotifications = notificationManager.conversationNotificationsLiveData.value ?: emptyMap()
+        val allNotifications = notificationManager.conversationNotificationsState.value
         allNotifications.forEach { (packageName, conversations) ->
             conversations.forEach { notif ->
+                // Dismiss notification from system tray (mark as read/snooze)
+                if (notif.notificationKey != null) {
+                    com.github.gezimos.inkos.services.NotificationService.dismissNotification(notif.notificationKey)
+                }
+                // Remove from conversation notifications
                 notificationManager.removeConversationNotification(packageName, notif.conversationId)
             }
         }
@@ -605,23 +586,8 @@ class NotificationsFragment : Fragment() {
 
     @Composable
     private fun rememberNotifications(): State<Map<String, List<NotificationManager.ConversationNotification>>> {
-        val state =
-            remember { mutableStateOf(emptyMap<String, List<NotificationManager.ConversationNotification>>()) }
-        DisposableEffect(Unit) {
-            val observer =
-                Observer<Map<String, List<NotificationManager.ConversationNotification>>> {
-                    state.value = it
-                }
-            NotificationManager.getInstance(requireContext()).conversationNotificationsLiveData.observe(
-                viewLifecycleOwner,
-                observer
-            )
-            onDispose {
-                NotificationManager.getInstance(requireContext()).conversationNotificationsLiveData.removeObserver(
-                    observer
-                )
-            }
-        }
+        val stateFlow = NotificationManager.getInstance(requireContext()).conversationNotificationsState
+        val state = stateFlow.collectAsState(initial = emptyMap())
         return state
     }
 
@@ -634,6 +600,35 @@ class NotificationsFragment : Fragment() {
         descriptionFontSize: TextUnit
     ) {
         val context = requireContext()
+        
+        fun openNotificationSettingsForPackage(context: Context, packageName: String) {
+            try {
+                // Use ACTION_APP_NOTIFICATION_SETTINGS for Android 8.0+ to open notification settings for specific app
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                        putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(intent)
+                } else {
+                    // Fallback for older Android versions: open app info page
+                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                        data = android.net.Uri.fromParts("package", packageName, null)
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(intent)
+                }
+            } catch (_: Exception) {
+                // If notification settings intent fails, try app info as fallback
+                try {
+                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                        data = android.net.Uri.fromParts("package", packageName, null)
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(intent)
+                } catch (_: Exception) {}
+            }
+        }
         
         // Cache expensive operations with remember
         val appLabelInfo = remember(packageName) {
@@ -668,10 +663,11 @@ class NotificationsFragment : Fragment() {
         }
 
         // Only use the single message field, since ConversationNotification does not have a messages list
+        // Backend now provides category-specific fallbacks, so we don't need generic fallback here
         val message = remember(notif.message) {
-            if (notif.message.isNullOrBlank()) "Notification received" else notif.message
+            notif.message?.takeIf { it.isNotBlank() }
         }
-    DashedSeparator()
+        DashedSeparator()
 
         Column(
             modifier = Modifier.fillMaxWidth()
@@ -680,7 +676,8 @@ class NotificationsFragment : Fragment() {
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp, vertical = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
                     text = title,
@@ -688,9 +685,29 @@ class NotificationsFragment : Fragment() {
                     fontSize = titleFontSize * 1.2f, // Increased name size to 1.2x
                     fontWeight = FontWeight.Bold,
                     fontFamily = notifFontFamily,
+                    modifier = Modifier.weight(1f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+                
+                // Settings icon - opens notification settings for this package
+                val isSyntheticPackage = packageName == "com.inkos.internal.app_drawer" ||
+                        packageName == "com.inkos.internal.notifications" ||
+                        packageName == "com.inkos.internal.search"
+                if (!isSyntheticPackage) {
+                    Icon(
+                        imageVector = Icons.Rounded.Settings,
+                        contentDescription = "Notification settings",
+                        tint = Theme.colors.text,
+                        modifier = Modifier
+                            .size(16.dp)
+                            .clickable {
+                                try {
+                                    openNotificationSettingsForPackage(context, packageName)
+                                } catch (_: Exception) {}
+                            }
+                    )
+                }
             }
 
             DashedSeparator()
@@ -722,20 +739,22 @@ class NotificationsFragment : Fragment() {
             }
 
             Spacer(modifier = Modifier.height(8.dp))
-            // Separator: no extra padding, already handled in DashedSeparator
             DashedSeparator()
             Spacer(modifier = Modifier.height(24.dp))
 
-            Text(
-                text = message,
-                style = SettingsTheme.typography.title,
-                fontSize = descriptionFontSize,
-                fontWeight = FontWeight.Normal,
-                fontFamily = notifFontFamily,
-                lineHeight = descriptionFontSize * 1.3, // Increased line height
-                modifier = Modifier
-                    .padding(start = 24.dp, end = 24.dp, bottom = 8.dp)
-            )
+            // Only show message if available - backend now provides category-specific text or null
+            message?.let {
+                Text(
+                    text = it,
+                    style = SettingsTheme.typography.title,
+                    fontSize = descriptionFontSize,
+                    fontWeight = FontWeight.Normal,
+                    fontFamily = notifFontFamily,
+                    lineHeight = descriptionFontSize * 1.3, // Increased line height
+                    modifier = Modifier
+                        .padding(start = 24.dp, end = 24.dp, bottom = 8.dp)
+                )
+            }
         }
     }
 }

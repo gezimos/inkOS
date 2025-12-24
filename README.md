@@ -95,19 +95,35 @@ inkOS uses the following permissions:
     - Allows the launcher to run foreground services for persistent features (e.g., notification listener).
 - `android.permission.VIBRATE`
     - Enables vibration feedback for certain actions.
+- `android.permission.WRITE_SETTINGS`
+    - Allows the launcher to modify system settings (for features like brightness control in Simple Tray).
+- `android.permission.ACCESS_WIFI_STATE`
+    - Allows the launcher to access WiFi state (for WiFi status in Simple Tray).
+- `android.permission.CHANGE_WIFI_STATE`
+    - Allows the launcher to change WiFi state (for WiFi toggle in Simple Tray).
 - `android.permission.BLUETOOTH`
     - Allows access to Bluetooth features (for device compatibility and widgets).
-- **Note:** Only needed for Mudita Kompakt to reconnect to headphones due to missing Bluetooth history.
+- `android.permission.BLUETOOTH_ADMIN`
+    - Allows administration of Bluetooth features.
 - `android.permission.BLUETOOTH_CONNECT`
     - Allows the launcher to connect to Bluetooth devices (for widgets and device integration).
-- `android.permission.BLUETOOTH_SCAN`
-    - Allows the launcher to scan for nearby Bluetooth devices.
-- `android.permission.WRITE_SETTINGS`
-    - Allows the launcher to modify system settings (for features like brightness control).
-- `android.permission.BIND_ACCESSIBILITY_SERVICE`
-    - Required for accessibility features (used by ActionService for gestures and system actions).
-- `android.permission.BIND_NOTIFICATION_LISTENER_SERVICE`
-    - Required for notification features (used by NotificationService to listen for notifications).
+- `android.permission.CAMERA`
+    - Allows access to the camera (for flashlight feature in Simple Tray).
+- `android.permission.READ_PHONE_STATE`
+    - Allows the launcher to read phone state (for cellular signal display in Simple Tray).
+- `android.permission.MODIFY_AUDIO_SETTINGS`
+    - Allows the launcher to modify audio settings (for volume control in Simple Tray).
+- `android.permission.PACKAGE_USAGE_STATS`
+    - Allows the launcher to access usage statistics (for recent apps in Recents screen).
+- `android.permission.READ_MEDIA_IMAGES`
+    - Allows the launcher to read media images (for wallpaper selection).
+- `android.permission.READ_EXTERNAL_STORAGE`
+    - Allows the launcher to read external storage (for image access on older Android versions).
+- `android.permission.SET_WALLPAPER`
+    - Allows the launcher to set wallpapers.
+
+**Note:** Only needed for Mudita Kompakt to reconnect to headphones due to missing Bluetooth history for some permissions.
+
 > **Note:** inkOS does not request internet access and does not collect or transmit any data.
 
 ## License

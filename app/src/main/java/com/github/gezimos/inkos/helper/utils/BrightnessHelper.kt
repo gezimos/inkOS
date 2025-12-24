@@ -34,8 +34,12 @@ object BrightnessHelper {
             val isDimmed = currentSystemBrightness <= 1
 
             if (isDimmed) {
-                // Restore brightness to the last saved value (allow user to set any value)
-                val savedBrightness = prefs.brightnessLevel.coerceIn(0, 255)
+                // Restore brightness to the last saved value (use lastBrightnessLevel if available)
+                val savedBrightness = if (prefs.brightnessLevel > 0) {
+                    prefs.brightnessLevel.coerceIn(0, 255)
+                } else {
+                    prefs.lastBrightnessLevel.coerceIn(1, 255)
+                }
 
                 // Set system brightness
                 android.provider.Settings.System.putInt(
@@ -43,6 +47,9 @@ object BrightnessHelper {
                     android.provider.Settings.System.SCREEN_BRIGHTNESS,
                     savedBrightness
                 )
+                
+                // Update prefs to reflect restored brightness
+                prefs.brightnessLevel = savedBrightness
 
                 // Reset window brightness to use system setting
                 val params = window.attributes
@@ -52,7 +59,10 @@ object BrightnessHelper {
                 Toast.makeText(context, "Brightness restored to $savedBrightness", Toast.LENGTH_SHORT).show()
             } else {
                 // ALWAYS save current brightness before dimming (this fixes the caching issue)
-                prefs.brightnessLevel = currentSystemBrightness
+                if (currentSystemBrightness > 0) {
+                    prefs.lastBrightnessLevel = currentSystemBrightness
+                }
+                prefs.brightnessLevel = 0  // Mark as off in prefs
 
                 // Dim the screen to minimum
                 android.provider.Settings.System.putInt(
@@ -78,21 +88,34 @@ object BrightnessHelper {
     }
     
     /**
-     * Call this method to update the saved brightness level when the user manually changes brightness.
-     * This ensures we always restore to the most recent "on" brightness level.
+     * Set brightness level (0-255). If 0, writes 1 to system but stores 0 in prefs.
+     * This maintains user intent while working around vendor driver limitations.
      */
-    @Suppress("unused")
-    fun updateSavedBrightness(context: Context, prefs: Prefs) {
-        try {
-            val currentSystemBrightness = android.provider.Settings.System.getInt(
+    fun setBrightness(context: Context, prefs: Prefs, level: Int): Boolean {
+        if (!android.provider.Settings.System.canWrite(context)) {
+            return false
+        }
+        
+        val clampedLevel = level.coerceIn(0, 255)
+        return try {
+            // Some vendor drivers don't accept 0. Write 1 to system but keep prefs/UI as 0.
+            val writeVal = if (clampedLevel == 0) 1 else clampedLevel
+            val success = android.provider.Settings.System.putInt(
                 context.contentResolver,
-                android.provider.Settings.System.SCREEN_BRIGHTNESS
+                android.provider.Settings.System.SCREEN_BRIGHTNESS,
+                writeVal
             )
-            
-            // Save the user's chosen brightness level (allow values below previous 20 threshold)
-            prefs.brightnessLevel = currentSystemBrightness
+            if (success) {
+                // Save the user's intention: prefs stores the actual value (including 0)
+                prefs.brightnessLevel = clampedLevel
+                // Save non-zero values to lastBrightnessLevel for restoration
+                if (clampedLevel > 0) {
+                    prefs.lastBrightnessLevel = clampedLevel
+                }
+            }
+            success
         } catch (_: Exception) {
-            // Silently ignore if we can't read brightness
+            false
         }
     }
 }

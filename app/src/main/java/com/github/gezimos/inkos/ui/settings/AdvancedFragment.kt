@@ -14,10 +14,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -30,24 +28,18 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
 import com.github.gezimos.common.isBiometricEnabled
-import com.github.gezimos.inkos.BuildConfig
 import com.github.gezimos.inkos.MainViewModel
 import com.github.gezimos.inkos.R
 import com.github.gezimos.inkos.data.Constants.Theme.Dark
-import com.github.gezimos.inkos.data.Constants.Theme.Light
-import com.github.gezimos.inkos.data.Constants.Theme.System
 import com.github.gezimos.inkos.data.Prefs
 import com.github.gezimos.inkos.helper.getHexForOpacity
 import com.github.gezimos.inkos.helper.isSystemInDarkMode
 import com.github.gezimos.inkos.helper.isinkosDefault
-import com.github.gezimos.inkos.helper.openAppInfo
 import com.github.gezimos.inkos.helper.utils.AppReloader
 import com.github.gezimos.inkos.listener.DeviceAdmin
 import com.github.gezimos.inkos.style.SettingsTheme
-import com.github.gezimos.inkos.ui.compose.SettingsComposable.DashedSeparator
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.PageHeader
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsHomeItem
-import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsSelect
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsSwitch
 import com.github.gezimos.inkos.ui.dialogs.DialogManager
 
@@ -64,15 +56,11 @@ class AdvancedFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        prefs = Prefs(requireContext())
+        viewModel = ViewModelProvider(requireActivity())[MainViewModel::class.java]
+        prefs = viewModel.getPrefs()
         dialogBuilder = DialogManager(requireContext(), requireActivity())
-        val backgroundColor = getHexForOpacity(prefs)
-        val isDark = when (prefs.appTheme) {
-            Light -> false
-            Dark -> true
-            System -> isSystemInDarkMode(requireContext())
-        }
-        val settingsSize = (prefs.settingsSize - 3)
+        val backgroundColor = getHexForOpacity(requireContext())
+        val isDark = prefs.appTheme == Dark
         val context = requireContext()
         // --- Dot indicator state ---
         val currentPage = intArrayOf(0)
@@ -99,6 +87,8 @@ class AdvancedFragment : Fragment() {
         // Add sticky header ComposeView
         val headerView = androidx.compose.ui.platform.ComposeView(context).apply {
             setContent {
+                val homeUiState by viewModel.homeUiState.collectAsState()
+                val settingsSize = (homeUiState.settingsSize - 3)
                 val density = LocalDensity.current
                 val bottomInsetDp = with(density) { bottomInsetPx.toDp() }
                 SettingsTheme(isDark) {
@@ -107,7 +97,7 @@ class AdvancedFragment : Fragment() {
                             iconRes = R.drawable.ic_back,
                             title = stringResource(R.string.advanced_settings_title),
                             onClick = { findNavController().popBackStack() },
-                            showStatusBar = prefs.showStatusBar,
+                            showStatusBar = homeUiState.showStatusBar,
                             pageIndicator = {
                                 com.github.gezimos.inkos.ui.compose.SettingsComposable.PageIndicator(
                                     currentPage = currentPage[0],
@@ -133,6 +123,8 @@ class AdvancedFragment : Fragment() {
             addView(
                 androidx.compose.ui.platform.ComposeView(context).apply {
                     setContent {
+                        val homeUiState by viewModel.homeUiState.collectAsState()
+                        val settingsSize = (homeUiState.settingsSize - 3)
                         val density = LocalDensity.current
                         val bottomInsetDp = with(density) { bottomInsetPx.toDp() }
                         SettingsTheme(isDark) {
@@ -174,6 +166,8 @@ class AdvancedFragment : Fragment() {
             pageCount[0] = pages
             currentPage[0] = page
             headerView.setContent {
+                val homeUiState by viewModel.homeUiState.collectAsState()
+                val settingsSize = (homeUiState.settingsSize - 3)
                 val density = LocalDensity.current
                 val bottomInsetDp = with(density) { bottomInsetPx.toDp() }
                 SettingsTheme(isDark) {
@@ -182,7 +176,7 @@ class AdvancedFragment : Fragment() {
                             iconRes = R.drawable.ic_back,
                             title = stringResource(R.string.advanced_settings_title),
                             onClick = { findNavController().popBackStack() },
-                            showStatusBar = prefs.showStatusBar,
+                            showStatusBar = homeUiState.showStatusBar,
                             pageIndicator = {
                                 com.github.gezimos.inkos.ui.compose.SettingsComposable.PageIndicator(
                                     currentPage = currentPage[0],
@@ -213,65 +207,43 @@ class AdvancedFragment : Fragment() {
             R.string.advanced_settings_change_default_launcher
         }
         val navController = findNavController()
+        val uiState by viewModel.homeUiState.collectAsState()
+
         // Remove verticalScroll and header, handled by parent ComposeView
         Column(modifier = Modifier.fillMaxWidth()) {
             // --- Home App Management section moved from FeaturesFragment ---
-            var toggledAppsLocked by remember { mutableStateOf(prefs.homeLocked) }
-            var toggledSettingsLocked by remember { mutableStateOf(prefs.settingsLocked) }
-            var toggledLongPressAppInfo by remember { mutableStateOf(prefs.longPressAppInfoEnabled) }
-            DashedSeparator()
             SettingsSwitch(
                 text = stringResource(R.string.lock_home_apps),
                 fontSize = titleFontSize,
-                defaultState = toggledAppsLocked,
+                defaultState = uiState.homeLocked,
                 onCheckedChange = { checked ->
-                    toggledAppsLocked = checked
-                    prefs.homeLocked = checked
+                    viewModel.setHomeLocked(checked)
                     if (!checked) {
-                        toggledLongPressAppInfo = false
-                        prefs.longPressAppInfoEnabled = false
+                        viewModel.setLongPressAppInfoEnabled(false)
                     }
                 }
             )
-            DashedSeparator()
+            
             SettingsSwitch(
                 text = stringResource(R.string.longpress_app_info),
                 fontSize = titleFontSize,
-                defaultState = toggledLongPressAppInfo,
-                enabled = toggledAppsLocked,
+                defaultState = uiState.longPressAppInfoEnabled,
+                enabled = uiState.homeLocked,
                 onCheckedChange = { checked ->
-                    toggledLongPressAppInfo = checked
-                    prefs.longPressAppInfoEnabled = checked
+                    viewModel.setLongPressAppInfoEnabled(checked)
                 }
             )
             if (requireContext().isBiometricEnabled()) {
-                DashedSeparator()
                 SettingsSwitch(
                     text = stringResource(R.string.lock_settings),
                     fontSize = titleFontSize,
-                    defaultState = toggledSettingsLocked,
+                    defaultState = uiState.settingsLocked,
                     onCheckedChange = { checked ->
-                        toggledSettingsLocked = checked
-                        prefs.settingsLocked = checked
+                        viewModel.setSettingsLocked(checked)
                     }
                 )
             }
-            DashedSeparator()
-            // App Info item with version text (opens app info dialog on click)
-            SettingsSelect(
-                title = stringResource(R.string.app_version),
-                option = "v0.3",
-                fontSize = titleFontSize,
-                enabled = true,
-                onClick = {
-                    openAppInfo(
-                        requireContext(),
-                        android.os.Process.myUserHandle(),
-                        BuildConfig.APPLICATION_ID
-                    )
-                }
-            )
-            DashedSeparator()
+            
             SettingsHomeItem(
                 title = stringResource(R.string.advanced_settings_backup_restore_title),
                 titleFontSize = titleFontSize,
@@ -279,7 +251,7 @@ class AdvancedFragment : Fragment() {
                     dialogBuilder.showBackupRestoreDialog()
                 }
             )
-            DashedSeparator()
+            
             SettingsHomeItem(
                 title = stringResource(changeLauncherText) +
                         if (!isinkosDefault(requireContext())) "*" else "",
@@ -291,7 +263,7 @@ class AdvancedFragment : Fragment() {
                     requireContext().startActivity(intent)
                 }
             )
-            DashedSeparator()
+            
             SettingsHomeItem(
                 title = stringResource(R.string.advanced_settings_restart_title),
                 titleFontSize = titleFontSize,
@@ -299,7 +271,7 @@ class AdvancedFragment : Fragment() {
                     AppReloader.restartApp(requireContext())
                 }
             )
-            DashedSeparator()
+            
             SettingsHomeItem(
                 title = stringResource(R.string.settings_exit_inkos_title),
                 titleFontSize = titleFontSize,
@@ -335,10 +307,10 @@ class AdvancedFragment : Fragment() {
         @Suppress("DEPRECATION")
         super.onActivityCreated(savedInstanceState)
         dialogBuilder = DialogManager(requireContext(), requireActivity())
-        prefs = Prefs(requireContext())
         viewModel = activity?.run {
             ViewModelProvider(this)[MainViewModel::class.java]
         } ?: throw Exception("Invalid Activity")
+        prefs = viewModel.getPrefs()
 
         viewModel.isinkosDefault()
 

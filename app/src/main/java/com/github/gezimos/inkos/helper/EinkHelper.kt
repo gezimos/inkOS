@@ -1,5 +1,6 @@
 package com.github.gezimos.inkos
 
+import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -26,6 +27,17 @@ class EinkHelper : LifecycleObserver {
         const val MEINK_MODE_GAMMA = 2
         private const val MEINK_RETRY_DELAY_MS = 1000L
         private const val MAX_RETRY_ATTEMPTS = 3
+        
+        /**
+         * Check if the device is a Mudita Kompakt.
+         * Returns true if device brand is "Mudita" or model/device/product is "Kompakt".
+         */
+        fun isMuditaKompakt(): Boolean {
+            return Build.BRAND.equals("Mudita", ignoreCase = true) ||
+                   Build.MODEL.equals("Kompakt", ignoreCase = true) ||
+                   Build.DEVICE.equals("Kompakt", ignoreCase = true) ||
+                   Build.PRODUCT.equals("Kompakt", ignoreCase = true)
+        }
     }
 
     /**

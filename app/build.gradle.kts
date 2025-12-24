@@ -15,8 +15,8 @@ android {
         applicationId = "app.inkos"
         minSdk = 26
         targetSdk = 36
-        versionCode = 101003
-        versionName = "0.3"
+        versionCode = 101004
+        versionName = "0.4"
     }
 
     buildTypes {
@@ -131,6 +131,7 @@ dependencies {
     implementation("com.google.accompanist:accompanist-pager:0.34.0")
     implementation("com.google.accompanist:accompanist-pager-indicators:0.34.0")
     implementation("androidx.compose.runtime:runtime-livedata:1.6.0") // <-- Add this line for observeAsState with LiveData
+    implementation("androidx.compose.material:material-icons-extended:1.6.0") // Material Icons Extended
 
     // Image loading libraries
     implementation("com.github.bumptech.glide:glide:4.16.0") // Glide for View-based fragments
@@ -142,6 +143,7 @@ dependencies {
 
     // Biometric support
     implementation(libs.biometric.ktx)
+    implementation(libs.foundation)
 
     // AndroidX Test - Espresso
     androidTestImplementation(libs.espresso.core)

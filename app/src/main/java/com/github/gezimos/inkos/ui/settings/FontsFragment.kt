@@ -20,7 +20,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -43,14 +43,10 @@ import androidx.navigation.fragment.findNavController
 import com.github.gezimos.inkos.R
 import com.github.gezimos.inkos.data.Constants
 import com.github.gezimos.inkos.data.Constants.Theme.Dark
-import com.github.gezimos.inkos.data.Constants.Theme.Light
-import com.github.gezimos.inkos.data.Constants.Theme.System
 import com.github.gezimos.inkos.data.Prefs
 import com.github.gezimos.inkos.helper.getTrueSystemFont
-import com.github.gezimos.inkos.helper.isSystemInDarkMode
 import com.github.gezimos.inkos.helper.utils.EinkScrollBehavior
 import com.github.gezimos.inkos.style.SettingsTheme
-import com.github.gezimos.inkos.ui.compose.SettingsComposable.DashedSeparator
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.PageHeader
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsSelect
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsSwitch
@@ -62,6 +58,7 @@ import java.io.InputStream
 
 class FontsFragment : Fragment() {
     private lateinit var prefs: Prefs
+    private lateinit var viewModel: com.github.gezimos.inkos.MainViewModel
     private lateinit var dialogBuilder: DialogManager
     private val PICK_FONT_FILE_REQUEST_CODE = 1001
     private var onCustomFontSelected: ((Typeface, String) -> Unit)? = null
@@ -71,15 +68,11 @@ class FontsFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        prefs = Prefs(requireContext())
+        viewModel = androidx.lifecycle.ViewModelProvider(requireActivity())[com.github.gezimos.inkos.MainViewModel::class.java]
+        prefs = viewModel.getPrefs()
         dialogBuilder = DialogManager(requireContext(), requireActivity())
-        val backgroundColor = com.github.gezimos.inkos.helper.getHexForOpacity(prefs)
-        val isDark = when (prefs.appTheme) {
-            Light -> false
-            Dark -> true
-            System -> isSystemInDarkMode(requireContext())
-        }
-        val settingsSize = (prefs.settingsSize - 3)
+        val backgroundColor = com.github.gezimos.inkos.helper.getHexForOpacity(requireContext())
+        val isDark = prefs.appTheme == Dark
 
         val context = requireContext()
     // --- Dot indicator state ---
@@ -92,6 +85,8 @@ class FontsFragment : Fragment() {
         // Create sticky header ComposeView (we'll update its content from the scroll behavior callback)
         val headerView = ComposeView(context).apply {
             setContent {
+                val homeUiState by viewModel.homeUiState.collectAsState()
+                val settingsSize = (homeUiState.settingsSize - 3)
                 val density = LocalDensity.current
                 val bottomInsetDp = with(density) { bottomInsetPx.toDp() }
                 SettingsTheme(isDark) {
@@ -100,7 +95,7 @@ class FontsFragment : Fragment() {
                             iconRes = R.drawable.ic_back,
                             title = stringResource(R.string.fonts_settings_title),
                             onClick = { findNavController().popBackStack() },
-                            showStatusBar = prefs.showStatusBar,
+                            showStatusBar = homeUiState.showStatusBar,
                             pageIndicator = {
                                 com.github.gezimos.inkos.ui.compose.SettingsComposable.PageIndicator(
                                     currentPage = currentPage[0],
@@ -125,6 +120,8 @@ class FontsFragment : Fragment() {
             addView(
                 ComposeView(context).apply {
                     setContent {
+                        val homeUiState by viewModel.homeUiState.collectAsState()
+                        val settingsSize = (homeUiState.settingsSize - 3)
                         val density = LocalDensity.current
                         val bottomInsetDp = with(density) { bottomInsetPx.toDp() }
                         SettingsTheme(isDark) {
@@ -149,6 +146,8 @@ class FontsFragment : Fragment() {
         // Create a vertical LinearLayout to hold sticky header and scrollable content
         val rootLayout = android.widget.LinearLayout(context).apply {
             orientation = android.widget.LinearLayout.VERTICAL
+            // Match LookFeelFragment: set root background so header isn't transparent
+            setBackgroundColor(backgroundColor)
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
@@ -175,13 +174,15 @@ class FontsFragment : Fragment() {
             currentPage[0] = page
             // Update header compose content to reflect the new page indicator state
             headerView.setContent {
+                val homeUiState by viewModel.homeUiState.collectAsState()
+                val settingsSize = (homeUiState.settingsSize - 3)
                 SettingsTheme(isDark) {
                     Column(Modifier.fillMaxWidth()) {
                         PageHeader(
                             iconRes = R.drawable.ic_back,
                             title = stringResource(R.string.fonts_settings_title),
                             onClick = { findNavController().popBackStack() },
-                            showStatusBar = prefs.showStatusBar,
+                            showStatusBar = homeUiState.showStatusBar,
                             pageIndicator = {
                                 com.github.gezimos.inkos.ui.compose.SettingsComposable.PageIndicator(
                                     currentPage = currentPage[0],
@@ -213,61 +214,31 @@ class FontsFragment : Fragment() {
     fun FontsSettingsAllInOne(fontSize: TextUnit = TextUnit.Unspecified, isDark: Boolean) {
         findNavController()
         val titleFontSize = if (fontSize.isSpecified) (fontSize.value * 1.5).sp else fontSize
-        // Universal Font Section State
+        
+        // Observe ViewModel state
+        val homeUiState by viewModel.homeUiState.collectAsState()
+
+        // Universal Font Section State (Not in HomeUiState)
         var universalFontState by remember { mutableStateOf(prefs.universalFont) }
         var universalFontEnabledState by remember { mutableStateOf(prefs.universalFontEnabled) }
         var settingsFontState by remember { mutableStateOf(prefs.fontFamily) }
-        var settingsSize by remember { mutableStateOf(prefs.settingsSize) }
-        // Home Fonts Section State
-        var appsFontState by remember { mutableStateOf(prefs.appsFont) }
-        var appSize by remember { mutableStateOf(prefs.appSize) }
-        var clockFontState by remember { mutableStateOf(prefs.clockFont) }
-        var clockSize by remember { mutableStateOf(prefs.clockSize) }
-        // Home App Type State
-        var appNameMode by remember {
-            mutableStateOf(
-                when {
-                    prefs.allCapsApps -> 2
-                    prefs.smallCapsApps -> 1
-                    else -> 0
-                }
-            )
-        }
-        // Date Font Section State
-        var dateFontState by remember { mutableStateOf(prefs.dateFont) }
-        var dateSize by remember { mutableStateOf(prefs.dateSize) }
-        // Quote Font Section State
-        var quoteFontState by remember { mutableStateOf(prefs.quoteFont) }
-        var quoteSize by remember { mutableStateOf(prefs.quoteSize) }
-        // Notification Fonts Section State
-        var labelnotificationsFontState by remember { mutableStateOf(prefs.labelnotificationsFont) }
+        
+        // Notification Fonts Section State (Sizes/Titles not in HomeUiState)
         var labelnotificationsFontSize by remember { mutableStateOf(prefs.labelnotificationsTextSize) }
-        var notificationsFontState by remember { mutableStateOf(prefs.notificationsFont) }
-        var notificationsTitleFontState by remember { mutableStateOf(prefs.lettersTitleFont) }
         var notificationsTitle by remember { mutableStateOf(prefs.lettersTitle) }
         var notificationsTitleSize by remember { mutableStateOf(prefs.lettersTitleSize) }
         var notificationsTextSize by remember { mutableStateOf(prefs.notificationsTextSize) }
 
-        // --- Sync all font states when universal font or its enabled state changes ---
-        LaunchedEffect(universalFontState, universalFontEnabledState) {
-            if (universalFontEnabledState) {
-                // When universal font is enabled, all fonts should match the universal font
-                val font = universalFontState
-                appsFontState = font
-                clockFontState = font
-                labelnotificationsFontState = font
-                notificationsFontState = font
-                notificationsTitleFontState = font
-                dateFontState = font
-                quoteFontState = font
-            }
-            // When universal font is disabled, DON'T change anything - preserve individual choices
+        // Derived state for app name mode
+        val appNameMode = when {
+            homeUiState.allCapsApps -> 2
+            homeUiState.smallCapsApps -> 1
+            else -> 0
         }
 
         // Use Column instead of LazyColumn (let parent NestedScrollView handle scrolling)
         Column(modifier = Modifier.fillMaxWidth()) {
             // --- Universal Custom Font Section (top, with Reset All on right) ---
-            DashedSeparator()
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -284,82 +255,62 @@ class FontsFragment : Fragment() {
                     modifier = Modifier
                         .padding(end = SettingsTheme.color.horizontalPadding)
                         .clickable {
-                            prefs.fontFamily = Constants.FontFamily.System
-                            prefs.universalFont = Constants.FontFamily.System
-                            prefs.removeCustomFontPath("universal")
-                            prefs.universalFontEnabled = false
-                            prefs.appsFont = Constants.FontFamily.System
-                            prefs.removeCustomFontPath("apps")
-                            prefs.clockFont = Constants.FontFamily.System
-                            prefs.removeCustomFontPath("clock")
-                            prefs.statusFont = Constants.FontFamily.System
-                            prefs.removeCustomFontPath("status")
-                            prefs.labelnotificationsFont = Constants.FontFamily.System
-                            prefs.removeCustomFontPath("notification")
-                            prefs.dateFont = Constants.FontFamily.System
-                            prefs.removeCustomFontPath("date")
-                            prefs.quoteFont = Constants.FontFamily.System
-                            prefs.removeCustomFontPath("quote")
-                            prefs.lettersFont = Constants.FontFamily.System
-                            prefs.removeCustomFontPath("letters")
-                            prefs.lettersTitleFont = Constants.FontFamily.System
-                            prefs.removeCustomFontPath("lettersTitle")
-                            prefs.notificationsFont = Constants.FontFamily.System
-                            prefs.removeCustomFontPath("notifications")
-                            prefs.settingsSize = 16
-                            prefs.appSize = 32
-                            prefs.clockSize = 64
-                            prefs.labelnotificationsTextSize = 16
-                            prefs.dateSize = 18
-                            prefs.quoteSize = 18
-                            prefs.lettersTextSize = 18
-                            prefs.lettersTitleSize = 36
-                            prefs.lettersTitle = "Letters"
-                            universalFontState = Constants.FontFamily.System
-                            universalFontEnabledState = false
-                            settingsFontState = Constants.FontFamily.System
-                            settingsSize = 16
-                            appsFontState = Constants.FontFamily.System
-                            appSize = 32
-                            clockFontState = Constants.FontFamily.System
-                            clockSize = 64
-                            dateFontState = Constants.FontFamily.System
-                            dateSize = 18
-                            quoteFontState = Constants.FontFamily.System
-                            quoteSize = 18
-                            labelnotificationsFontState = Constants.FontFamily.System
-                            labelnotificationsFontSize = 16
-                            notificationsFontState = Constants.FontFamily.System
-                            notificationsTitleFontState = Constants.FontFamily.System
-                            notificationsTitle = "Letters"
-                            notificationsTitleSize = 36
-                            notificationsTextSize = 16
-                        }
+                                                // Reset fonts centrally in ViewModel
+                                                viewModel.resetFontsToDefault()
+                                
+                                // Reset sizes to defaults - using values from Prefs.kt getInt defaults
+                                // settingsSize default: 16 (from TEXT_SIZE_SETTINGS)
+                                viewModel.setSettingsSize(16)
+                                // appSize default: 27 (from APP_SIZE_TEXT)
+                                viewModel.setAppSize(27)
+                                // clockSize default: 48 (from CLOCK_SIZE_TEXT, catch returns 64 but default is 48)
+                                viewModel.setClockSize(48)
+                                // labelnotificationsTextSize default: 16 (from "notificationTextSize")
+                                viewModel.setLabelNotificationsTextSize(16)
+                                // dateSize default: 18 (from Constants.PrefKeys.DATE_SIZE_TEXT)
+                                viewModel.setDateSize(18)
+                                // quoteSize default: 18 (from QUOTE_TEXT_SIZE)
+                                viewModel.setQuoteSize(18)
+                                // lettersTextSize default: 18 (from LETTERS_TEXT_SIZE)
+                                viewModel.setLettersTextSize(18)
+                                // lettersTitleSize default: 36 (from LETTERS_TITLE_SIZE)
+                                viewModel.setLettersTitleSize(36)
+                                // notificationsTextSize default: 18 (from NOTIFICATIONS_TEXT_SIZE)
+                                viewModel.setNotificationsTextSize(18)
+                                // lettersTitle default: "Letters" (from LETTERS_TITLE)
+                                viewModel.setLettersTitle("Letters")
+                                
+                                // Update local state
+                                universalFontState = Constants.FontFamily.PublicSans
+                                universalFontEnabledState = false
+                                settingsFontState = Constants.FontFamily.PublicSans
+                                labelnotificationsFontSize = 16
+                                notificationsTitle = "Letters"
+                                notificationsTitleSize = 36
+                                notificationsTextSize = 18
+                            }
                 )
             }
-            DashedSeparator()
             SettingsSwitch(
                 text = stringResource(R.string.universal_custom_font),
                 fontSize = titleFontSize,
                 defaultState = universalFontEnabledState,
                 onCheckedChange = { enabled ->
-                    prefs.universalFontEnabled = enabled
+                    viewModel.setUniversalFontEnabled(enabled)
                     universalFontEnabledState = enabled
                     if (enabled) {
                         val font = prefs.universalFont
-                        val fontPath =
-                            if (font == Constants.FontFamily.Custom) prefs.getCustomFontPath("universal") else null
-                        prefs.fontFamily = font
-                        prefs.appsFont = font
-                        prefs.clockFont = font
-                        prefs.statusFont = font
-                        prefs.labelnotificationsFont = font
-                        prefs.notificationsFont = font
-                        prefs.lettersTitleFont = font
-                        prefs.dateFont = font
-                        prefs.quoteFont = font
-
-                        prefs.lettersFont = font
+                        val fontPath = if (font == Constants.FontFamily.Custom) prefs.getCustomFontPath("universal") else null
+                        viewModel.setFontFamily(font)
+                        viewModel.setAppsFont(font)
+                        viewModel.setClockFont(font)
+                        viewModel.setStatusFont(font)
+                        viewModel.setLabelNotificationsFont(font)
+                        viewModel.setNotificationsFont(font)
+                        viewModel.setLettersTitleFont(font)
+                        viewModel.setDateFont(font)
+                        viewModel.setQuoteFont(font)
+                        viewModel.setLettersFont(font)
                         if (font == Constants.FontFamily.Custom && fontPath != null) {
                             val keys = listOf(
                                 "universal",
@@ -374,13 +325,12 @@ class FontsFragment : Fragment() {
                                 "quote",
                                 "letters"
                             )
-                            for (key in keys) prefs.setCustomFontPath(key, fontPath)
+                            for (key in keys) viewModel.setCustomFontPath(key, fontPath)
                         }
                         settingsFontState = font
                     }
                 }
             )
-            DashedSeparator()
             SettingsSelect(
                 title = stringResource(R.string.universal_custom_font_selector),
                 option = getFontDisplayName(universalFontState, "universal"),
@@ -389,22 +339,21 @@ class FontsFragment : Fragment() {
                     showFontSelectionDialogWithCustoms(
                         R.string.universal_custom_font_selector,
                         "universal"
-                    ) { newFont, customPath ->
-                        prefs.universalFont = newFont
+                        ) { newFont, customPath ->
+                        viewModel.setUniversalFont(newFont)
                         universalFontState = newFont
-                        val fontPath =
-                            if (newFont == Constants.FontFamily.Custom) customPath else null
+                        val fontPath = if (newFont == Constants.FontFamily.Custom) customPath else null
                         if (prefs.universalFontEnabled) {
-                            prefs.fontFamily = newFont
-                            prefs.appsFont = newFont
-                            prefs.clockFont = newFont
-                            prefs.statusFont = newFont
-                            prefs.labelnotificationsFont = newFont
-                            prefs.notificationsFont = newFont
-                            prefs.lettersTitleFont = newFont
-                            prefs.dateFont = newFont
-                            prefs.quoteFont = newFont
-                            prefs.lettersFont = newFont
+                            viewModel.setFontFamily(newFont)
+                            viewModel.setAppsFont(newFont)
+                            viewModel.setClockFont(newFont)
+                            viewModel.setStatusFont(newFont)
+                            viewModel.setLabelNotificationsFont(newFont)
+                            viewModel.setNotificationsFont(newFont)
+                            viewModel.setLettersTitleFont(newFont)
+                            viewModel.setDateFont(newFont)
+                            viewModel.setQuoteFont(newFont)
+                            viewModel.setLettersFont(newFont)
                             if (newFont == Constants.FontFamily.Custom && fontPath != null) {
                                 val keys = listOf(
                                     "universal",
@@ -419,7 +368,7 @@ class FontsFragment : Fragment() {
                                     "quote",
                                     "letters"
                                 )
-                                for (key in keys) prefs.setCustomFontPath(key, fontPath)
+                                for (key in keys) viewModel.setCustomFontPath(key, fontPath)
                             }
                             settingsFontState = newFont
                         }
@@ -429,7 +378,6 @@ class FontsFragment : Fragment() {
                 },
                 enabled = prefs.universalFontEnabled
             )
-            DashedSeparator()
             SettingsSelect(
                 title = stringResource(R.string.settings_font_section),
                 option = getFontDisplayName(settingsFontState, "settings"),
@@ -440,7 +388,7 @@ class FontsFragment : Fragment() {
                             R.string.settings_font_section,
                             "settings"
                         ) { newFont, customPath ->
-                            prefs.fontFamily = newFont
+                            viewModel.setFontFamily(newFont)
                             settingsFontState = newFont
                         }
                     }
@@ -450,10 +398,9 @@ class FontsFragment : Fragment() {
                 else Color.Gray,
                 enabled = !universalFontEnabledState
             )
-            DashedSeparator()
             SettingsSelect(
                 title = stringResource(R.string.settings_text_size),
-                option = settingsSize.toString(),
+                option = homeUiState.settingsSize.toString(),
                 fontSize = titleFontSize,
                 onClick = {
                     dialogBuilder.showSliderDialog(
@@ -461,27 +408,26 @@ class FontsFragment : Fragment() {
                         title = getString(R.string.settings_text_size),
                         minValue = Constants.MIN_SETTINGS_TEXT_SIZE,
                         maxValue = Constants.MAX_SETTINGS_TEXT_SIZE,
-                        currentValue = prefs.settingsSize,
+                        currentValue = homeUiState.settingsSize,
                         onValueSelected = { newSize ->
-                            prefs.settingsSize = newSize
-                            settingsSize = newSize
+                            viewModel.setSettingsSize(newSize)
                         }
                     )
                 }
             )
 
             // --- Home Fonts Section ---
-            DashedSeparator()
+            
             SettingsTitle(
                 text = "Home Fonts",
                 fontSize = titleFontSize
             )
-            DashedSeparator()
+            
 
             // Apps Font
             SettingsSelect(
                 title = stringResource(R.string.apps_font),
-                option = getFontDisplayName(appsFontState, "apps"),
+                option = getFontDisplayName(homeUiState.appsFont, "apps"),
                 fontSize = titleFontSize,
                 onClick = {
                     if (!universalFontEnabledState) {
@@ -489,9 +435,8 @@ class FontsFragment : Fragment() {
                             R.string.apps_font,
                             "apps"
                         ) { newFont, customPath ->
-                            prefs.appsFont = newFont
-                            appsFontState = newFont
-                            customPath?.let { prefs.setCustomFontPath("apps", it) }
+                            viewModel.setAppsFont(newFont)
+                            customPath?.let { viewModel.setCustomFontPath("apps", it) }
                         }
                     }
                 },
@@ -500,10 +445,9 @@ class FontsFragment : Fragment() {
                 else Color.Gray,
                 enabled = !universalFontEnabledState
             )
-            DashedSeparator()
             SettingsSelect(
                 title = stringResource(R.string.app_text_size),
-                option = appSize.toString(),
+                option = homeUiState.appSize.toString(),
                 fontSize = titleFontSize,
                 onClick = {
                     dialogBuilder.showSliderDialog(
@@ -511,15 +455,13 @@ class FontsFragment : Fragment() {
                         title = requireContext().getString(R.string.app_text_size),
                         minValue = Constants.MIN_APP_SIZE,
                         maxValue = Constants.MAX_APP_SIZE,
-                        currentValue = prefs.appSize,
+                        currentValue = homeUiState.appSize,
                         onValueSelected = { newAppSize ->
-                            prefs.appSize = newAppSize
-                            appSize = newAppSize
+                            viewModel.setAppSize(newAppSize)
                         }
                     )
                 }
             )
-            DashedSeparator()
             val appNameModeLabels = listOf(
                 stringResource(R.string.app_name_mode_normal),
                 stringResource(R.string.small_caps_apps),
@@ -531,17 +473,15 @@ class FontsFragment : Fragment() {
                 fontSize = titleFontSize,
                 onClick = {
                     val nextMode = (appNameMode + 1) % 3
-                    appNameMode = nextMode
-                    prefs.smallCapsApps = nextMode == 1
-                    prefs.allCapsApps = nextMode == 2
+                    viewModel.setSmallCapsApps(nextMode == 1)
+                    viewModel.setAllCapsApps(nextMode == 2)
                 }
             )
-            DashedSeparator()
 
             // Clock Font
             SettingsSelect(
                 title = stringResource(R.string.clock_font),
-                option = getFontDisplayName(clockFontState, "clock"),
+                option = getFontDisplayName(homeUiState.clockFont, "clock"),
                 fontSize = titleFontSize,
                 onClick = {
                     if (!universalFontEnabledState) {
@@ -549,9 +489,8 @@ class FontsFragment : Fragment() {
                             R.string.clock_font,
                             "clock"
                         ) { newFont, customPath ->
-                            prefs.clockFont = newFont
-                            clockFontState = newFont
-                            customPath?.let { prefs.setCustomFontPath("clock", it) }
+                            viewModel.setClockFont(newFont)
+                            customPath?.let { viewModel.setCustomFontPath("clock", it) }
                         }
                     }
                 },
@@ -560,10 +499,9 @@ class FontsFragment : Fragment() {
                 else Color.Gray,
                 enabled = !universalFontEnabledState
             )
-            DashedSeparator()
             SettingsSelect(
                 title = stringResource(R.string.clock_text_size),
-                option = clockSize.toString(),
+                option = homeUiState.clockSize.toString(),
                 fontSize = titleFontSize,
                 onClick = {
                     dialogBuilder.showSliderDialog(
@@ -571,19 +509,17 @@ class FontsFragment : Fragment() {
                         title = requireContext().getString(R.string.clock_text_size),
                         minValue = Constants.MIN_CLOCK_SIZE,
                         maxValue = Constants.MAX_CLOCK_SIZE,
-                        currentValue = prefs.clockSize,
+                        currentValue = homeUiState.clockSize,
                         onValueSelected = { newClockSize ->
-                            prefs.clockSize = newClockSize
-                            clockSize = newClockSize
+                            viewModel.setClockSize(newClockSize)
                         }
                     )
                 }
             )
-            DashedSeparator()
             // Date Font
             SettingsSelect(
                 title = stringResource(R.string.date_font),
-                option = getFontDisplayName(dateFontState, "date"),
+                option = getFontDisplayName(homeUiState.dateFont, "date"),
                 fontSize = titleFontSize,
                 onClick = {
                     if (!universalFontEnabledState) {
@@ -591,9 +527,8 @@ class FontsFragment : Fragment() {
                             R.string.date_font,
                             "date"
                         ) { newFont, customPath ->
-                            prefs.dateFont = newFont
-                            dateFontState = newFont
-                            customPath?.let { prefs.setCustomFontPath("date", it) }
+                            viewModel.setDateFont(newFont)
+                            customPath?.let { viewModel.setCustomFontPath("date", it) }
                         }
                     }
                 },
@@ -602,10 +537,9 @@ class FontsFragment : Fragment() {
                 else Color.Gray,
                 enabled = !universalFontEnabledState
             )
-            DashedSeparator()
             SettingsSelect(
                 title = stringResource(R.string.date_text_size),
-                option = dateSize.toString(),
+                option = homeUiState.dateSize.toString(),
                 fontSize = titleFontSize,
                 onClick = {
                     dialogBuilder.showSliderDialog(
@@ -613,15 +547,14 @@ class FontsFragment : Fragment() {
                         title = requireContext().getString(R.string.date_text_size),
                         minValue = 10,
                         maxValue = 64,
-                        currentValue = dateSize,
+                        currentValue = homeUiState.dateSize,
                         onValueSelected = { newSize ->
-                            dateSize = newSize
-                            prefs.dateSize = newSize
+                            viewModel.setDateSize(newSize)
                         }
                     )
                 }
             )
-            DashedSeparator()
+            
 
 
 
@@ -629,7 +562,7 @@ class FontsFragment : Fragment() {
             // Quote Font Section
             SettingsSelect(
                 title = stringResource(R.string.quote_font),
-                option = getFontDisplayName(quoteFontState, "quote"),
+                option = getFontDisplayName(homeUiState.quoteFont, "quote"),
                 fontSize = titleFontSize,
                 onClick = {
                     if (!universalFontEnabledState) {
@@ -637,9 +570,8 @@ class FontsFragment : Fragment() {
                             R.string.quote_font,
                             "quote"
                         ) { newFont, customPath ->
-                            prefs.quoteFont = newFont
-                            quoteFontState = newFont
-                            customPath?.let { prefs.setCustomFontPath("quote", it) }
+                            viewModel.setQuoteFont(newFont)
+                            customPath?.let { viewModel.setCustomFontPath("quote", it) }
                         }
                     }
                 },
@@ -648,10 +580,10 @@ class FontsFragment : Fragment() {
                 else Color.Gray,
                 enabled = !universalFontEnabledState
             )
-            DashedSeparator()
+            
             SettingsSelect(
                 title = stringResource(R.string.quote_text_size),
-                option = quoteSize.toString(),
+                option = homeUiState.quoteSize.toString(),
                 fontSize = titleFontSize,
                 onClick = {
                     dialogBuilder.showSliderDialog(
@@ -659,26 +591,25 @@ class FontsFragment : Fragment() {
                         title = requireContext().getString(R.string.quote_text_size),
                         minValue = 10,
                         maxValue = 64,
-                        currentValue = prefs.quoteSize,
+                        currentValue = homeUiState.quoteSize,
                         onValueSelected = { newQuoteSize ->
-                            prefs.quoteSize = newQuoteSize
-                            quoteSize = newQuoteSize
+                            viewModel.setQuoteSize(newQuoteSize)
                         }
                     )
                 }
             )
-            DashedSeparator()
+            
 
             SettingsTitle(
                 text = "Label Notifications",
                 fontSize = titleFontSize
             )
-            DashedSeparator()
+            
             SettingsSelect(
                 title = "Label Notifications Font",
-                option = if (labelnotificationsFontState == Constants.FontFamily.Custom)
-                    getFontDisplayName(labelnotificationsFontState, "notification")
-                else labelnotificationsFontState.name,
+                option = if (homeUiState.notificationFont == Constants.FontFamily.Custom)
+                    getFontDisplayName(homeUiState.notificationFont, "notification")
+                else homeUiState.notificationFont.name,
                 fontSize = titleFontSize,
                 onClick = {
                     if (!universalFontEnabledState) {
@@ -686,10 +617,9 @@ class FontsFragment : Fragment() {
                             R.string.app_notification_font,
                             "notification"
                         ) { newFont, customPath ->
-                            prefs.labelnotificationsFont = newFont
-                            labelnotificationsFontState = newFont
+                            viewModel.setLabelNotificationsFont(newFont)
                             if (newFont == Constants.FontFamily.Custom && customPath != null) {
-                                prefs.setCustomFontPath("notification", customPath)
+                                viewModel.setCustomFontPath("notification", customPath)
                             }
                         }
                     }
@@ -699,7 +629,6 @@ class FontsFragment : Fragment() {
                 else Color.Gray,
                 enabled = !universalFontEnabledState
             )
-            DashedSeparator()
             SettingsSelect(
                 title = "Label Notifications Size",
                 option = labelnotificationsFontSize.toString(),
@@ -712,19 +641,18 @@ class FontsFragment : Fragment() {
                         maxValue = Constants.MAX_LABEL_NOTIFICATION_TEXT_SIZE,
                         currentValue = prefs.labelnotificationsTextSize,
                         onValueSelected = { newSize ->
-                            prefs.labelnotificationsTextSize = newSize
+                            viewModel.setLabelNotificationsTextSize(newSize)
                             labelnotificationsFontSize = newSize
                         }
                     )
                 }
             )
-            DashedSeparator()
 
             SettingsTitle(
                 text = "Notifications Window",
                 fontSize = titleFontSize
             )
-            DashedSeparator()
+            
             SettingsSelect(
                 title = "Window Title",
                 option = notificationsTitle,
@@ -734,21 +662,20 @@ class FontsFragment : Fragment() {
                         context = requireContext(),
                         title = "Title",
                         initialValue = notificationsTitle,
-                        onValueEntered = { newTitle ->
+                            onValueEntered = { newTitle ->
                             // Remove any newline characters to enforce single line
                             val singleLineTitle = newTitle.replace("\n", "")
-                            prefs.lettersTitle = singleLineTitle
+                            viewModel.setLettersTitle(singleLineTitle)
                             notificationsTitle = singleLineTitle
                         }
                     )
                 }
             )
-            DashedSeparator()
             SettingsSelect(
                 title = "Title Font",
-                option = if (notificationsTitleFontState == Constants.FontFamily.Custom)
-                    getFontDisplayName(notificationsTitleFontState, "lettersTitle")
-                else notificationsTitleFontState.name,
+                option = if (homeUiState.lettersTitleFont == Constants.FontFamily.Custom)
+                    getFontDisplayName(homeUiState.lettersTitleFont, "lettersTitle")
+                else homeUiState.lettersTitleFont.name,
                 fontSize = titleFontSize,
                 onClick = {
                     if (!universalFontEnabledState) {
@@ -756,10 +683,9 @@ class FontsFragment : Fragment() {
                             R.string.notifications_font,
                             "lettersTitle"
                         ) { newFont, customPath ->
-                            prefs.lettersTitleFont = newFont
-                            notificationsTitleFontState = newFont
+                            viewModel.setLettersTitleFont(newFont)
                             if (newFont == Constants.FontFamily.Custom && customPath != null) {
-                                prefs.setCustomFontPath("lettersTitle", customPath)
+                                viewModel.setCustomFontPath("lettersTitle", customPath)
                             }
                         }
                     }
@@ -769,7 +695,6 @@ class FontsFragment : Fragment() {
                 else Color.Gray,
                 enabled = !universalFontEnabledState
             )
-            DashedSeparator()
             SettingsSelect(
                 title = "Title Size",
                 option = notificationsTitleSize.toString(),
@@ -781,14 +706,13 @@ class FontsFragment : Fragment() {
                         minValue = 10,
                         maxValue = 60,
                         currentValue = notificationsTitleSize,
-                        onValueSelected = { newSize ->
-                            prefs.lettersTitleSize = newSize
+                            onValueSelected = { newSize ->
+                            viewModel.setLettersTitleSize(newSize)
                             notificationsTitleSize = newSize
                         }
                     )
                 }
             )
-            DashedSeparator()
             SettingsSelect(
                 title = "Body Font",
                 option = if (universalFontEnabledState) {
@@ -796,9 +720,9 @@ class FontsFragment : Fragment() {
                     if (universalFont == Constants.FontFamily.Custom)
                         getFontDisplayName(universalFont, "universal")
                     else universalFont.name
-                } else if (notificationsFontState == Constants.FontFamily.Custom)
-                    getFontDisplayName(notificationsFontState, "notifications")
-                else notificationsFontState.name,
+                } else if (homeUiState.notificationsFont == Constants.FontFamily.Custom)
+                    getFontDisplayName(homeUiState.notificationsFont, "notifications")
+                else homeUiState.notificationsFont.name,
                 fontSize = titleFontSize,
                 onClick = {
                     if (!universalFontEnabledState) {
@@ -806,10 +730,9 @@ class FontsFragment : Fragment() {
                             R.string.notifications_font,
                             "notifications"
                         ) { newFont, customPath ->
-                            prefs.notificationsFont = newFont
-                            notificationsFontState = newFont
+                            viewModel.setNotificationsFont(newFont)
                             if (newFont == Constants.FontFamily.Custom && customPath != null) {
-                                prefs.setCustomFontPath("notifications", customPath)
+                                viewModel.setCustomFontPath("notifications", customPath)
                             }
                         }
                     }
@@ -819,7 +742,6 @@ class FontsFragment : Fragment() {
                 else Color.Gray,
                 enabled = !universalFontEnabledState
             )
-            DashedSeparator()
             SettingsSelect(
                 title = "Body Text Size",
                 option = notificationsTextSize.toString(),
@@ -831,14 +753,14 @@ class FontsFragment : Fragment() {
                         minValue = Constants.MIN_LABEL_NOTIFICATION_TEXT_SIZE,
                         maxValue = Constants.MAX_LABEL_NOTIFICATION_TEXT_SIZE,
                         currentValue = notificationsTextSize,
-                        onValueSelected = { newSize ->
-                            prefs.notificationsTextSize = newSize
+                            onValueSelected = { newSize ->
+                            viewModel.setNotificationsTextSize(newSize)
                             notificationsTextSize = newSize
                         }
                     )
                 }
             )
-            DashedSeparator()
+            
             Spacer(modifier = Modifier.height(24.dp))
         }
     }
@@ -918,15 +840,13 @@ class FontsFragment : Fragment() {
                 customFontOptions.contains(option)
             },
             nonSelectable = { option -> option.toString() == addCustomFontOption },
+            maxHeightRatio = 0.50f, // Make font picker taller (50% of screen)
             onItemSelected = { selectedName ->
                 // Use string comparison to handle reordered options
                 if (selectedName.toString() == addCustomFontOption) {
                     pickCustomFontFile { typeface, path ->
-                        prefs.setCustomFontPath(
-                            contextKey,
-                            path
-                        )
-                        prefs.addCustomFontPath(path)
+                        viewModel.setCustomFontPath(contextKey, path)
+                        viewModel.addCustomFontPath(path)
                         onFontSelected(Constants.FontFamily.Custom, path)
                         activity?.recreate()
                     }
@@ -939,10 +859,7 @@ class FontsFragment : Fragment() {
                     val customIndex = customFontOptions.indexOf(selectedName)
                     if (customIndex != -1) {
                         val path = customFontPaths[customIndex]
-                        prefs.setCustomFontPath(
-                            contextKey,
-                            path
-                        )
+                        viewModel.setCustomFontPath(contextKey, path)
                         onFontSelected(Constants.FontFamily.Custom, path)
                         return@showSingleChoiceDialog
                     }
@@ -954,25 +871,23 @@ class FontsFragment : Fragment() {
                     val path = customFontPaths[customIndex]
 
                     // Remove the custom font from storage
-                    prefs.removeCustomFontPathByPath(path)
+                    viewModel.removeCustomFontPathByPath(path)
 
                     // Find all contexts using this font and reset them to System font
                     val allKeys = prefs.customFontPathMap.filterValues { it == path }.keys
                     for (key in allKeys) {
-                        prefs.removeCustomFontPath(key)
+                        viewModel.setCustomFontPath(key, null)
                         // Reset the font setting for this context to System
                         when (key) {
-                            "universal" -> prefs.universalFont = Constants.FontFamily.System
-                            "settings" -> prefs.fontFamily = Constants.FontFamily.System
-                            "apps" -> prefs.appsFont = Constants.FontFamily.System
-                            "clock" -> prefs.clockFont = Constants.FontFamily.System
-                            "date" -> prefs.dateFont = Constants.FontFamily.System
-                            "quote" -> prefs.quoteFont = Constants.FontFamily.System
-                            "notification" -> prefs.labelnotificationsFont =
-                                Constants.FontFamily.System
-
-                            "notifications" -> prefs.notificationsFont = Constants.FontFamily.System
-                            "lettersTitle" -> prefs.lettersTitleFont = Constants.FontFamily.System
+                            "universal" -> viewModel.setUniversalFont(Constants.FontFamily.System)
+                            "settings" -> viewModel.setFontFamily(Constants.FontFamily.System)
+                            "apps" -> viewModel.setAppsFont(Constants.FontFamily.System)
+                            "clock" -> viewModel.setClockFont(Constants.FontFamily.System)
+                            "date" -> viewModel.setDateFont(Constants.FontFamily.System)
+                            "quote" -> viewModel.setQuoteFont(Constants.FontFamily.System)
+                            "notification" -> viewModel.setLabelNotificationsFont(Constants.FontFamily.System)
+                            "notifications" -> viewModel.setNotificationsFont(Constants.FontFamily.System)
+                            "lettersTitle" -> viewModel.setLettersTitleFont(Constants.FontFamily.System)
                         }
                     }
 

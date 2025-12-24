@@ -12,17 +12,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.sp
-import androidx.core.os.bundleOf
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
@@ -30,14 +26,10 @@ import com.github.gezimos.inkos.MainViewModel
 import com.github.gezimos.inkos.R
 import com.github.gezimos.inkos.data.Constants
 import com.github.gezimos.inkos.data.Constants.Theme.Dark
-import com.github.gezimos.inkos.data.Constants.Theme.Light
-import com.github.gezimos.inkos.data.Constants.Theme.System
 import com.github.gezimos.inkos.data.Prefs
 import com.github.gezimos.inkos.helper.getHexForOpacity
-import com.github.gezimos.inkos.helper.isSystemInDarkMode
 import com.github.gezimos.inkos.listener.DeviceAdmin
 import com.github.gezimos.inkos.style.SettingsTheme
-import com.github.gezimos.inkos.ui.compose.SettingsComposable.DashedSeparator
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.PageHeader
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsSelect
 import com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsSwitch
@@ -57,15 +49,11 @@ class FeaturesFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        prefs = Prefs(requireContext())
+        viewModel = ViewModelProvider(requireActivity())[MainViewModel::class.java]
+        prefs = viewModel.getPrefs()
         dialogBuilder = DialogManager(requireContext(), requireActivity())
-        val backgroundColor = getHexForOpacity(prefs)
-        val isDark = when (prefs.appTheme) {
-            Light -> false
-            Dark -> true
-            System -> isSystemInDarkMode(requireContext())
-        }
-        val settingsSize = (prefs.settingsSize - 3)
+        val backgroundColor = getHexForOpacity(requireContext())
+        val isDark = prefs.appTheme == Dark
         val context = requireContext()
         // --- Dot indicator state ---
         val currentPage = intArrayOf(0)
@@ -92,13 +80,15 @@ class FeaturesFragment : Fragment() {
         // Add sticky header ComposeView
         val headerView = androidx.compose.ui.platform.ComposeView(context).apply {
             setContent {
+                val homeUiState by viewModel.homeUiState.collectAsState()
+                val settingsSize = (homeUiState.settingsSize - 3)
                 SettingsTheme(isDark) {
                     Column(Modifier.fillMaxWidth()) {
                         PageHeader(
                             iconRes = R.drawable.ic_back,
                             title = stringResource(R.string.settings_home_title),
                             onClick = { findNavController().popBackStack() },
-                            showStatusBar = prefs.showStatusBar,
+                            showStatusBar = homeUiState.showStatusBar,
                             pageIndicator = {
                                 com.github.gezimos.inkos.ui.compose.SettingsComposable.PageIndicator(
                                     currentPage = currentPage[0],
@@ -121,6 +111,8 @@ class FeaturesFragment : Fragment() {
             addView(
                 androidx.compose.ui.platform.ComposeView(context).apply {
                     setContent {
+                        val homeUiState by viewModel.homeUiState.collectAsState()
+                        val settingsSize = (homeUiState.settingsSize - 3)
                         SettingsTheme(isDark) {
                             Box(Modifier.fillMaxSize()) {
                                 Column {
@@ -157,13 +149,15 @@ class FeaturesFragment : Fragment() {
             pageCount[0] = pages
             currentPage[0] = page
             headerView.setContent {
+                val homeUiState by viewModel.homeUiState.collectAsState()
+                val settingsSize = (homeUiState.settingsSize - 3)
                 SettingsTheme(isDark) {
                     Column(Modifier.fillMaxWidth()) {
                         PageHeader(
                             iconRes = R.drawable.ic_back,
                             title = stringResource(R.string.settings_home_title),
                             onClick = { findNavController().popBackStack() },
-                            showStatusBar = prefs.showStatusBar,
+                            showStatusBar = homeUiState.showStatusBar,
                             pageIndicator = {
                                 com.github.gezimos.inkos.ui.compose.SettingsComposable.PageIndicator(
                                     currentPage = currentPage[0],
@@ -185,43 +179,31 @@ class FeaturesFragment : Fragment() {
     fun FeaturesSettingsAllInOne(fontSize: TextUnit = TextUnit.Unspecified, isDark: Boolean) {
         findNavController()
         val titleFontSize = if (fontSize.isSpecified) (fontSize.value * 1.5).sp else fontSize
-        var selectedHomeAppsNum by remember { mutableIntStateOf(prefs.homeAppsNum) }
-        var selectedHomePagesNum by remember { mutableIntStateOf(prefs.homePagesNum) }
-        var toggledHomePager by remember { mutableStateOf(prefs.homePager) }
-        var toggledHomeReset by remember { mutableStateOf(prefs.homeReset) }
-        var toggledShowClock by remember { mutableStateOf(prefs.showClock) }
-        var toggledShowDate by remember { mutableStateOf(prefs.showDate) }
-        var toggledShowDateBatteryCombo by remember { mutableStateOf(prefs.showDateBatteryCombo) }
-        var toggledShowQuote by remember { mutableStateOf(prefs.showQuote) }
-        var toggledShowAudioWidget by remember { mutableStateOf(prefs.showAudioWidgetEnabled) }
-        var quoteTextState by remember { mutableStateOf(prefs.quoteText) }
-        var appNameMode by remember {
-            mutableStateOf(
-                when {
-                    prefs.allCapsApps -> 2
-                    prefs.smallCapsApps -> 1
-                    else -> 0
-                }
-            )
+        
+        // Observe ViewModel state
+        val homeUiState by viewModel.homeUiState.collectAsState()
+        
+        // Local state for items NOT in HomeUiState (yet)
+        // var toggledHomeReset by remember { mutableStateOf(prefs.homeReset) } // Removed
+        // val toggledExtendHomeAppsArea = remember { mutableStateOf(prefs.extendHomeAppsArea) } // Removed
+
+        // Derived state for app name mode
+        val appNameMode = when {
+            homeUiState.allCapsApps -> 2
+            homeUiState.smallCapsApps -> 1
+            else -> 0
         }
-        // Layout & Positioning section (moved from LookFeelFragment)
-        var toggledExtendHomeAppsArea = remember { mutableStateOf(prefs.extendHomeAppsArea) }
-        var selectedPaddingSize = remember { mutableStateOf(prefs.textPaddingSize) }
-    var selectedHomeAppsYOffset = remember { mutableStateOf(prefs.homeAppsYOffset) }
-        var selectedTopWidgetMargin = remember { mutableStateOf(prefs.topWidgetMargin) }
-        var selectedBottomWidgetMargin = remember { mutableStateOf(prefs.bottomWidgetMargin) }
+
         // Remove verticalScroll and isDark param, handled by parent ComposeView
         Column(modifier = Modifier.fillMaxWidth()) {
-            DashedSeparator()
             // --- Layout & Positioning (moved) ---
             SettingsTitle(
                 text = stringResource(R.string.layout_positioning),
                 fontSize = titleFontSize,
             )
-            DashedSeparator()
             SettingsSelect(
                 title = stringResource(R.string.app_padding_size),
-                option = selectedPaddingSize.value.toString(),
+                option = homeUiState.textPaddingSize.toString(),
                 fontSize = titleFontSize,
                 onClick = {
                     dialogBuilder.showSliderDialog(
@@ -229,18 +211,16 @@ class FeaturesFragment : Fragment() {
                         title = getString(R.string.app_padding_size),
                         minValue = Constants.MIN_TEXT_PADDING,
                         maxValue = Constants.MAX_TEXT_PADDING,
-                        currentValue = selectedPaddingSize.value,
+                        currentValue = homeUiState.textPaddingSize,
                         onValueSelected = { newPaddingSize ->
-                            selectedPaddingSize.value = newPaddingSize
-                            prefs.textPaddingSize = newPaddingSize
+                            viewModel.setTextPaddingSize(newPaddingSize)
                         }
                     )
                 }
             )
-            DashedSeparator()
             SettingsSelect(
                 title = stringResource(R.string.home_apps_y_offset),
-                option = selectedHomeAppsYOffset.value.toString(),
+                option = homeUiState.homeAppsYOffset.toString(),
                 fontSize = titleFontSize,
                 onClick = {
                     dialogBuilder.showSliderDialog(
@@ -248,18 +228,16 @@ class FeaturesFragment : Fragment() {
                         title = getString(R.string.home_apps_y_offset),
                         minValue = Constants.MIN_HOME_APPS_Y_OFFSET,
                         maxValue = Constants.MAX_HOME_APPS_Y_OFFSET,
-                        currentValue = selectedHomeAppsYOffset.value,
+                        currentValue = homeUiState.homeAppsYOffset,
                         onValueSelected = { newValue ->
-                            selectedHomeAppsYOffset.value = newValue
-                            prefs.homeAppsYOffset = newValue
+                            viewModel.setHomeAppsYOffset(newValue)
                         }
                     )
                 }
             )
-            DashedSeparator()
             SettingsSelect(
                 title = stringResource(R.string.top_widget_margin),
-                option = selectedTopWidgetMargin.value.toString(),
+                option = homeUiState.topWidgetMargin.toString(),
                 fontSize = titleFontSize,
                 onClick = {
                     dialogBuilder.showSliderDialog(
@@ -267,18 +245,16 @@ class FeaturesFragment : Fragment() {
                         title = getString(R.string.top_widget_margin),
                         minValue = 0,
                         maxValue = Constants.MAX_TOP_WIDGET_MARGIN,
-                        currentValue = selectedTopWidgetMargin.value,
+                        currentValue = homeUiState.topWidgetMargin,
                         onValueSelected = { newValue ->
-                            selectedTopWidgetMargin.value = newValue
-                            prefs.topWidgetMargin = newValue
+                            viewModel.setTopWidgetMargin(newValue)
                         }
                     )
                 }
             )
-            DashedSeparator()
             SettingsSelect(
                 title = stringResource(R.string.bottom_widget_margin),
-                option = selectedBottomWidgetMargin.value.toString(),
+                option = homeUiState.bottomWidgetMargin.toString(),
                 fontSize = titleFontSize,
                 onClick = {
                     dialogBuilder.showSliderDialog(
@@ -286,35 +262,36 @@ class FeaturesFragment : Fragment() {
                         title = getString(R.string.bottom_widget_margin),
                         minValue = 0,
                         maxValue = Constants.MAX_BOTTOM_WIDGET_MARGIN,
-                        currentValue = selectedBottomWidgetMargin.value,
+                        currentValue = homeUiState.bottomWidgetMargin,
                         onValueSelected = { newValue ->
-                            selectedBottomWidgetMargin.value = newValue
-                            prefs.bottomWidgetMargin = newValue
+                            viewModel.setBottomWidgetMargin(newValue)
                         }
                     )
                 }
             )
-            DashedSeparator()
-            com.github.gezimos.inkos.ui.compose.SettingsComposable.SettingsHomeItem(
-                title = stringResource(R.string.reorder_apps),
-                onClick = {
-                    findNavController().navigate(
-                        R.id.action_settingsFeaturesFragment_to_appFavoriteFragment,
-                        bundleOf("flag" to Constants.AppDrawerFlag.SetHomeApp.toString())
-                    )
-                },
-                titleFontSize = titleFontSize
+            val alignmentLabels = listOf(
+                stringResource(R.string.left),
+                stringResource(R.string.center),
+                stringResource(R.string.right)
             )
-            DashedSeparator()
+            SettingsSelect(
+                title = "Home Alignment",
+                option = alignmentLabels.getOrElse(homeUiState.homeAlignment) { stringResource(R.string.left) },
+                fontSize = titleFontSize,
+                onClick = {
+                    val next = (homeUiState.homeAlignment + 1) % 3
+                    viewModel.setHomeAlignment(next)
+                }
+            )
+            
             // Home Apps Section
             SettingsTitle(
                 text = stringResource(R.string.home_apps),
                 fontSize = titleFontSize,
             )
-            DashedSeparator()
             SettingsSelect(
                 title = stringResource(R.string.apps_on_home_screen),
-                option = selectedHomeAppsNum.toString(),
+                option = homeUiState.homeAppsNum.toString(),
                 fontSize = titleFontSize,
                 onClick = {
                     dialogBuilder.showSliderDialog(
@@ -322,26 +299,21 @@ class FeaturesFragment : Fragment() {
                         title = getString(R.string.apps_on_home_screen),
                         minValue = Constants.MIN_HOME_APPS,
                         maxValue = Constants.MAX_HOME_APPS,
-                        currentValue = prefs.homeAppsNum,
+                        currentValue = homeUiState.homeAppsNum,
                         onValueSelected = { newHomeAppsNum ->
-                            selectedHomeAppsNum = newHomeAppsNum
-                            prefs.homeAppsNum = newHomeAppsNum
-                            viewModel.homeAppsNum.value = newHomeAppsNum
+                            viewModel.setHomeAppsNum(newHomeAppsNum)
                             // Recompute page limit after apps change
                             Constants.updateMaxHomePages(requireContext())
-                            if (selectedHomePagesNum > Constants.MAX_HOME_PAGES) {
-                                selectedHomePagesNum = Constants.MAX_HOME_PAGES
-                                prefs.homePagesNum = selectedHomePagesNum
-                                viewModel.homePagesNum.value = selectedHomePagesNum
+                            if (homeUiState.homePagesNum > Constants.MAX_HOME_PAGES) {
+                                viewModel.setHomePagesNum(Constants.MAX_HOME_PAGES)
                             }
                         }
                     )
                 }
             )
-            DashedSeparator()
             SettingsSelect(
                 title = stringResource(R.string.pages_on_home_screen),
-                option = selectedHomePagesNum.toString(),
+                option = homeUiState.homePagesNum.toString(),
                 fontSize = titleFontSize,
                 onClick = {
                     Constants.updateMaxHomePages(requireContext())
@@ -350,149 +322,177 @@ class FeaturesFragment : Fragment() {
                         title = getString(R.string.pages_on_home_screen),
                         minValue = Constants.MIN_HOME_PAGES,
                         maxValue = Constants.MAX_HOME_PAGES,
-                        currentValue = prefs.homePagesNum,
+                        currentValue = homeUiState.homePagesNum,
                         onValueSelected = { newHomePagesNum ->
-                            selectedHomePagesNum = newHomePagesNum
-                            prefs.homePagesNum = newHomePagesNum
-                            viewModel.homePagesNum.value = newHomePagesNum
+                            viewModel.setHomePagesNum(newHomePagesNum)
                         }
                     )
                 }
             )
-            DashedSeparator()
             SettingsSwitch(
                 text = stringResource(R.string.enable_home_pager),
                 fontSize = titleFontSize,
-                defaultState = toggledHomePager,
+                defaultState = homeUiState.pageIndicatorVisible,
                 onCheckedChange = {
-                    toggledHomePager = !prefs.homePager
-                    prefs.homePager = toggledHomePager
+                    viewModel.setPageIndicatorVisible(it)
                 }
             )
-            DashedSeparator()
+            
             SettingsSwitch(
                 text = stringResource(R.string.home_page_reset),
                 fontSize = titleFontSize,
-                defaultState = toggledHomeReset,
+                defaultState = homeUiState.homeReset,
                 onCheckedChange = {
-                    toggledHomeReset = !prefs.homeReset
-                    prefs.homeReset = toggledHomeReset
+                    viewModel.setHomeReset(it)
                 }
             )
             // Top Widgets Section
-            DashedSeparator()
             SettingsTitle(
                 text = stringResource(R.string.top_widgets),
                 fontSize = titleFontSize,
             )
-            DashedSeparator()
             SettingsSwitch(
                 text = stringResource(R.string.show_clock),
                 fontSize = titleFontSize,
-                defaultState = toggledShowClock,
+                defaultState = homeUiState.showClock,
                 onCheckedChange = {
-                    toggledShowClock = !prefs.showClock
-                    prefs.showClock = toggledShowClock
-                    viewModel.setShowClock(prefs.showClock)
+                    viewModel.setShowClock(it)
                 }
             )
-            DashedSeparator()
+                // Clock format selector: System / Force 24h / Force 12h
+            val clockModeLabels = listOf(
+                stringResource(R.string.clock_mode_system),
+                stringResource(R.string.clock_mode_24),
+                stringResource(R.string.clock_mode_12)
+            )
+            SettingsSelect(
+                title = stringResource(R.string.clock_format),
+                option = clockModeLabels.getOrElse(homeUiState.clockMode) { stringResource(R.string.clock_mode_system) },
+                fontSize = titleFontSize,
+                onClick = {
+                    val next = (homeUiState.clockMode + 1) % 3
+                    viewModel.setClockMode(next)
+                }
+            )
             SettingsSwitch(
-                text = stringResource(R.string.show_date),
+                text = "Show AM/PM",
                 fontSize = titleFontSize,
-                defaultState = toggledShowDate,
+                defaultState = homeUiState.showAmPm,
                 onCheckedChange = {
-                    toggledShowDate = !prefs.showDate
-                    prefs.showDate = toggledShowDate
-                    // If date is turned off, also turn off date+battery combo
-                    if (!toggledShowDate && toggledShowDateBatteryCombo) {
-                        toggledShowDateBatteryCombo = false
-                        prefs.showDateBatteryCombo = false
-                    }
+                    viewModel.setShowAmPm(it)
                 }
             )
-            // Only show Date + Battery combo when Date is enabled
-            if (toggledShowDate) {
-                DashedSeparator()
-                SettingsSwitch(
-                    text = stringResource(R.string.show_date_battery_combo),
-                    fontSize = titleFontSize,
-                    defaultState = toggledShowDateBatteryCombo,
-                    onCheckedChange = {
-                        toggledShowDateBatteryCombo = !prefs.showDateBatteryCombo
-                        prefs.showDateBatteryCombo = toggledShowDateBatteryCombo
-                    }
-                )
-            }
-            // Bottom Widgets Section
-            DashedSeparator()
-            SettingsTitle(
-                text = stringResource(R.string.bottom_widgets),
-                fontSize = titleFontSize,
-            )
-            DashedSeparator()
             SettingsSwitch(
-                text = stringResource(R.string.show_audio_widget),
+                text = "Dual Clocks",
                 fontSize = titleFontSize,
-                defaultState = toggledShowAudioWidget,
+                defaultState = homeUiState.showSecondClock,
                 onCheckedChange = {
-                    toggledShowAudioWidget = !prefs.showAudioWidgetEnabled
-                    prefs.showAudioWidgetEnabled = toggledShowAudioWidget
+                    viewModel.setShowSecondClock(it)
                 }
             )
-            DashedSeparator()
-            SettingsSwitch(
-                text = stringResource(R.string.show_quote),
-                fontSize = titleFontSize,
-                defaultState = toggledShowQuote,
-                onCheckedChange = {
-                    toggledShowQuote = !prefs.showQuote
-                    prefs.showQuote = toggledShowQuote
-                }
-            )
-            // Only show Quote text when Quote widget is enabled
-            if (toggledShowQuote) {
-                DashedSeparator()
+
+            // Only show the offset selector when the second clock (dual clock) is enabled
+            if (homeUiState.showSecondClock) {
                 SettingsSelect(
-                    title = stringResource(R.string.quote_text),
-                    option = if (quoteTextState.length > 12) "${quoteTextState.take(12)}..." else quoteTextState,
+                    title = "Second clock offset",
+                    option = if (homeUiState.secondClockOffsetHours >= 0) "+${homeUiState.secondClockOffsetHours}" else homeUiState.secondClockOffsetHours.toString(),
                     fontSize = titleFontSize,
                     onClick = {
-                        dialogBuilder.showInputDialog(
+                        dialogBuilder.showSliderDialog(
                             context = requireContext(),
-                            title = getString(R.string.quote_text),
-                            initialValue = quoteTextState,
-                            onValueEntered = { newText ->
-                                prefs.quoteText = newText
-                                quoteTextState = newText
+                            title = "Second clock offset",
+                            minValue = -12,
+                            maxValue = 14,
+                            currentValue = homeUiState.secondClockOffsetHours,
+                            onValueSelected = { newOffset ->
+                                viewModel.setSecondClockOffsetHours(newOffset)
                             }
                         )
                     }
                 )
             }
-            DashedSeparator()
+            
+            SettingsSwitch(
+                text = stringResource(R.string.show_date),
+                fontSize = titleFontSize,
+                defaultState = homeUiState.showDate,
+                onCheckedChange = {
+                    viewModel.setShowDate(it)
+                }
+            )
+            SettingsSwitch(
+                text = stringResource(R.string.show_battery),
+                fontSize = titleFontSize,
+                defaultState = homeUiState.showDateBatteryCombo,
+                onCheckedChange = {
+                    viewModel.setShowDateBatteryCombo(it)
+                }
+            )
+            SettingsSwitch(
+                text = stringResource(R.string.show_notification_count),
+                fontSize = titleFontSize,
+                defaultState = homeUiState.showNotificationCount,
+                onCheckedChange = {
+                    viewModel.setShowNotificationCount(it)
+                }
+            )
+            // Bottom Widgets Section
+            SettingsTitle(
+                text = stringResource(R.string.bottom_widgets),
+                fontSize = titleFontSize,
+            )
+            SettingsSwitch(
+                text = stringResource(R.string.show_audio_widget),
+                fontSize = titleFontSize,
+                defaultState = homeUiState.showAudioWidget,
+                onCheckedChange = {
+                    viewModel.setShowAudioWidget(it)
+                }
+            )
+            
+            SettingsSwitch(
+                text = stringResource(R.string.show_quote),
+                fontSize = titleFontSize,
+                defaultState = homeUiState.showQuote,
+                onCheckedChange = {
+                    viewModel.setShowQuote(it)
+                }
+            )
+            // Only show Quote text when Quote widget is enabled
+            if (homeUiState.showQuote) {
+                SettingsSelect(
+                    title = stringResource(R.string.quote_text),
+                    option = if (homeUiState.quoteText.length > 12) "${homeUiState.quoteText.take(12)}..." else homeUiState.quoteText,
+                    fontSize = titleFontSize,
+                    onClick = {
+                        dialogBuilder.showInputDialog(
+                            context = requireContext(),
+                            title = getString(R.string.quote_text),
+                            initialValue = homeUiState.quoteText,
+                            onValueEntered = { newText ->
+                                viewModel.setQuoteText(newText)
+                            }
+                        )
+                    }
+                )
+            }
+            
 
             // --- Others Section ---
             SettingsTitle(
                 text = "Other Functions",
                 fontSize = titleFontSize,
             )
-            DashedSeparator()
             SettingsSwitch(
                 text = stringResource(R.string.extend_home_apps_area),
                 fontSize = titleFontSize,
-                defaultState = toggledExtendHomeAppsArea.value,
+                defaultState = homeUiState.extendHomeAppsArea,
                 onCheckedChange = {
-                    toggledExtendHomeAppsArea.value = !prefs.extendHomeAppsArea
-                    prefs.extendHomeAppsArea = toggledExtendHomeAppsArea.value
+                    viewModel.setExtendHomeAppsArea(it)
                 }
             )
-            DashedSeparator()
+            
         }
-    }
-
-    private fun goBackToLastFragment() {
-        findNavController().popBackStack()
     }
 
     private fun dismissDialogs() {
@@ -505,10 +505,10 @@ class FeaturesFragment : Fragment() {
         @Suppress("DEPRECATION")
         super.onActivityCreated(savedInstanceState)
         dialogBuilder = DialogManager(requireContext(), requireActivity())
-        prefs = Prefs(requireContext())
         viewModel = activity?.run {
             ViewModelProvider(this)[MainViewModel::class.java]
         } ?: throw Exception("Invalid Activity")
+        prefs = viewModel.getPrefs()
 
         viewModel.isinkosDefault()
 

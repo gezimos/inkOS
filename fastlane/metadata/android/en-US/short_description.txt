@@ -1,1 +1,1 @@
-inkOS is minimal android app launcher, text based and optimized for e-ink displays & keypad phones.
+minimal app launcher, text based & optimized for e-ink displays & keypad phones

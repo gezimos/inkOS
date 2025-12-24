@@ -5,14 +5,9 @@
     app:startDestination="@id/mainFragment">
 
     <fragment
-        android:id="@+id/bluetoothFragment"
-        android:name="com.github.gezimos.inkos.ui.BluetoothFragment"
-        android:label="BluetoothFragment" />
-    <fragment
         android:id="@+id/mainFragment"
-        android:name="com.github.gezimos.inkos.ui.HomeFragment"
-        android:label="mainFragment"
-        tools:layout="@layout/fragment_home">
+        android:name="com.github.gezimos.inkos.ui.HomeFragmentCompose"
+        android:label="mainFragment">
         <action
             android:id="@+id/action_mainFragment_to_appListFragment"
             app:destination="@id/appListFragment" />
@@ -21,15 +16,28 @@
             android:id="@+id/action_mainFragment_to_notificationsFragment"
             app:destination="@id/notificationsFragment" />
         <action
+            android:id="@+id/action_mainFragment_to_recentsFragment"
+            app:destination="@id/recentsFragment" />
+        <action
+            android:id="@+id/action_mainFragment_to_simpleTrayFragment"
+            app:destination="@id/simpleTrayFragment" />
+        <action
             android:id="@+id/action_mainFragment_to_settingsFragment"
             app:destination="@id/settingsFragment" />
     </fragment>
 
     <fragment
         android:id="@+id/appListFragment"
-        android:name="com.github.gezimos.inkos.ui.AppDrawerFragment"
-        android:label="appListFragment"
-        tools:layout="@layout/fragment_app_drawer">
+        android:name="com.github.gezimos.inkos.ui.AppsFragment"
+        android:label="appListFragment">
+        <argument
+            android:name="flag"
+            app:argType="string"
+            app:nullable="true" />
+        <argument
+            android:name="n"
+            app:argType="integer"
+            android:defaultValue="0" />
         <action
             android:id="@+id/action_appListFragment_to_settingsFragment"
             app:destination="@id/settingsFragment"
@@ -38,34 +46,46 @@
     </fragment>
 
     <fragment
-        android:id="@+id/appFavoriteFragment"
-        android:name="com.github.gezimos.inkos.ui.FavoriteFragment"
-        android:label="appFavoriteFragment"
-        tools:layout="@layout/fragment_favorite" />
+        android:id="@+id/appDrawerListFragment"
+        android:name="com.github.gezimos.inkos.ui.AppsFragment"
+        android:label="AppsFragment" />
 
     <fragment
-        android:id="@+id/appDrawerListFragment"
-        android:name="com.github.gezimos.inkos.ui.AppDrawerFragment"
-        android:label="AppDrawerFragment" />
+        android:id="@+id/appsFragment"
+        android:name="com.github.gezimos.inkos.ui.AppsFragment"
+        android:label="AppsFragment">
+        <argument
+            android:name="flag"
+            app:argType="string"
+            app:nullable="true" />
+        <argument
+            android:name="n"
+            app:argType="integer"
+            android:defaultValue="0" />
+    </fragment>
 
     <fragment
         android:id="@+id/notificationsFragment"
         android:name="com.github.gezimos.inkos.ui.notifications.NotificationsFragment"
-        android:label="NotificationsFragment"
-        tools:layout="@layout/fragment_settings" />
+        android:label="NotificationsFragment" />
+
+    <fragment
+        android:id="@+id/recentsFragment"
+        android:name="com.github.gezimos.inkos.ui.RecentsFragment"
+        android:label="RecentsFragment" />
+
+    <fragment
+        android:id="@+id/simpleTrayFragment"
+        android:name="com.github.gezimos.inkos.ui.notifications.SimpleTrayFragment"
+        android:label="SimpleTrayFragment" />
 
     <fragment
         android:id="@+id/settingsFragment"
         android:name="com.github.gezimos.inkos.ui.SettingsFragment"
-        android:label="SettingsFragment"
-        android:layout="@layout/fragment_settings">
+        android:label="SettingsFragment">
         <action
             android:id="@+id/action_settingsFragment_to_appListFragment"
             app:destination="@id/appListFragment" />
-
-        <action
-            android:id="@+id/action_settingsFragment_to_appFavoriteFragment"
-            app:destination="@id/appFavoriteFragment" />
 
         <action
             android:id="@+id/action_settingsFragment_to_settingsFeaturesFragment"
@@ -94,35 +114,41 @@
         <action
             android:id="@+id/action_settingsFragment_to_settingsDrawerFragment"
             app:destination="@id/settingsDrawerFragment" />
+
+        <action
+            android:id="@+id/action_settingsFragment_to_supportFragment"
+            app:destination="@id/supportFragment" />
     </fragment>
 
     <fragment
         android:id="@+id/settingsFeaturesFragment"
         android:name="com.github.gezimos.inkos.ui.settings.FeaturesFragment"
-        android:label="FeaturesFragment"
-        tools:layout="@layout/fragment_settings">
-        <action
-            android:id="@+id/action_settingsFeaturesFragment_to_appFavoriteFragment"
-            app:destination="@id/appFavoriteFragment" />
+        android:label="FeaturesFragment">
     </fragment>
 
     <fragment
         android:id="@+id/settingsDrawerFragment"
         android:name="com.github.gezimos.inkos.ui.settings.DrawerFragment"
-        android:label="DrawerFragment"
-        tools:layout="@layout/fragment_settings" />
+        android:label="DrawerFragment" />
 
     <fragment
         android:id="@+id/settingsLookFeelFragment"
         android:name="com.github.gezimos.inkos.ui.settings.LookFeelFragment"
-        android:label="LookFeelFragment"
-        tools:layout="@layout/fragment_settings" />
+        android:label="LookFeelFragment">
+        <action
+            android:id="@+id/action_settingsLookFeelFragment_to_wallpaperFragment"
+            app:destination="@id/wallpaperFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/wallpaperFragment"
+        android:name="com.github.gezimos.inkos.ui.settings.WallpaperFragment"
+        android:label="WallpaperFragment" />
 
     <fragment
         android:id="@+id/settingsGesturesFragment"
         android:name="com.github.gezimos.inkos.ui.settings.GesturesFragment"
-        android:label="GesturesFragment"
-        tools:layout="@layout/fragment_settings">
+        android:label="GesturesFragment">
 
         <action
             android:id="@+id/action_gesturesFragment_to_appListFragment"
@@ -132,8 +158,7 @@
     <fragment
         android:id="@+id/settingsAdvancedFragment"
         android:name="com.github.gezimos.inkos.ui.settings.AdvancedFragment"
-        android:label="settingsAdvancedFragment"
-        tools:layout="@layout/fragment_settings">
+        android:label="settingsAdvancedFragment">
         <action
             android:id="@+id/action_settingsAdvancedFragment_to_appListFragment"
             app:destination="@id/appListFragment" />
@@ -147,12 +172,15 @@
     <fragment
         android:id="@+id/notificationSettingsFragment"
         android:name="com.github.gezimos.inkos.ui.settings.NotificationSettingsFragment"
-        android:label="NotificationSettingsFragment"
-        tools:layout="@layout/fragment_settings" />
+        android:label="NotificationSettingsFragment" />
 
     <fragment
         android:id="@+id/extrasFragment"
         android:name="com.github.gezimos.inkos.ui.settings.ExtrasFragment"
-        android:label="ExtrasFragment"
-        tools:layout="@layout/fragment_settings" />
+        android:label="ExtrasFragment" />
+
+    <fragment
+        android:id="@+id/supportFragment"
+        android:name="com.github.gezimos.inkos.ui.settings.SupportFragment"
+        android:label="SupportFragment" />
 </navigation>

@@ -1,4 +1,4 @@
-<h2>InkOS - Text based & E-ink friendly Launcher</h2>
+<h2>inkOS - Text based & E-ink friendly Launcher</h2>
 
 <b>Key features:</b>
 

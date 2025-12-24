@@ -13,6 +13,8 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 
 private const val PREFS_FILENAME = "com.github.gezimos.inkos"
 
@@ -36,7 +38,11 @@ private const val SYSTEM_SHORTCUTS_ENABLED = "SYSTEM_SHORTCUTS_ENABLED"
 private const val SHOW_CLOCK = "SHOW_CLOCK"
 private const val SWIPE_RIGHT_ACTION = "SWIPE_RIGHT_ACTION"
 private const val SWIPE_LEFT_ACTION = "SWIPE_LEFT_ACTION"
+private const val SWIPE_UP_ACTION = "SWIPE_UP_ACTION"
+private const val SWIPE_DOWN_ACTION = "SWIPE_DOWN_ACTION"
 private const val CLICK_CLOCK_ACTION = "CLICK_CLOCK_ACTION"
+private const val SHORT_SWIPE_THRESHOLD_RATIO = "SHORT_SWIPE_THRESHOLD_RATIO"
+private const val LONG_SWIPE_THRESHOLD_RATIO = "LONG_SWIPE_THRESHOLD_RATIO"
 private const val DOUBLE_TAP_ACTION = "DOUBLE_TAP_ACTION"
 private const val HIDDEN_APPS = "HIDDEN_APPS"
 private const val LOCKED_APPS = "LOCKED_APPS"
@@ -49,6 +55,8 @@ private const val APP_ACTIVITY = "APP_ACTIVITY"
 private const val APP_THEME = "APP_THEME"
 private const val SWIPE_LEFT = "SWIPE_LEFT"
 private const val SWIPE_RIGHT = "SWIPE_RIGHT"
+private const val SWIPE_UP = "SWIPE_UP"
+private const val SWIPE_DOWN = "SWIPE_DOWN"
 private const val CLICK_CLOCK = "CLICK_CLOCK"
 private const val DOUBLE_TAP = "DOUBLE_TAP"
 private const val APP_SIZE_TEXT = "APP_SIZE_TEXT"
@@ -59,13 +67,11 @@ private const val TEXT_PADDING_SIZE = "TEXT_PADDING_SIZE"
 private const val SHOW_NOTIFICATION_BADGE = "show_notification_badge"
 private const val ONBOARDING_PAGE = "ONBOARDING_PAGE"
 
+private const val EDGE_SWIPE_BACK_ENABLED = "EDGE_SWIPE_BACK_ENABLED"
+
 private const val BACKGROUND_COLOR = "BACKGROUND_COLOR"
-private const val APP_COLOR = "APP_COLOR"
-private const val CLOCK_COLOR = "CLOCK_COLOR"
-private const val BATTERY_COLOR = "BATTERY_COLOR"
-private const val DATE_COLOR = "DATE_COLOR"
-private const val QUOTE_COLOR = "QUOTE_COLOR"
-private const val AUDIO_WIDGET_COLOR = "AUDIO_WIDGET_COLOR"
+private const val BACKGROUND_OPACITY = "BACKGROUND_OPACITY"
+private const val TEXT_COLOR = "TEXT_COLOR"
 
 private const val APPS_FONT = "APPS_FONT"
 private const val CLOCK_FONT = "CLOCK_FONT"
@@ -76,28 +82,47 @@ private const val QUOTE_FONT = "QUOTE_FONT"
 private const val SMALL_CAPS_APPS = "SMALL_CAPS_APPS"
 private const val ALL_CAPS_APPS = "ALL_CAPS_APPS"
 private const val EINK_REFRESH_ENABLED = "EINK_REFRESH_ENABLED"
-private const val HOME_BACKGROUND_IMAGE_URI = "HOME_BACKGROUND_IMAGE_URI"
-private const val HOME_BACKGROUND_IMAGE_OPACITY = "HOME_BACKGROUND_IMAGE_OPACITY"
+private const val EINK_REFRESH_HOME_BUTTON_ONLY = "EINK_REFRESH_HOME_BUTTON_ONLY"
 private const val QUOTE_TEXT = "QUOTE_TEXT"
 private const val QUOTE_TEXT_SIZE = "QUOTE_TEXT_SIZE"
 private const val SHOW_QUOTE = "SHOW_QUOTE"
 
+private const val SHOW_AM_PM = "SHOW_AM_PM"
+private const val SHOW_SECOND_CLOCK = "SHOW_SECOND_CLOCK"
+private const val CLOCK_MODE = "CLOCK_MODE"
+private const val SECOND_CLOCK_OFFSET_HOURS = "SECOND_CLOCK_OFFSET_HOURS"
+
 // App Drawer specific preferences
-private const val APP_DRAWER_SIZE = "APP_DRAWER_SIZE"
-private const val APP_DRAWER_GAP = "APP_DRAWER_GAP"
-private const val APP_DRAWER_ALIGNMENT = "APP_DRAWER_ALIGNMENT"
-private const val APP_DRAWER_PAGER = "APP_DRAWER_PAGER"
+private const val APP_DRAWER_APPS_PER_PAGE_CACHE = "APP_DRAWER_APPS_PER_PAGE_CACHE"
+private const val APP_DRAWER_CONTAINER_HEIGHT_CACHE = "APP_DRAWER_CONTAINER_HEIGHT_CACHE"
+private const val INITIAL_LAUNCH_COMPLETED = "INITIAL_LAUNCH_COMPLETED"
 private const val HOME_APPS_Y_OFFSET = "HOME_APPS_Y_OFFSET"
+private const val HIDE_HOME_APPS = "HIDE_HOME_APPS"
+private const val HOME_ALIGNMENT = "HOME_ALIGNMENT"
+private const val TEXT_ISLANDS = "TEXT_ISLANDS"
+private const val TEXT_ISLANDS_INVERTED = "TEXT_ISLANDS_INVERTED"
+private const val TEXT_ISLANDS_SHAPE = "TEXT_ISLANDS_SHAPE"
+private const val SHOW_ICONS = "SHOW_ICONS"
 
 class Prefs(val context: Context) {
     private val BRIGHTNESS_LEVEL = "BRIGHTNESS_LEVEL"
+    private val LAST_BRIGHTNESS_LEVEL = "LAST_BRIGHTNESS_LEVEL"
 
     /**
      * Stores and retrieves the brightness level (0-255).
+     * When set to 0, this represents "off" state.
      */
     var brightnessLevel: Int
         get() = prefs.getInt(BRIGHTNESS_LEVEL, 128) // Default to mid brightness
         set(value) = prefs.edit { putInt(BRIGHTNESS_LEVEL, value.coerceIn(0, 255)) }
+    
+    /**
+     * Stores the last non-zero brightness level before turning off.
+     * This is used to restore brightness when turning it back on.
+     */
+    var lastBrightnessLevel: Int
+        get() = prefs.getInt(LAST_BRIGHTNESS_LEVEL, 128) // Default to mid brightness
+        set(value) = prefs.edit { putInt(LAST_BRIGHTNESS_LEVEL, value.coerceIn(1, 255)) }
     var appQuoteWidget: AppListItem
         get() = loadApp("QUOTE_WIDGET")
         set(appModel) = storeApp("QUOTE_WIDGET", appModel)
@@ -132,7 +157,7 @@ class Prefs(val context: Context) {
     var dateFont: Constants.FontFamily
         get() = try {
             Constants.FontFamily.valueOf(
-                prefs.getString("date_font", Constants.FontFamily.System.name).toString()
+                prefs.getString("date_font", Constants.FontFamily.PublicSans.name)!!
             )
         } catch (_: Exception) {
             Constants.FontFamily.System
@@ -140,8 +165,8 @@ class Prefs(val context: Context) {
         set(value) = prefs.edit { putString("date_font", value.name) }
 
     var dateSize: Int
-        get() = prefs.getInt("date_text_size", 15)
-        set(value) = prefs.edit { putInt("date_text_size", value) }
+        get() = prefs.getInt(Constants.PrefKeys.DATE_SIZE_TEXT, 18)
+        set(value) = prefs.edit { putInt(Constants.PrefKeys.DATE_SIZE_TEXT, value) }
     var showDate: Boolean
         get() = prefs.getBoolean("SHOW_DATE", false)
         set(value) = prefs.edit { putBoolean("SHOW_DATE", value) }
@@ -149,6 +174,10 @@ class Prefs(val context: Context) {
     var showDateBatteryCombo: Boolean
         get() = prefs.getBoolean("SHOW_DATE_BATTERY_COMBO", false)
         set(value) = prefs.edit { putBoolean("SHOW_DATE_BATTERY_COMBO", value) }
+
+    var showNotificationCount: Boolean
+        get() = prefs.getBoolean("SHOW_NOTIFICATION_COUNT", true)
+        set(value) = prefs.edit { putBoolean("SHOW_NOTIFICATION_COUNT", value) }
 
     var showQuote: Boolean
         get() = prefs.getBoolean(SHOW_QUOTE, false)
@@ -162,13 +191,115 @@ class Prefs(val context: Context) {
         get() = prefs.getInt(QUOTE_TEXT_SIZE, 18)
         set(value) = prefs.edit { putInt(QUOTE_TEXT_SIZE, value) }
 
+    var clockMode: Int
+        get() = prefs.getInt(CLOCK_MODE, 0)
+        set(value) = prefs.edit { putInt(CLOCK_MODE, value.coerceIn(0, 2)) }
+
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_FILENAME, 0)
+
+    // Keep flows in sync across different Prefs instances by listening to SharedPreferences changes.
+    // Also emit changed keys on a SharedFlow so consumers can react to arbitrary preference changes.
+    private val _preferenceChangeFlow = MutableSharedFlow<String>(extraBufferCapacity = 16)
+    val preferenceChangeFlow = _preferenceChangeFlow.asSharedFlow()
+
+    private val sharedPrefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        try {
+            when (key) {
+                APP_THEME -> _appThemeFlow.value = appTheme
+                BACKGROUND_COLOR -> _backgroundColorFlow.value = backgroundColor
+                TEXT_COLOR -> _textColorFlow.value = textColor
+            }
+            if (key != null) {
+                try { _preferenceChangeFlow.tryEmit(key) } catch (_: Exception) {}
+            }
+        } catch (_: Exception) {}
+    }
+
+    init {
+        try { prefs.registerOnSharedPreferenceChangeListener(sharedPrefsListener) } catch (_: Exception) {}
+        // NOTE: float coercion now runs during migration (one-time) instead of every startup.
+    }
+
+    // Indicates whether the app has completed its initial launch actions (first run)
+    var initialLaunchCompleted: Boolean
+        get() = prefs.getBoolean(INITIAL_LAUNCH_COMPLETED, false)
+        set(value) = prefs.edit { putBoolean(INITIAL_LAUNCH_COMPLETED, value) }
 
     val sharedPrefs: SharedPreferences
         get() = prefs
 
     private val CUSTOM_FONT_PATH_MAP_KEY = "custom_font_path_map"
     private val gson = Gson()
+
+    // Keys that must be stored as Float in SharedPreferences. Ensure importer/migrations keep them as Float.
+    private val floatPrefKeys = setOf(SHORT_SWIPE_THRESHOLD_RATIO, LONG_SWIPE_THRESHOLD_RATIO)
+
+    // Keys that were removed or belong to legacy features. Skip them when importing old backups.
+    private val deprecatedImportKeys = setOf(
+        "SHOW_BATTERY",
+        "APP_COLOR","CLOCK_COLOR","BATTERY_COLOR","DATE_COLOR","QUOTE_COLOR","AUDIO_WIDGET_COLOR",
+        "HOME_BACKGROUND_IMAGE_URI","HOME_BACKGROUND_IMAGE_OPACITY",
+        // battery-related legacy keys from v0.2
+        "BATTERY_SIZE_TEXT","battery_font",
+        "WALLPAPER_ENABLED","show_background",
+        "use_vibration_for_paging",
+        // Do not import device-specific UI caches (can cause huge gaps / clipping after restore)
+        APP_DRAWER_APPS_PER_PAGE_CACHE,
+        APP_DRAWER_CONTAINER_HEIGHT_CACHE,
+        "APP_DRAWER_CACHED_GAP",
+        "APP_DRAWER_CACHED_SIZE"
+    )
+
+    // Convert any stored numeric/string values for known float prefs into Float entries.
+    fun ensureFloatPrefsAreFloat() {
+        try {
+            var changed = false
+            val editor = prefs.edit()
+            val all = prefs.all
+            for (key in floatPrefKeys) {
+                val v = all[key]
+                if (v == null) continue
+                if (v is Float) continue
+                when (v) {
+                    is Number -> {
+                        editor.putFloat(key, v.toFloat())
+                        changed = true
+                    }
+                    is String -> {
+                        val f = v.toFloatOrNull()
+                        if (f != null) {
+                            editor.putFloat(key, f)
+                            changed = true
+                        }
+                    }
+                    else -> {}
+                }
+            }
+            if (changed) editor.apply()
+        } catch (_: Exception) {
+            // ignore
+        }
+    }
+
+    // Read a float from SharedPreferences but tolerate values stored as Integer or String.
+    private fun getFloatCompat(key: String, default: Float): Float {
+        return try {
+            prefs.getFloat(key, default)
+        } catch (e: ClassCastException) {
+            try {
+                val raw = prefs.all[key]
+                when (raw) {
+                    is Number -> raw.toFloat()
+                    is String -> raw.toFloatOrNull() ?: default
+                    else -> default
+                }
+            } catch (_: Exception) {
+                default
+            }
+        } catch (_: Exception) {
+            default
+        }
+    }
 
     var customFontPathMap: MutableMap<String, String>
         get() {
@@ -230,7 +361,7 @@ class Prefs(val context: Context) {
     var universalFont: Constants.FontFamily
         get() = try {
             Constants.FontFamily.valueOf(
-                prefs.getString("universal_font", Constants.FontFamily.System.name)!!
+                prefs.getString("universal_font", Constants.FontFamily.PublicSans.name)!!
             )
         } catch (_: Exception) {
             Constants.FontFamily.System
@@ -263,7 +394,7 @@ class Prefs(val context: Context) {
     var fontFamily: Constants.FontFamily
         get() = try {
             Constants.FontFamily.valueOf(
-                prefs.getString(LAUNCHER_FONT, Constants.FontFamily.System.name)!!
+                prefs.getString(LAUNCHER_FONT, Constants.FontFamily.PublicSans.name)!!
             )
         } catch (_: Exception) {
             Constants.FontFamily.System
@@ -273,7 +404,7 @@ class Prefs(val context: Context) {
     var quoteFont: Constants.FontFamily
         get() = try {
             Constants.FontFamily.valueOf(
-                prefs.getString(QUOTE_FONT, Constants.FontFamily.System.name)!!
+                prefs.getString(QUOTE_FONT, Constants.FontFamily.PublicSans.name)!!
             )
         } catch (_: Exception) {
             Constants.FontFamily.System
@@ -296,6 +427,9 @@ class Prefs(val context: Context) {
         customFontPaths = set
     }
 
+    // ------------------
+    // Notifications prefs (NotificationsFragment, SimpleTray)
+    // ------------------
     var notificationsEnabled: Boolean
         get() = prefs.getBoolean(NOTIFICATIONS_ENABLED, true)
         set(value) = prefs.edit { putBoolean(NOTIFICATIONS_ENABLED, value) }
@@ -303,7 +437,7 @@ class Prefs(val context: Context) {
     var notificationsFont: Constants.FontFamily
         get() = try {
             Constants.FontFamily.valueOf(
-                prefs.getString(NOTIFICATIONS_FONT, Constants.FontFamily.System.name)!!
+                prefs.getString(NOTIFICATIONS_FONT, Constants.FontFamily.PublicSans.name)!!
             )
         } catch (_: Exception) {
             Constants.FontFamily.System
@@ -314,6 +448,21 @@ class Prefs(val context: Context) {
         get() = prefs.getInt(NOTIFICATIONS_TEXT_SIZE, 18)
         set(value) = prefs.edit { putInt(NOTIFICATIONS_TEXT_SIZE, value) }
 
+    var notificationsPerPage: Int
+        get() = prefs.getInt(NOTIFICATIONS_PER_PAGE, 3).coerceIn(1, 3)
+        set(value) = prefs.edit { putInt(NOTIFICATIONS_PER_PAGE, value.coerceIn(1, 3)) }
+
+    var edgeSwipeBackEnabled: Boolean
+        get() = prefs.getBoolean(EDGE_SWIPE_BACK_ENABLED, true)
+        set(value) {
+            prefs.edit { putBoolean(EDGE_SWIPE_BACK_ENABLED, value) }
+            try { _edgeSwipeBackEnabledFlow.value = value } catch (_: Exception) {}
+        }
+
+    var enableBottomNav: Boolean
+        get() = prefs.getBoolean(ENABLE_BOTTOM_NAV, true)
+        set(value) = prefs.edit { putBoolean(ENABLE_BOTTOM_NAV, value) }
+
     var showNotificationSenderFullName: Boolean
         get() = prefs.getBoolean("show_notification_sender_full_name", false)
         set(value) = prefs.edit { putBoolean("show_notification_sender_full_name", value) }
@@ -321,6 +470,10 @@ class Prefs(val context: Context) {
     var einkRefreshEnabled: Boolean
         get() = prefs.getBoolean(EINK_REFRESH_ENABLED, false)
         set(value) = prefs.edit { putBoolean(EINK_REFRESH_ENABLED, value) }
+
+    var einkRefreshHomeButtonOnly: Boolean
+        get() = prefs.getBoolean(EINK_REFRESH_HOME_BUTTON_ONLY, false)
+        set(value) = prefs.edit { putBoolean(EINK_REFRESH_HOME_BUTTON_ONLY, value) }
 
     var smallCapsApps: Boolean
         get() = prefs.getBoolean(SMALL_CAPS_APPS, false)
@@ -330,25 +483,10 @@ class Prefs(val context: Context) {
         get() = prefs.getBoolean(ALL_CAPS_APPS, false)
         set(value) = prefs.edit { putBoolean(ALL_CAPS_APPS, value) }
 
-    var homeBackgroundImageUri: String?
-        get() = prefs.getString(HOME_BACKGROUND_IMAGE_URI, null)
-        set(value) {
-            val oldValue = prefs.getString(HOME_BACKGROUND_IMAGE_URI, null)
-            prefs.edit { putString(HOME_BACKGROUND_IMAGE_URI, value) }
-            
-            // Clear cache when URI changes or is cleared
-            if (oldValue != value) {
-                try {
-                    com.github.gezimos.inkos.helper.utils.BackgroundImageHelper.clearCachedBackground(context)
-                } catch (e: Exception) {
-                    // Ignore errors during cache clearing
-                }
-            }
-        }
-
-    var homeBackgroundImageOpacity: Int
-        get() = prefs.getInt(HOME_BACKGROUND_IMAGE_OPACITY, 100)
-        set(value) = prefs.edit { putInt(HOME_BACKGROUND_IMAGE_OPACITY, value) }
+    /** When true, app drawer hides apps that are already configured as home apps. */
+    var hideHomeApps: Boolean
+        get() = prefs.getBoolean(HIDE_HOME_APPS, false)
+        set(value) = prefs.edit { putBoolean(HIDE_HOME_APPS, value) }
 
     // --- Push Notifications Master Switch ---
     private val _pushNotificationsEnabledFlow = MutableStateFlow(pushNotificationsEnabled)
@@ -357,6 +495,20 @@ class Prefs(val context: Context) {
     // Counter-based flow to request a Home refresh (increment to signal a new request)
     private val _forceRefreshHomeCounter = MutableStateFlow(0)
     val forceRefreshHomeFlow: StateFlow<Int> get() = _forceRefreshHomeCounter
+
+    // Theme-related flows so Compose can observe changes and recompose immediately
+    private val _appThemeFlow = MutableStateFlow(appTheme)
+    val appThemeFlow: StateFlow<Constants.Theme> get() = _appThemeFlow
+
+    private val _backgroundColorFlow = MutableStateFlow(backgroundColor)
+    val backgroundColorFlow: StateFlow<Int> get() = _backgroundColorFlow
+
+    private val _textColorFlow = MutableStateFlow(textColor)
+    val textColorFlow: StateFlow<Int> get() = _textColorFlow
+
+    // Edge-swipe back toggle flow
+    private val _edgeSwipeBackEnabledFlow = MutableStateFlow(edgeSwipeBackEnabled)
+    val edgeSwipeBackEnabledFlow: StateFlow<Boolean> get() = _edgeSwipeBackEnabledFlow
 
     // Increment the counter to signal a home refresh request
     fun triggerForceRefreshHome() {
@@ -432,7 +584,29 @@ class Prefs(val context: Context) {
             val all: HashMap<String, Any?> =
                 Gson().fromJson(json, object : TypeToken<HashMap<String, Any?>>() {}.type)
             val pm = context.packageManager
+            // If the backup explicitly sets BACKGROUND_COLOR to -1 (sentinel),
+            // treat that as "no explicit background" and skip applying background/wallpaper keys.
+            var skipBackground = false
+            try {
+                val rawBg = all[BACKGROUND_COLOR]
+                if (rawBg != null) {
+                    when (rawBg) {
+                        is Number -> if (rawBg.toInt() == -1) skipBackground = true
+                        is String -> {
+                            val i = rawBg.toIntOrNull()
+                            if (i != null && i == -1) skipBackground = true
+                        }
+                        else -> {}
+                    }
+                }
+            } catch (_: Exception) {}
             for ((key, value) in all) {
+                // Skip legacy wallpaper/background keys when backup uses sentinel -1
+                if (skipBackground && (key == "WALLPAPER_ENABLED" || key == "show_background" || key == BACKGROUND_COLOR || key == "background_opacity" || key == BACKGROUND_OPACITY)) {
+                    continue
+                }
+                // Skip deprecated/removed preferences entirely when importing old backups.
+                if (key in deprecatedImportKeys) continue
                 // Explicitly handle allowlists as sets of strings, and filter out non-existent apps
                 if (key == "allowed_notification_apps" || key == "allowed_badge_notification_apps" ||
                     key == HIDDEN_APPS || key == LOCKED_APPS
@@ -449,7 +623,7 @@ class Prefs(val context: Context) {
                         val pkg = pkgUser.split("|")[0]
                         // preserve internal synthetic apps and system shortcuts
                         if (pkg.startsWith("com.inkos.internal.") ||
-                            com.github.gezimos.inkos.helper.SystemShortcutHelper.isSystemShortcut(pkg)
+                            pkg.startsWith("com.inkos.system.")
                         ) {
                             true
                         } else {
@@ -464,14 +638,28 @@ class Prefs(val context: Context) {
                     putStringSet(key, filteredSet)
                     continue
                 }
+                // Explicitly handle custom_font_paths (can come as List or Set from Gson)
+                if (key == "custom_font_paths") {
+                    val set = when (value) {
+                        is Collection<*> -> value.filterIsInstance<String>().toMutableSet()
+                        is String -> mutableSetOf(value)
+                        else -> mutableSetOf<String>()
+                    }
+                    putStringSet(key, set)
+                    continue
+                }
                 when (value) {
                     is String -> putString(key, value)
                     is Boolean -> putBoolean(key, value)
                     is Number -> {
-                        if (value.toDouble() == value.toInt().toDouble()) {
-                            putInt(key, value.toInt())
-                        } else {
+                        if (key in floatPrefKeys) {
                             putFloat(key, value.toFloat())
+                        } else {
+                            if (value.toDouble() == value.toInt().toDouble()) {
+                                putInt(key, value.toInt())
+                            } else {
+                                putFloat(key, value.toFloat())
+                            }
                         }
                     }
 
@@ -508,6 +696,10 @@ class Prefs(val context: Context) {
         get() = prefs.getBoolean(FIRST_OPEN, true)
         set(value) = prefs.edit { putBoolean(FIRST_OPEN, value) }
 
+    var guideShown: Boolean
+        get() = prefs.getBoolean("guide_shown", false)
+        set(value) = prefs.edit { putBoolean("guide_shown", value) }
+
     var einkHelperEnabled: Boolean
         get() = prefs.getBoolean("eink_helper_enabled", false)
         set(value) = prefs.edit { putBoolean("eink_helper_enabled", value) }
@@ -520,13 +712,24 @@ class Prefs(val context: Context) {
         get() = prefs.getBoolean(LOCK_MODE, false)
         set(value) = prefs.edit { putBoolean(LOCK_MODE, value) }
 
+    // ------------------
+    // Home prefs (HomeFragment)
+    // ------------------
     var homePager: Boolean
         get() = prefs.getBoolean(HOME_PAGES_PAGER, true)
         set(value) = prefs.edit { putBoolean(HOME_PAGES_PAGER, value) }
 
     var appDrawerPager: Boolean
-        get() = prefs.getBoolean(APP_DRAWER_PAGER, true)
-        set(value) = prefs.edit { putBoolean(APP_DRAWER_PAGER, value) }
+        get() = prefs.getBoolean(Constants.PrefKeys.APP_DRAWER_PAGER, false)
+        set(value) {
+            prefs.edit {
+                putBoolean(Constants.PrefKeys.APP_DRAWER_PAGER, value)
+                if (value) {
+                    // Page indicator and AZ filter are mutually exclusive: enabling pager disables AZ filter
+                    putBoolean(Constants.PrefKeys.APP_DRAWER_AZ_FILTER, false)
+                }
+            }
+        }
 
     var homeReset: Boolean
         get() = prefs.getBoolean(HOME_PAGE_RESET, true)
@@ -540,33 +743,26 @@ class Prefs(val context: Context) {
         get() = prefs.getInt(HOME_PAGES_NUM, 3)
         set(value) = prefs.edit { putInt(HOME_PAGES_NUM, value) }
 
+    // ------------------
+    // Shared prefs (Theme, Colors, Fonts) — used across Home, Apps, Notifications
+    // ------------------
     var backgroundColor: Int
         get() = prefs.getInt(BACKGROUND_COLOR, getColor(context, getColorInt("bg")))
-        set(value) = prefs.edit { putInt(BACKGROUND_COLOR, value) }
+        set(value) {
+            prefs.edit { putInt(BACKGROUND_COLOR, value) }
+            try { _backgroundColorFlow.value = value } catch (_: Exception) {}
+        }
 
-    var appColor: Int
-        get() = prefs.getInt(APP_COLOR, getColor(context, getColorInt("txt")))
-        set(value) = prefs.edit { putInt(APP_COLOR, value) }
+    var backgroundOpacity: Int
+        get() = prefs.getInt(BACKGROUND_OPACITY, 255)
+        set(value) = prefs.edit { putInt(BACKGROUND_OPACITY, value) }
 
-    var clockColor: Int
-        get() = prefs.getInt(CLOCK_COLOR, getColor(context, getColorInt("txt")))
-        set(value) = prefs.edit { putInt(CLOCK_COLOR, value) }
-
-    var batteryColor: Int
-        get() = prefs.getInt(BATTERY_COLOR, getColor(context, getColorInt("txt")))
-        set(value) = prefs.edit { putInt(BATTERY_COLOR, value) }
-
-    var dateColor: Int
-        get() = prefs.getInt(DATE_COLOR, getColor(context, getColorInt("txt")))
-        set(value) = prefs.edit { putInt(DATE_COLOR, value) }
-
-    var quoteColor: Int
-        get() = prefs.getInt(QUOTE_COLOR, getColor(context, getColorInt("txt")))
-        set(value) = prefs.edit { putInt(QUOTE_COLOR, value) }
-
-    var audioWidgetColor: Int
-        get() = prefs.getInt(AUDIO_WIDGET_COLOR, getColor(context, getColorInt("txt")))
-        set(value) = prefs.edit { putInt(AUDIO_WIDGET_COLOR, value) }
+    var textColor: Int
+        get() = prefs.getInt(TEXT_COLOR, getColor(context, getColorInt("txt")))
+        set(value) {
+            prefs.edit { putInt(TEXT_COLOR, value) }
+            try { _textColorFlow.value = value } catch (_: Exception) {}
+        }
 
     var extendHomeAppsArea: Boolean
         get() = prefs.getBoolean(HOME_CLICK_AREA, false)
@@ -583,6 +779,19 @@ class Prefs(val context: Context) {
     var showClock: Boolean
         get() = prefs.getBoolean(SHOW_CLOCK, false)
         set(value) = prefs.edit { putBoolean(SHOW_CLOCK, value) }
+
+    var showAmPm: Boolean
+        get() = prefs.getBoolean(SHOW_AM_PM, true)
+        set(value) = prefs.edit { putBoolean(SHOW_AM_PM, value) }
+
+    // Second clock: enabled and hour offset (simple +/- hours from local time)
+    var showSecondClock: Boolean
+        get() = prefs.getBoolean(SHOW_SECOND_CLOCK, false)
+        set(value) = prefs.edit { putBoolean(SHOW_SECOND_CLOCK, value) }
+
+    var secondClockOffsetHours: Int
+        get() = prefs.getInt(SECOND_CLOCK_OFFSET_HOURS, 0)
+        set(value) = prefs.edit { putInt(SECOND_CLOCK_OFFSET_HOURS, value.coerceIn(-12, 14)) }
 
     var showAudioWidgetEnabled: Boolean
         get() = prefs.getBoolean(SHOW_AUDIO_WIDGET_ENABLE, false)
@@ -658,6 +867,21 @@ class Prefs(val context: Context) {
                 Constants.Action.valueOf(
                     prefs.getString(
                         SWIPE_RIGHT_ACTION,
+                        Constants.Action.OpenRecentsScreen.name // default: Open Recents
+                    ).toString()
+                )
+            } catch (_: Exception) {
+                Constants.Action.OpenRecentsScreen
+            }
+        }
+        set(value) = prefs.edit { putString(SWIPE_RIGHT_ACTION, value.name) }
+
+    var swipeUpAction: Constants.Action
+        get() {
+            return try {
+                Constants.Action.valueOf(
+                    prefs.getString(
+                        SWIPE_UP_ACTION,
                         Constants.Action.OpenAppDrawer.name // default: Open App Drawer
                     ).toString()
                 )
@@ -665,7 +889,42 @@ class Prefs(val context: Context) {
                 Constants.Action.OpenAppDrawer
             }
         }
-        set(value) = prefs.edit { putString(SWIPE_RIGHT_ACTION, value.name) }
+        set(value) = prefs.edit { putString(SWIPE_UP_ACTION, value.name) }
+
+    var swipeDownAction: Constants.Action
+        get() {
+            return try {
+                Constants.Action.valueOf(
+                    prefs.getString(
+                        SWIPE_DOWN_ACTION,
+                        Constants.Action.OpenSimpleTray.name // default: Open Simple Tray
+                    ).toString()
+                )
+            } catch (_: Exception) {
+                Constants.Action.Disabled
+            }
+        }
+        set(value) = prefs.edit { putString(SWIPE_DOWN_ACTION, value.name) }
+
+    var shortSwipeThresholdRatio: Float
+        get() = getFloatCompat(SHORT_SWIPE_THRESHOLD_RATIO, Constants.DEFAULT_SHORT_SWIPE_RATIO)
+            .coerceIn(Constants.MIN_SHORT_SWIPE_RATIO, Constants.MAX_SHORT_SWIPE_RATIO)
+        set(value) = prefs.edit {
+            putFloat(
+                SHORT_SWIPE_THRESHOLD_RATIO,
+                value.coerceIn(Constants.MIN_SHORT_SWIPE_RATIO, Constants.MAX_SHORT_SWIPE_RATIO)
+            )
+        }
+
+    var longSwipeThresholdRatio: Float
+        get() = getFloatCompat(LONG_SWIPE_THRESHOLD_RATIO, Constants.DEFAULT_LONG_SWIPE_RATIO)
+            .coerceIn(Constants.MIN_LONG_SWIPE_RATIO, Constants.MAX_LONG_SWIPE_RATIO)
+        set(value) = prefs.edit {
+            putFloat(
+                LONG_SWIPE_THRESHOLD_RATIO,
+                value.coerceIn(Constants.MIN_LONG_SWIPE_RATIO, Constants.MAX_LONG_SWIPE_RATIO)
+            )
+        }
 
     var clickClockAction: Constants.Action
         get() {
@@ -711,21 +970,29 @@ class Prefs(val context: Context) {
 
     var appTheme: Constants.Theme
         get() {
+            val stored = prefs.getString(APP_THEME, Constants.Theme.Light.name)?.toString() ?: Constants.Theme.Light.name
             return try {
-                Constants.Theme.valueOf(
-                    prefs.getString(APP_THEME, Constants.Theme.System.name).toString()
-                )
+                // Handle legacy stored value "System" by mapping it to the current
+                // system mode at runtime (Dark -> Dark, otherwise Light).
+                if (stored.equals("System", ignoreCase = true)) {
+                    if (isSystemInDarkMode(context)) Constants.Theme.Dark else Constants.Theme.Light
+                } else {
+                    Constants.Theme.valueOf(stored)
+                }
             } catch (_: Exception) {
-                Constants.Theme.System
+                Constants.Theme.Light
             }
         }
-        set(value) = prefs.edit { putString(APP_THEME, value.name) }
+        set(value) {
+            prefs.edit { putString(APP_THEME, value.name) }
+            try { _appThemeFlow.value = value } catch (_: Exception) {}
+        }
 
 
     var appsFont: Constants.FontFamily
         get() = try {
             Constants.FontFamily.valueOf(
-                prefs.getString(APPS_FONT, Constants.FontFamily.System.name).toString()
+                prefs.getString(APPS_FONT, Constants.FontFamily.PublicSans.name)!!
             )
         } catch (_: Exception) {
             Constants.FontFamily.System
@@ -735,7 +1002,7 @@ class Prefs(val context: Context) {
     var clockFont: Constants.FontFamily
         get() = try {
             Constants.FontFamily.valueOf(
-                prefs.getString(CLOCK_FONT, Constants.FontFamily.System.name).toString()
+                prefs.getString(CLOCK_FONT, Constants.FontFamily.PublicSans.name)!!
             )
         } catch (_: Exception) {
             Constants.FontFamily.System
@@ -745,7 +1012,7 @@ class Prefs(val context: Context) {
     var statusFont: Constants.FontFamily
         get() = try {
             Constants.FontFamily.valueOf(
-                prefs.getString(STATUS_FONT, Constants.FontFamily.System.name).toString()
+                prefs.getString(STATUS_FONT, Constants.FontFamily.PublicSans.name)!!
             )
         } catch (_: Exception) {
             Constants.FontFamily.System
@@ -755,7 +1022,7 @@ class Prefs(val context: Context) {
     var labelnotificationsFont: Constants.FontFamily
         get() = try {
             Constants.FontFamily.valueOf(
-                prefs.getString(NOTIFICATION_FONT, Constants.FontFamily.System.name).toString()
+                prefs.getString(NOTIFICATION_FONT, Constants.FontFamily.PublicSans.name)!!
             )
         } catch (_: Exception) {
             Constants.FontFamily.System
@@ -767,7 +1034,7 @@ class Prefs(val context: Context) {
     var lettersFont: Constants.FontFamily
         get() = try {
             Constants.FontFamily.valueOf(
-                prefs.getString(LETTERS_FONT, Constants.FontFamily.System.name)!!
+                prefs.getString(LETTERS_FONT, Constants.FontFamily.PublicSans.name)!!
             )
         } catch (_: Exception) {
             Constants.FontFamily.System
@@ -785,7 +1052,7 @@ class Prefs(val context: Context) {
     var lettersTitleFont: Constants.FontFamily
         get() = try {
             Constants.FontFamily.valueOf(
-                prefs.getString(LETTERS_TITLE_FONT, Constants.FontFamily.System.name)!!
+                prefs.getString(LETTERS_TITLE_FONT, Constants.FontFamily.PublicSans.name)!!
             )
         } catch (_: Exception) {
             Constants.FontFamily.System
@@ -796,6 +1063,10 @@ class Prefs(val context: Context) {
         get() = prefs.getInt(LETTERS_TITLE_SIZE, 36)
         set(value) = prefs.edit { putInt(LETTERS_TITLE_SIZE, value) }
 
+    // ------------------
+    // Apps prefs (AppsFragment, App Drawer)
+    // ------------------
+
     var hiddenApps: MutableSet<String>
         get() = prefs.getStringSet(HIDDEN_APPS, mutableSetOf()) as MutableSet<String>
         set(value) = prefs.edit { putStringSet(HIDDEN_APPS, value) }
@@ -803,6 +1074,10 @@ class Prefs(val context: Context) {
     var lockedApps: MutableSet<String>
         get() = prefs.getStringSet(LOCKED_APPS, mutableSetOf()) as MutableSet<String>
         set(value) = prefs.edit { putStringSet(LOCKED_APPS, value) }
+
+    var newlyInstalledApps: MutableSet<String>
+        get() = prefs.getStringSet("NEWLY_INSTALLED_APPS", mutableSetOf()) as MutableSet<String>
+        set(value) = prefs.edit { putStringSet("NEWLY_INSTALLED_APPS", value) }
 
     /**
      * By the number in home app list, get the list item.
@@ -823,6 +1098,14 @@ class Prefs(val context: Context) {
     var appSwipeRight: AppListItem
         get() = loadApp(SWIPE_RIGHT)
         set(appModel) = storeApp(SWIPE_RIGHT, appModel)
+
+    var appSwipeUp: AppListItem
+        get() = loadApp(SWIPE_UP)
+        set(appModel) = storeApp(SWIPE_UP, appModel)
+
+    var appSwipeDown: AppListItem
+        get() = loadApp(SWIPE_DOWN)
+        set(appModel) = storeApp(SWIPE_DOWN, appModel)
 
     var appClickClock: AppListItem
         get() = loadApp(CLICK_CLOCK)
@@ -908,7 +1191,7 @@ class Prefs(val context: Context) {
 
     var textPaddingSize: Int
         get() = try {
-            prefs.getInt(TEXT_PADDING_SIZE, 15)
+            prefs.getInt(TEXT_PADDING_SIZE, 10)
         } catch (_: Exception) {
             12
         }
@@ -926,18 +1209,126 @@ class Prefs(val context: Context) {
     // --- App Drawer specific settings ---
     // Size for app drawer labels (defaults to existing appSize)
     var appDrawerSize: Int
-        get() = prefs.getInt(APP_DRAWER_SIZE, appSize)
-        set(value) = prefs.edit { putInt(APP_DRAWER_SIZE, value.coerceIn(Constants.MIN_APP_SIZE, Constants.MAX_APP_SIZE)) }
+        get() = prefs.getInt(Constants.PrefKeys.APP_DRAWER_SIZE, Constants.DEFAULT_APP_DRAWER_SIZE)
+        set(value) {
+            prefs.edit { putInt(Constants.PrefKeys.APP_DRAWER_SIZE, value.coerceIn(Constants.MIN_APP_SIZE, Constants.MAX_APP_SIZE)) }
+            invalidateAppsPerPageCache()
+        }
 
     // Gap / padding between app labels in the drawer (defaults to textPaddingSize)
     var appDrawerGap: Int
-        get() = prefs.getInt(APP_DRAWER_GAP, textPaddingSize)
-        set(value) = prefs.edit { putInt(APP_DRAWER_GAP, value.coerceIn(Constants.MIN_TEXT_PADDING, Constants.MAX_TEXT_PADDING)) }
+        get() = prefs.getInt(Constants.PrefKeys.APP_DRAWER_GAP, Constants.DEFAULT_APP_DRAWER_GAP)
+        set(value) {
+            prefs.edit { putInt(Constants.PrefKeys.APP_DRAWER_GAP, value.coerceIn(Constants.MIN_TEXT_PADDING, Constants.MAX_TEXT_PADDING)) }
+            invalidateAppsPerPageCache()
+        }
+
+    // Cached appsPerPage calculation for instant app drawer display
+    var cachedAppsPerPage: Int
+        get() = prefs.getInt(APP_DRAWER_APPS_PER_PAGE_CACHE, -1)
+        private set(value) = prefs.edit { putInt(APP_DRAWER_APPS_PER_PAGE_CACHE, value) }
+
+    var cachedContainerHeight: Int
+        get() = prefs.getInt(APP_DRAWER_CONTAINER_HEIGHT_CACHE, -1)
+        private set(value) = prefs.edit { putInt(APP_DRAWER_CONTAINER_HEIGHT_CACHE, value) }
+
+    // Cache the gap and size used in calculation to detect when recalculation is needed
+    private var cachedAppDrawerGap: Int
+        get() = prefs.getInt("APP_DRAWER_CACHED_GAP", -1)
+        set(value) = prefs.edit { putInt("APP_DRAWER_CACHED_GAP", value) }
+
+    private var cachedAppDrawerSize: Int
+        get() = prefs.getInt("APP_DRAWER_CACHED_SIZE", -1)
+        set(value) = prefs.edit { putInt("APP_DRAWER_CACHED_SIZE", value) }
+
+    fun updateAppsPerPageCache(appsPerPage: Int, containerHeight: Int, gap: Int, size: Int) {
+        prefs.edit {
+            putInt(APP_DRAWER_APPS_PER_PAGE_CACHE, appsPerPage)
+            putInt(APP_DRAWER_CONTAINER_HEIGHT_CACHE, containerHeight)
+            putInt("APP_DRAWER_CACHED_GAP", gap)
+            putInt("APP_DRAWER_CACHED_SIZE", size)
+        }
+    }
+
+    fun invalidateAppsPerPageCache() {
+        cachedAppsPerPage = -1
+        cachedContainerHeight = -1
+        cachedAppDrawerGap = -1
+        cachedAppDrawerSize = -1
+    }
+    
+    // Check if cache is valid for current settings
+    fun isAppsPerPageCacheValid(containerHeight: Int, gap: Int, size: Int): Boolean {
+        return cachedAppsPerPage > 0 &&
+               cachedContainerHeight == containerHeight &&
+               cachedAppDrawerGap == gap &&
+               cachedAppDrawerSize == size
+    }
 
     // Alignment for app drawer labels: 0 = START, 1 = CENTER, 2 = END. Default uses start (0).
     var appDrawerAlignment: Int
-        get() = prefs.getInt(APP_DRAWER_ALIGNMENT, 0)
-        set(value) = prefs.edit { putInt(APP_DRAWER_ALIGNMENT, value.coerceIn(0, 2)) }
+        get() = prefs.getInt(Constants.PrefKeys.APP_DRAWER_ALIGNMENT, 0)
+        set(value) = prefs.edit { putInt(Constants.PrefKeys.APP_DRAWER_ALIGNMENT, value.coerceIn(0, 2)) }
+
+    // Enable search bar in app drawer
+    var appDrawerSearchEnabled: Boolean
+        get() = prefs.getBoolean(Constants.PrefKeys.APP_DRAWER_SEARCH_ENABLED, true)
+        set(value) = prefs.edit { putBoolean(Constants.PrefKeys.APP_DRAWER_SEARCH_ENABLED, value) }
+
+    // Auto-show soft keyboard when opening the app drawer search field
+    // Default: false (do not automatically open IME)
+    var appDrawerAutoShowKeyboard: Boolean
+        get() = prefs.getBoolean(Constants.PrefKeys.APP_DRAWER_AUTO_SHOW_KEYBOARD, false)
+        set(value) = prefs.edit {
+            putBoolean(Constants.PrefKeys.APP_DRAWER_AUTO_SHOW_KEYBOARD, value)
+            // Ensure search is enabled when enabling auto-show keyboard
+            if (value) putBoolean(Constants.PrefKeys.APP_DRAWER_SEARCH_ENABLED, true)
+        }
+
+    // Auto-launch single search result
+    var appDrawerAutoLaunch: Boolean
+        get() = prefs.getBoolean(Constants.PrefKeys.APP_DRAWER_AUTO_LAUNCH, true)
+        set(value) = prefs.edit { putBoolean(Constants.PrefKeys.APP_DRAWER_AUTO_LAUNCH, value) }
+
+    // AZ Filter: when true, show A→Z sidebar instead of page indicator
+    var appDrawerAzFilter: Boolean
+        get() = prefs.getBoolean(Constants.PrefKeys.APP_DRAWER_AZ_FILTER, true)
+        set(value) {
+            prefs.edit {
+                putBoolean(Constants.PrefKeys.APP_DRAWER_AZ_FILTER, value)
+                if (value) {
+                    // Enabling AZ filter should disable page indicator
+                    putBoolean(Constants.PrefKeys.APP_DRAWER_PAGER, false)
+                }
+            }
+        }
+
+    // NOTE: `appsPerPage` removed — app drawer now computes pages dynamically.
+
+    // Alignment for home apps: 0 = START, 1 = CENTER, 2 = END. Default uses start (0).
+    var homeAlignment: Int
+        get() = prefs.getInt(HOME_ALIGNMENT, 0)
+        set(value) = prefs.edit { putInt(HOME_ALIGNMENT, value.coerceIn(0, 2)) }
+
+    // Text Islands: Show pill-shaped ripples around text for better legibility with wallpapers
+    var textIslands: Boolean
+        get() = prefs.getBoolean(TEXT_ISLANDS, false)
+        set(value) = prefs.edit { putBoolean(TEXT_ISLANDS, value) }
+
+    // Text Islands: Invert colors (bg color for pill, text color for text)
+    var textIslandsInverted: Boolean
+        get() = prefs.getBoolean(TEXT_ISLANDS_INVERTED, false)
+        set(value) = prefs.edit { putBoolean(TEXT_ISLANDS_INVERTED, value) }
+
+    // Text Islands: Shape of the ripple (0=Pill, 1=Rounded, 2=Square)
+    var textIslandsShape: Int
+        get() = prefs.getInt(TEXT_ISLANDS_SHAPE, 0)
+        set(value) = prefs.edit { putInt(TEXT_ISLANDS_SHAPE, value.coerceIn(0, 2)) }
+
+    // Show simple icons for apps (periodic table style)
+    var showIcons: Boolean
+        get() = prefs.getBoolean(SHOW_ICONS, false)
+        set(value) = prefs.edit { putBoolean(SHOW_ICONS, value) }
 
     var homeAppCharLimit: Int
         get() = prefs.getInt("home_app_char_limit", 20) // default to 20
@@ -953,16 +1344,6 @@ class Prefs(val context: Context) {
 
     private fun getColorInt(type: String): Int {
         when (appTheme) {
-            Constants.Theme.System -> {
-                return if (isSystemInDarkMode(context)) {
-                    if (type == "bg") R.color.black
-                    else R.color.white
-                } else {
-                    if (type == "bg") R.color.white
-                    else R.color.black
-                }
-            }
-
             Constants.Theme.Dark -> {
                 return if (type == "bg") R.color.black
                 else R.color.white
@@ -973,6 +1354,11 @@ class Prefs(val context: Context) {
                 else R.color.black  // #000000 for app, date, clock, alarm, battery
             }
         }
+            return if (appTheme == Constants.Theme.Dark) {
+                if (type == "bg") R.color.black else R.color.white
+            } else {
+                if (type == "bg") R.color.white else R.color.black
+            }
     }
 
     // return app label
@@ -1024,6 +1410,12 @@ class Prefs(val context: Context) {
             ?: mutableSetOf()
         set(value) = prefs.edit { putStringSet("allowed_badge_notification_apps", value) }
 
+    // Per-app allowlist for SimpleTray notifications
+    var allowedSimpleTrayApps: MutableSet<String>
+        get() = prefs.getStringSet("allowed_simple_tray_apps", mutableSetOf())
+            ?: mutableSetOf()
+        set(value) = prefs.edit { putStringSet("allowed_simple_tray_apps", value) }
+
     // --- Volume keys for page navigation ---
     var useVolumeKeysForPages: Boolean
         get() = prefs.getBoolean("use_volume_keys_for_pages", false)
@@ -1033,10 +1425,12 @@ class Prefs(val context: Context) {
         get() = prefs.getBoolean("long_press_app_info_enabled", false)
         set(value) = prefs.edit { putBoolean("long_press_app_info_enabled", value) }
 
-    // --- Vibration for paging ---
-    var useVibrationForPaging: Boolean
-        get() = prefs.getBoolean("use_vibration_for_paging", true)
-        set(value) = prefs.edit { putBoolean("use_vibration_for_paging", value) }
+    // NOTE: per recent UX change, paging-specific vibration pref removed.
+
+    // --- Global haptic feedback toggle (affects all helper-triggered vibration) ---
+    var hapticFeedback: Boolean
+        get() = prefs.getBoolean("haptic_feedback", true)
+        set(value) = prefs.edit { putBoolean("haptic_feedback", value) }
 
     var onboardingPage: Int
         get() = prefs.getInt(ONBOARDING_PAGE, 0)
@@ -1051,7 +1445,7 @@ class Prefs(val context: Context) {
 
             Constants.AppDrawerFlag.SetSwipeRight -> {
                 appSwipeRight = app
-                swipeRightAction = Constants.Action.OpenAppDrawer
+                swipeRightAction = Constants.Action.OpenApp
             }
 
             Constants.AppDrawerFlag.SetClickClock -> {
@@ -1073,5 +1467,7 @@ class Prefs(val context: Context) {
         private const val NOTIFICATIONS_ENABLED = "notifications_enabled"
         private const val NOTIFICATIONS_FONT = "notifications_font"
         private const val NOTIFICATIONS_TEXT_SIZE = "notifications_text_size"
+        private const val NOTIFICATIONS_PER_PAGE = "notifications_per_page"
+        private const val ENABLE_BOTTOM_NAV = "enable_bottom_nav"
     }
 }

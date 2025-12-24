@@ -48,6 +48,7 @@ test-rules = "1.6.1"
 fragment-testing = "1.8.6"
 ui-test-junit4 = "1.8.0"
 ui-test-manifest = "1.8.0"
+foundation = "1.9.5"
 
 [libraries]
 # Core Libraries
@@ -96,6 +97,7 @@ test-rules = { group = "androidx.test", name = "rules", version.ref = "test-rule
 fragment-testing = { group = "androidx.fragment", name = "fragment-testing", version.ref = "fragment-testing" }
 ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4", version.ref = "ui-test-junit4" }
 ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest", version.ref = "ui-test-manifest" }
+foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundation" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -6,6 +6,8 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import com.github.gezimos.inkos.style.AppTheme
+import com.github.gezimos.inkos.style.Theme
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -58,61 +60,66 @@ fun SettingsTheme(
     isDark: Boolean,
     content: @Composable () -> Unit
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val prefs = Prefs(context)
+    // Wrap with AppTheme so Theme.colors is available to consumers.
+    AppTheme {
+        val context = androidx.compose.ui.platform.LocalContext.current
+        val prefs = Prefs(context)
 
-    // Get current font from preferences
-    val customPath = if (prefs.fontFamily == Constants.FontFamily.Custom) {
-        prefs.getCustomFontPath("settings")
-    } else null
-    val currentFont = prefs.fontFamily.getFont(context, customPath) ?: getTrueSystemFont()
+        // Get current font from preferences
+        val customPath = if (prefs.fontFamily == Constants.FontFamily.Custom) {
+            prefs.getCustomFontPath("settings")
+        } else null
+        val currentFont = prefs.fontFamily.getFont(context, customPath) ?: getTrueSystemFont()
 
-    val replacementTypography = ReplacementTypography(
-        header = TextStyle(
-            fontSize = 16.sp,
-            color = if (isDark) textLightHeader else textDarkHeader,
-            fontFamily = androidx.compose.ui.text.font.FontFamily(currentFont)
-        ),
-        title = TextStyle(
-            fontSize = 32.sp,
-            color = if (isDark) textLight else textDark,
-            fontFamily = androidx.compose.ui.text.font.FontFamily(currentFont)
-        ),
-        body = TextStyle(
-            fontSize = 16.sp,
-            color = if (isDark) textLight else textDark,
-            fontFamily = androidx.compose.ui.text.font.FontFamily(currentFont)
-        ),
-        item = TextStyle(
-            fontSize = 16.sp,
-            color = if (isDark) textLight else textDark,
-            fontFamily = androidx.compose.ui.text.font.FontFamily(currentFont)
-        ),
-        button = TextStyle(
-            fontSize = 16.sp,
-            color = if (isDark) textLight else textDark,
-            fontFamily = androidx.compose.ui.text.font.FontFamily(currentFont)
-        ),
-        buttonDisabled = TextStyle(
-            fontSize = 16.sp,
-            color = textGray,
-            fontFamily = androidx.compose.ui.text.font.FontFamily(currentFont)
-        ),
-    )
-    val replacementColor = ReplacementColor(
-        settings = if (isDark) Color.White else Color.Black,
-        image = if (isDark) Color.White else Color.Black,
-        selector = if (isDark) Color.White else Color.Black,
-        border = if (isDark) Color.White else Color.Black,
-        horizontalPadding = 24.dp
-    )
-    CompositionLocalProvider(
-        LocalReplacementTypography provides replacementTypography,
-        LocalReplacementColor provides replacementColor,
-    ) {
-        MaterialTheme(
-            content = content
+        val color = Theme.colors.text
+
+        val replacementTypography = ReplacementTypography(
+            header = TextStyle(
+                fontSize = 16.sp,
+                color = color,
+                fontFamily = androidx.compose.ui.text.font.FontFamily(currentFont)
+            ),
+            title = TextStyle(
+                fontSize = 32.sp,
+                color = color,
+                fontFamily = androidx.compose.ui.text.font.FontFamily(currentFont)
+            ),
+            body = TextStyle(
+                fontSize = 16.sp,
+                color = color,
+                fontFamily = androidx.compose.ui.text.font.FontFamily(currentFont)
+            ),
+            item = TextStyle(
+                fontSize = 16.sp,
+                color = color,
+                fontFamily = androidx.compose.ui.text.font.FontFamily(currentFont)
+            ),
+            button = TextStyle(
+                fontSize = 16.sp,
+                color = color,
+                fontFamily = androidx.compose.ui.text.font.FontFamily(currentFont)
+            ),
+            buttonDisabled = TextStyle(
+                fontSize = 16.sp,
+                color = color.copy(alpha = 0.5f),
+                fontFamily = androidx.compose.ui.text.font.FontFamily(currentFont)
+            ),
         )
+        val replacementColor = ReplacementColor(
+            settings = color,
+            image = color,
+            selector = color,
+            border = color,
+            horizontalPadding = 24.dp
+        )
+        CompositionLocalProvider(
+            LocalReplacementTypography provides replacementTypography,
+            LocalReplacementColor provides replacementColor,
+        ) {
+            MaterialTheme(
+                content = content
+            )
+        }
     }
 }
 

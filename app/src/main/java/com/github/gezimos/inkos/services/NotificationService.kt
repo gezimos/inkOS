@@ -1,7 +1,11 @@
 package com.github.gezimos.inkos.services
 
+import android.content.ComponentName
 import android.content.Context
-import android.media.session.MediaSession
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import com.github.gezimos.inkos.helper.AudioWidgetHelper
@@ -10,153 +14,40 @@ class NotificationService : NotificationListenerService() {
     private lateinit var notificationManager: NotificationManager
     private lateinit var audioWidgetHelper: AudioWidgetHelper
 
-    // Track active media controllers to monitor metadata changes
-    private val activeMediaControllers =
-        mutableMapOf<String, android.media.session.MediaController>()
-    private val mediaCallbacks =
-        mutableMapOf<String, android.media.session.MediaController.Callback>()
-
     override fun onCreate() {
         super.onCreate()
+        instance = this
         notificationManager = NotificationManager.getInstance(applicationContext)
         audioWidgetHelper = AudioWidgetHelper.getInstance(applicationContext)
         notificationManager.restoreConversationNotifications()
 
-        // Set up callback to refresh notifications when widget actions occur
-        audioWidgetHelper.setMediaActionCallback(object : AudioWidgetHelper.MediaActionCallback {
-            override fun onMediaActionPerformed(packageName: String) {
-                refreshMediaNotificationForPackage(packageName)
-            }
-        })
+        // Seed sbn state with current active notifications if available
+        _sbnState.value = activeNotifications?.toList() ?: emptyList()
     }
 
     override fun onListenerConnected() {
         super.onListenerConnected()
-        // Only restore active media playback notifications after service (re)start
-        activeNotifications?.filter {
-            it.notification.category == android.app.Notification.CATEGORY_TRANSPORT
-        }?.forEach { sbn ->
+        
+        // Initialize AudioWidgetHelper with our component name for MediaSessionManager access
+        val componentName = ComponentName(this, NotificationService::class.java)
+        audioWidgetHelper.initialize(componentName)
+        
+        // Process existing notifications for badges/conversations
+        activeNotifications?.forEach { sbn ->
             updateBadgeNotification(sbn)
             if (shouldShowNotification(sbn.packageName)) {
                 updateConversationNotifications(sbn)
             }
-
-            // Also restore audio widget state with proper MediaController
-            val extras = sbn.notification.extras
-            val token =
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                    extras?.getParcelable("android.mediaSession", MediaSession.Token::class.java)
-                } else {
-                    @Suppress("DEPRECATION")
-                    extras?.getParcelable<MediaSession.Token>("android.mediaSession")
-                }
-
-            if (token != null) {
-                try {
-                    val controller = android.media.session.MediaController(this, token)
-                    val playbackState = controller.playbackState
-                    val isPlaying =
-                        playbackState != null && playbackState.state == android.media.session.PlaybackState.STATE_PLAYING
-                    val isPaused =
-                        playbackState != null && playbackState.state == android.media.session.PlaybackState.STATE_PAUSED
-
-                    if (isPlaying || isPaused) {
-                        // Clear other media notifications if this one is playing
-                        if (isPlaying) {
-                            clearOtherMediaNotifications(sbn.packageName)
-                        }
-
-                        // Restore audio widget with proper MediaController
-                        val title = extras?.getCharSequence("android.title")?.toString()
-                        val text = when {
-                            extras?.getCharSequence("android.bigText") != null ->
-                                extras.getCharSequence("android.bigText")?.toString()?.take(30)
-
-                            extras?.getCharSequence("android.text") != null ->
-                                extras.getCharSequence("android.text")?.toString()?.take(30)
-
-                            extras?.getCharSequenceArray("android.textLines") != null -> {
-                                val lines = extras.getCharSequenceArray("android.textLines")
-                                lines?.lastOrNull()?.toString()?.take(30)
-                            }
-
-                            else -> null
-                        }
-
-                        audioWidgetHelper.updateMediaPlayer(
-                            packageName = sbn.packageName,
-                            token = token,
-                            isPlaying = isPlaying,
-                            title = title,
-                            artist = text
-                        )
-
-                        // Register callback to monitor changes
-                        registerMediaControllerCallback(sbn.packageName, controller)
-                    }
-                } catch (_: Exception) {
-                    // If MediaController fails, clear any stale widget state
-                    audioWidgetHelper.clearMediaPlayer()
-                }
-            }
         }
-        // Clean up any stale media notifications on connect
-        cleanupStaleMediaNotifications()
+
+        // Refresh the shared StatusBarNotification state for observers
+        _sbnState.value = activeNotifications?.toList() ?: emptyList()
     }
 
     override fun onDestroy() {
-        // Clean up all media controller callbacks
-        activeMediaControllers.keys.toList().forEach { packageName ->
-            cleanupMediaControllerCallback(packageName)
-        }
+        audioWidgetHelper.cleanup()
+        instance = null
         super.onDestroy()
-    }
-
-    private fun registerMediaControllerCallback(
-        packageName: String,
-        controller: android.media.session.MediaController
-    ) {
-        // Remove existing callback if any
-        val existingCallback = mediaCallbacks[packageName]
-        if (existingCallback != null) {
-            try {
-                activeMediaControllers[packageName]?.unregisterCallback(existingCallback)
-            } catch (_: Exception) {
-            }
-        }
-
-        // Create new callback to monitor metadata changes
-        val callback = object : android.media.session.MediaController.Callback() {
-            override fun onMetadataChanged(metadata: android.media.MediaMetadata?) {
-                super.onMetadataChanged(metadata)
-                // When metadata changes (new track), refresh the notification badge
-                refreshMediaNotificationForPackage(packageName)
-            }
-
-            override fun onPlaybackStateChanged(state: android.media.session.PlaybackState?) {
-                super.onPlaybackStateChanged(state)
-                // When playback state changes, refresh the notification badge
-                refreshMediaNotificationForPackage(packageName)
-            }
-
-            override fun onSessionDestroyed() {
-                super.onSessionDestroyed()
-                // Clean up when session is destroyed
-                mediaCallbacks.remove(packageName)
-                activeMediaControllers.remove(packageName)
-                notificationManager.clearMediaNotification(packageName)
-            }
-        }
-
-        try {
-            controller.registerCallback(callback)
-            activeMediaControllers[packageName] = controller
-            mediaCallbacks[packageName] = callback
-        } catch (_: Exception) {
-            // If callback registration fails, clean up
-            mediaCallbacks.remove(packageName)
-            activeMediaControllers.remove(packageName)
-        }
     }
 
     private fun shouldShowNotification(packageName: String): Boolean {
@@ -167,101 +58,21 @@ class NotificationService : NotificationListenerService() {
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
-        // Removed aggressive SMS cleanup - let SMS apps and system handle their own notification management
-        // This allows proper conversation threading like other messaging apps (Signal, WhatsApp, etc.)
-        
-        // Debug logging for SMS notifications
-        if (sbn.notification.category == android.app.Notification.CATEGORY_MESSAGE) {
-            android.util.Log.d("NotificationService", "SMS Posted: ${sbn.packageName} - ${sbn.key}")
-            val extras = sbn.notification.extras
-            android.util.Log.d("NotificationService", "SMS Title: ${extras?.getString("android.title")}")
-            android.util.Log.d("NotificationService", "SMS ConversationTitle: ${extras?.getString("android.conversationTitle")}")
-        }
-        
         // Always update badge notification, let NotificationManager filter by allowlist
-    // Clear any transient home-screen suppression for this package when a new notification arrives
-    com.github.gezimos.inkos.helper.utils.NotificationBadgeUtil.clearSuppression(sbn.packageName)
-    updateBadgeNotification(sbn)
-
-        // Handle media widget updates for TRANSPORT category notifications
-        if (sbn.notification.category == android.app.Notification.CATEGORY_TRANSPORT) {
-            val extras = sbn.notification.extras
-            val token =
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                    extras?.getParcelable("android.mediaSession", MediaSession.Token::class.java)
-                } else {
-                    @Suppress("DEPRECATION")
-                    extras?.getParcelable<MediaSession.Token>("android.mediaSession")
-                }
-
-            if (token != null) {
-                try {
-                    val controller = android.media.session.MediaController(this, token)
-                    val playbackState = controller.playbackState
-                    val isPlaying =
-                        playbackState != null && playbackState.state == android.media.session.PlaybackState.STATE_PLAYING
-                    val isPaused =
-                        playbackState != null && playbackState.state == android.media.session.PlaybackState.STATE_PAUSED
-
-                    // Register callback to monitor automatic track changes
-                    registerMediaControllerCallback(sbn.packageName, controller)
-
-                    if (isPlaying || isPaused) {
-                        // Clear media notifications from other apps when new media starts playing
-                        if (isPlaying) {
-                            clearOtherMediaNotifications(sbn.packageName)
-                        }
-
-                        // Show widget for both playing and paused states
-                        val title = extras?.getCharSequence("android.title")?.toString()
-                        val text = when {
-                            extras?.getCharSequence("android.bigText") != null ->
-                                extras.getCharSequence("android.bigText")?.toString()?.take(30)
-
-                            extras?.getCharSequence("android.text") != null ->
-                                extras.getCharSequence("android.text")?.toString()?.take(30)
-
-                            extras?.getCharSequenceArray("android.textLines") != null -> {
-                                val lines = extras.getCharSequenceArray("android.textLines")
-                                lines?.lastOrNull()?.toString()?.take(30)
-                            }
-
-                            else -> null
-                        }
-
-                        audioWidgetHelper.updateMediaPlayer(
-                            packageName = sbn.packageName,
-                            token = token,
-                            isPlaying = isPlaying, // Pass actual playing state
-                            title = title,
-                            artist = text
-                        )
-
-                    } else {
-                        // Clear widget only if stopped/error (not paused)
-                        audioWidgetHelper.clearMediaPlayer()
-                        // Also clear this app's media notification
-                        notificationManager.clearMediaNotification(sbn.packageName)
-                    }
-                } catch (_: Exception) {
-                    audioWidgetHelper.clearMediaPlayer()
-                    notificationManager.clearMediaNotification(sbn.packageName)
-                }
-            }
-        }
+        updateBadgeNotification(sbn)
 
         // Only update conversation notifications if allowed in notification allowlist
         if (shouldShowNotification(sbn.packageName)) {
             updateConversationNotifications(sbn)
         }
+
+        // Emit updated active notifications for UI consumers that observe the service directly
+        try {
+            _sbnState.value = activeNotifications?.toList() ?: emptyList()
+        } catch (_: Exception) { }
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
-        // Debug logging for SMS notifications
-        if (sbn.notification.category == android.app.Notification.CATEGORY_MESSAGE) {
-            android.util.Log.d("NotificationService", "SMS Removed: ${sbn.packageName} - ${sbn.key}")
-        }
-        
         // Fixed: Properly handle badge clearing when system removes notifications
         // Check if there are any remaining active notifications for this package
         val activeNotifications = getActiveNotifications()
@@ -281,93 +92,114 @@ class NotificationService : NotificationListenerService() {
             notificationManager.updateBadgeNotification(sbn.packageName, notificationInfo)
         }
 
-        // Check if removed notification was media and clear player if needed
-        if (sbn.notification.category == android.app.Notification.CATEGORY_TRANSPORT) {
-            val currentPlayer = audioWidgetHelper.getCurrentMediaPlayer()
-            if (currentPlayer?.packageName == sbn.packageName) {
-                audioWidgetHelper.clearMediaPlayer()
-            }
-            // Also clear this app's media notification explicitly
-            notificationManager.clearMediaNotification(sbn.packageName)
-
-            // Clean up media controller callback
-            cleanupMediaControllerCallback(sbn.packageName)
-        }
+        // Emit updated active notifications for UI consumers that observe the service directly
+        try {
+            _sbnState.value = getActiveNotifications()?.toList() ?: emptyList()
+        } catch (_: Exception) { }
     }
 
-    private fun refreshMediaNotificationForPackage(packageName: String) {
-        // Find the current media notification for this package and refresh it
-        activeNotifications?.find {
-            it.packageName == packageName &&
-                    it.notification.category == android.app.Notification.CATEGORY_TRANSPORT
-        }?.let { sbn ->
-            try {
-                // Simply reprocess the notification to get fresh metadata from media controller
-                updateBadgeNotification(sbn)
-            } catch (e: Exception) {
-                // If we can't process the notification, clear it
-                notificationManager.clearMediaNotification(packageName)
+    companion object {
+        // Expose a read-only StateFlow of the current active StatusBarNotification list
+        // Consumers in the same process can observe this to get live posted/removed events
+        private val _sbnState = MutableStateFlow<List<StatusBarNotification>>(emptyList())
+        val sbnState: StateFlow<List<StatusBarNotification>> get() = _sbnState
+        private val mainScope = MainScope()
+        // Helper to offer updates from other contexts (if needed)
+        fun offerActiveNotifications(list: List<StatusBarNotification>?) {
+            mainScope.launch {
+                _sbnState.value = list ?: emptyList()
             }
-        } ?: run {
-            // No active notification found for this package, clear any cached notification
-            notificationManager.clearMediaNotification(packageName)
         }
-    }
-
-    private fun cleanupStaleMediaNotifications() {
-        // Check all media notifications and clear ones that are no longer playing
-        activeNotifications?.filter {
-            it.notification.category == android.app.Notification.CATEGORY_TRANSPORT
-        }?.forEach { sbn ->
-            val extras = sbn.notification.extras
-            val token =
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                    extras?.getParcelable("android.mediaSession", MediaSession.Token::class.java)
-                } else {
-                    @Suppress("DEPRECATION")
-                    extras?.getParcelable<MediaSession.Token>("android.mediaSession")
+        
+        // Instance reference for accessing service methods
+        @Volatile
+        private var instance: NotificationService? = null
+        
+        fun getInstance(): NotificationService? = instance
+        
+        /**
+         * Send the conversation intent directly using the notification's PendingIntent.
+         * This is the most reliable way to open the specific conversation.
+         */
+        fun sendConversationIntent(context: Context, packageName: String, notificationKey: String?): Boolean {
+            if (notificationKey == null) return false
+            
+            val service = instance
+            if (service != null) {
+                return service.sendConversationIntent(packageName, notificationKey)
+            }
+            
+            // Fallback: service not available, return false to trigger app launch
+            return false
+        }
+        
+        /**
+         * Dismiss a notification from the system notification tray by its key.
+         * This acts like "mark as read" or "snooze" - it removes the notification from the system tray.
+         * For grouped notifications, dismisses all notifications in the same group.
+         */
+        fun dismissNotification(notificationKey: String?): Boolean {
+            if (notificationKey == null) return false
+            
+            val service = instance
+            if (service != null) {
+                return try {
+                    // First verify the notification exists in active notifications
+                    val activeNotifications = service.activeNotifications
+                    val notification = activeNotifications?.find { it.key == notificationKey }
+                    
+                    if (notification != null) {
+                        val notificationGroup = notification.notification.group
+                        
+                        // If this notification is part of a group, dismiss all notifications in that group
+                        if (!notificationGroup.isNullOrBlank()) {
+                            val notificationsInGroup = activeNotifications?.filter { 
+                                it.notification.group == notificationGroup && 
+                                it.packageName == notification.packageName 
+                            } ?: emptyList()
+                            
+                            // Dismiss all notifications in the group
+                            notificationsInGroup.forEach { sbn ->
+                                try {
+                                    service.cancelNotification(sbn.key)
+                                } catch (e: Exception) {
+                                    android.util.Log.e("NotificationService", "Failed to dismiss grouped notification: ${sbn.key}", e)
+                                }
+                            }
+                            
+                            // Also try to dismiss the group summary notification if it exists
+                            // Group summaries typically have FLAG_GROUP_SUMMARY set
+                            val groupSummary = activeNotifications?.find {
+                                it.packageName == notification.packageName &&
+                                it.notification.group == notificationGroup &&
+                                (it.notification.flags and android.app.Notification.FLAG_GROUP_SUMMARY != 0)
+                            }
+                            
+                            if (groupSummary != null) {
+                                try {
+                                    service.cancelNotification(groupSummary.key)
+                                } catch (e: Exception) {
+                                    android.util.Log.e("NotificationService", "Failed to dismiss group summary: ${groupSummary.key}", e)
+                                }
+                            }
+                            
+                            true
+                        } else {
+                            // Not a grouped notification, just dismiss this one
+                            service.cancelNotification(notificationKey)
+                            true
+                        }
+                    } else {
+                        // Notification no longer exists, but that's okay
+                        false
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("NotificationService", "Failed to dismiss notification: $notificationKey", e)
+                    false
                 }
-
-            val shouldClear = if (token != null) {
-                try {
-                    val controller = android.media.session.MediaController(this, token)
-                    val playbackState = controller.playbackState
-                    // Clear notification if not playing
-                    playbackState == null || playbackState.state != android.media.session.PlaybackState.STATE_PLAYING
-                } catch (_: Exception) {
-                    true // Clear if we can't access media controller
-                }
-            } else {
-                true // Clear if no media session token
             }
-
-            if (shouldClear) {
-                notificationManager.clearMediaNotification(sbn.packageName)
-                cleanupMediaControllerCallback(sbn.packageName)
-            }
-        }
-    }
-
-    private fun cleanupMediaControllerCallback(packageName: String) {
-        val callback = mediaCallbacks[packageName]
-        if (callback != null) {
-            try {
-                activeMediaControllers[packageName]?.unregisterCallback(callback)
-            } catch (_: Exception) {
-            }
-            activeMediaControllers.remove(packageName)
-            mediaCallbacks.remove(packageName)
-        }
-    }
-
-    private fun clearOtherMediaNotifications(currentPlayingPackage: String) {
-        // Get all active notifications and clear media notifications from other apps
-        activeNotifications?.filter {
-            it.notification.category == android.app.Notification.CATEGORY_TRANSPORT &&
-                    it.packageName != currentPlayingPackage
-        }?.forEach { sbn ->
-            // Clear the media notification for this app
-            notificationManager.clearMediaNotification(sbn.packageName)
+            
+            return false
         }
     }
 
@@ -387,45 +219,71 @@ class NotificationService : NotificationListenerService() {
         
         // Filter out summary notifications early to prevent them from appearing in NotificationsFragment
         if (notificationManager.isNotificationSummary(sbn)) {
-            // android.util.Log.d("NotificationService", "Filtering out summary notification from $packageName for conversations")
             return
         }
         
-        val conversationTitleRaw = extras.getString("android.conversationTitle")
-        val senderRaw = extras.getString("android.title")
+        // Filter out media notifications - handled separately by AudioWidgetHelper
+        if (sbn.notification.category == android.app.Notification.CATEGORY_TRANSPORT) {
+            return
+        }
+        
+        // Extract conversation title - try multiple fields
+        val conversationTitleRaw = extras.getCharSequence("android.conversationTitle")?.toString()
+            ?: extras.getString("android.conversationTitle")
+        
+        // Extract sender/title - try multiple fields
+        val senderRaw = extras.getCharSequence("android.title")?.toString()
+            ?: extras.getString("android.title")
+            ?: extras.getCharSequence("android.subText")?.toString()
+            ?: extras.getString("android.subText")
+        
+        // Extract message - try multiple fields in priority order
         val messageRaw = when {
-            extras.getCharSequence("android.bigText") != null -> extras.getCharSequence("android.bigText")
-                ?.toString()
+            extras.getCharSequence("android.bigText") != null -> 
+                extras.getCharSequence("android.bigText")?.toString()
 
-            extras.getCharSequence("android.text") != null -> extras.getCharSequence("android.text")
-                ?.toString()
+            extras.getCharSequence("android.text") != null -> 
+                extras.getCharSequence("android.text")?.toString()
 
             extras.getCharSequenceArray("android.textLines") != null -> {
                 val lines = extras.getCharSequenceArray("android.textLines")
                 lines?.lastOrNull()?.toString()
             }
+            
+            // Try additional fields that some apps use
+            extras.getCharSequence("android.summaryText") != null -> 
+                extras.getCharSequence("android.summaryText")?.toString()
+            
+            extras.getCharSequence("android.infoText") != null -> 
+                extras.getCharSequence("android.infoText")?.toString()
+            
+            // Ticker text (deprecated but still used by some apps)
+            sbn.notification.tickerText != null -> 
+                sbn.notification.tickerText?.toString()
 
             else -> null
         }
         
-        // Improved conversation ID logic for better SMS threading
+        // Improved conversation ID logic for better SMS threading and group chat support
+        val notificationGroup = sbn.notification.group
         val conversationId = when {
-            // Use conversation title if available (group chats)
+            // First priority: Use notification group key if available
+            !notificationGroup.isNullOrBlank() -> "group_${packageName}_$notificationGroup"
+            
+            // Second priority: Use conversation title if available (group chats)
             !conversationTitleRaw.isNullOrBlank() -> conversationTitleRaw
             
             // For SMS apps, try to extract phone number or contact from various fields
             sbn.notification.category == android.app.Notification.CATEGORY_MESSAGE -> {
-                // Try different extras that SMS apps use for phone numbers/contacts
                 val phoneNumber = extras.getString("android.people")?.firstOrNull()?.toString()
                     ?: extras.getString("android.subText")
                     ?: extras.getString("android.summaryText")
                     ?: senderRaw
                 
-                // Use phone number/contact as conversation ID for better threading
                 phoneNumber?.let { "sms_$it" } ?: senderRaw ?: "default"
             }
             
-            // For other messaging apps, use sender as conversation ID
+            // For other messaging apps, use sender as conversation ID (last resort)
             !senderRaw.isNullOrBlank() -> senderRaw
             
             // Fallback
@@ -434,14 +292,14 @@ class NotificationService : NotificationListenerService() {
         
         var conversationTitle = conversationTitleRaw
         var sender = senderRaw
-        // Normalize whitespace and cap message to 300 characters to avoid overly long UI strings
+        // Normalize whitespace and cap message to 300 characters
         var message = messageRaw?.replace("\n", " ")
             ?.replace("\r", " ")
             ?.trim()
             ?.replace(Regex("\\s+"), " ")
             ?.take(300)
         
-        // Fallback: if both sender/title and message are missing, use app label and 'Notification received'
+        // Fallback: if both sender/title and message are missing, use app label
         if ((conversationTitle.isNullOrBlank() && sender.isNullOrBlank()) && (message.isNullOrBlank())) {
             val pm = applicationContext.packageManager
             val appLabel = try {
@@ -451,7 +309,25 @@ class NotificationService : NotificationListenerService() {
             }
             conversationTitle = appLabel
             sender = appLabel
-            message = "Notification received"
+            
+            // Provide category-specific fallback text
+            message = when (sbn.notification.category) {
+                android.app.Notification.CATEGORY_MESSAGE -> "New message"
+                android.app.Notification.CATEGORY_EMAIL -> "New email"
+                android.app.Notification.CATEGORY_CALL -> "Missed call"
+                android.app.Notification.CATEGORY_ALARM -> "Alarm"
+                android.app.Notification.CATEGORY_REMINDER -> "Reminder"
+                android.app.Notification.CATEGORY_EVENT -> "Event"
+                android.app.Notification.CATEGORY_PROMO -> "Promotion"
+                android.app.Notification.CATEGORY_SYSTEM -> "System notification"
+                android.app.Notification.CATEGORY_SERVICE -> "Service notification"
+                android.app.Notification.CATEGORY_ERROR -> "Error"
+                android.app.Notification.CATEGORY_PROGRESS -> "Progress update"
+                android.app.Notification.CATEGORY_SOCIAL -> "Social update"
+                android.app.Notification.CATEGORY_STATUS -> "Status update"
+                android.app.Notification.CATEGORY_RECOMMENDATION -> "Recommendation"
+                else -> null
+            }
         }
         
         val timestamp = sbn.postTime
@@ -463,9 +339,58 @@ class NotificationService : NotificationListenerService() {
                 sender = sender,
                 message = message,
                 timestamp = timestamp,
-                category = sbn.notification.category
+                category = sbn.notification.category,
+                notificationKey = sbn.key
             )
         )
+    }
+
+    /**
+     * Send the conversation intent directly using the notification's PendingIntent.
+     * This is the most reliable way to open the specific conversation.
+     */
+    private fun sendConversationIntent(packageName: String, notificationKey: String?): Boolean {
+        if (notificationKey == null) return false
+        
+        return try {
+            val activeNotifications = activeNotifications
+            val notification = activeNotifications?.find { 
+                it.packageName == packageName && it.key == notificationKey 
+            }
+            
+            notification?.notification?.contentIntent?.let { pendingIntent ->
+                // Create ActivityOptions to allow background activity launch
+                val options = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    android.app.ActivityOptions.makeBasic().apply {
+                        setPendingIntentBackgroundActivityStartMode(
+                            android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+                        )
+                    }.toBundle()
+                } else {
+                    null
+                }
+                
+                // Send with proper context, options, and FLAG_ACTIVITY_NEW_TASK
+                val fillInIntent = android.content.Intent().apply {
+                    addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                
+                pendingIntent.send(
+                    this,           // context
+                    0,              // request code
+                    fillInIntent,   // fill-in intent with NEW_TASK flag
+                    null,           // onFinished callback
+                    null,           // handler
+                    null,           // required permissions
+                    options         // activity options to allow background start
+                )
+                true
+            } ?: false
+        } catch (e: Exception) {
+            android.util.Log.e("NotificationService", "Failed to send conversation intent", e)
+            e.printStackTrace()
+            false
+        }
     }
 
     override fun attachBaseContext(base: Context?) {

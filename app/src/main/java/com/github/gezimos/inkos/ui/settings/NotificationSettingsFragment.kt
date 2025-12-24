@@ -11,21 +11,22 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.sp
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.view.ViewCompat
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.github.gezimos.inkos.R
 import com.github.gezimos.inkos.data.Prefs
-import com.github.gezimos.inkos.helper.isSystemInDarkMode
 import com.github.gezimos.inkos.style.SettingsTheme
 import com.github.gezimos.inkos.ui.compose.SettingsComposable
 import com.github.gezimos.inkos.ui.dialogs.DialogManager
@@ -34,37 +35,31 @@ import kotlinx.coroutines.launch
 
 class NotificationSettingsFragment : Fragment() {
     private lateinit var prefs: Prefs
+    private lateinit var viewModel: com.github.gezimos.inkos.MainViewModel
     private lateinit var dialogManager: DialogManager
 
     // `user` is included so we can detect stored entries that use the package|user format
     data class AppInfo(val label: String, val packageName: String, val user: String? = null)
 
-    @Suppress("unused")
-    private fun getInstalledApps(): List<AppInfo> {
-        val pm = requireContext().packageManager
-        val apps = pm.getInstalledApplications(0)
-        return apps.map {
-            val label = pm.getApplicationLabel(it).toString()
-            AppInfo(label, it.packageName)
-        }.sortedBy { it.label.lowercase() }
+    /**
+     * Checks if notification listener service is enabled.
+     * This is what we need to READ notifications from other apps.
+     */
+    private fun isNotificationListenerEnabled(context: android.content.Context): Boolean {
+        return NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
     }
+
 
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        prefs = Prefs(requireContext())
+        viewModel = ViewModelProvider(requireActivity())[com.github.gezimos.inkos.MainViewModel::class.java]
+        prefs = viewModel.getPrefs()
         dialogManager = DialogManager(requireContext(), requireActivity())
-        val isDark = when (prefs.appTheme) {
-            com.github.gezimos.inkos.data.Constants.Theme.Light -> false
-            com.github.gezimos.inkos.data.Constants.Theme.Dark -> true
-            com.github.gezimos.inkos.data.Constants.Theme.System -> isSystemInDarkMode(
-                requireContext()
-            )
-        }
-        val settingsSize = (prefs.settingsSize - 3)
-        val backgroundColor = com.github.gezimos.inkos.helper.getHexForOpacity(prefs)
+        val isDark = prefs.appTheme == com.github.gezimos.inkos.data.Constants.Theme.Dark
+        val backgroundColor = com.github.gezimos.inkos.helper.getHexForOpacity(requireContext())
         val context = requireContext()
         // --- Dot indicator state ---
         val currentPage = intArrayOf(0)
@@ -91,13 +86,15 @@ class NotificationSettingsFragment : Fragment() {
         // Add sticky header ComposeView
         val headerView = androidx.compose.ui.platform.ComposeView(context).apply {
             setContent {
+                val homeUiState by viewModel.homeUiState.collectAsState()
+                val settingsSize = (homeUiState.settingsSize - 3)
                 SettingsTheme(isDark) {
                     Column(Modifier.fillMaxWidth()) {
                         SettingsComposable.PageHeader(
                             iconRes = R.drawable.ic_back,
                             title = stringResource(R.string.notification_section),
                             onClick = { findNavController().popBackStack() },
-                            showStatusBar = prefs.showStatusBar,
+                            showStatusBar = homeUiState.showStatusBar,
                             pageIndicator = {
                                 SettingsComposable.PageIndicator(
                                     currentPage = currentPage[0],
@@ -119,6 +116,8 @@ class NotificationSettingsFragment : Fragment() {
             addView(
                 androidx.compose.ui.platform.ComposeView(context).apply {
                     setContent {
+                        val homeUiState by viewModel.homeUiState.collectAsState()
+                        val settingsSize = (homeUiState.settingsSize - 3)
                         SettingsTheme(isDark) {
                             Box(Modifier.fillMaxSize()) {
                                 Column {
@@ -156,13 +155,15 @@ class NotificationSettingsFragment : Fragment() {
             pageCount[0] = pages
             currentPage[0] = page
             headerView.setContent {
+                val homeUiState by viewModel.homeUiState.collectAsState()
+                val settingsSize = (homeUiState.settingsSize - 3)
                 SettingsTheme(isDark) {
                     Column(Modifier.fillMaxWidth()) {
                         SettingsComposable.PageHeader(
                             iconRes = R.drawable.ic_back,
                             title = stringResource(R.string.notification_section),
                             onClick = { findNavController().popBackStack() },
-                            showStatusBar = prefs.showStatusBar,
+                            showStatusBar = homeUiState.showStatusBar,
                             pageIndicator = {
                                 SettingsComposable.PageIndicator(
                                     currentPage = currentPage[0],
@@ -184,43 +185,39 @@ class NotificationSettingsFragment : Fragment() {
     @Composable
     fun NotificationSettingsAllInOne(fontSize: androidx.compose.ui.unit.TextUnit = androidx.compose.ui.unit.TextUnit.Unspecified) {
         val context = requireContext()
-        val isDark = isSystemInDarkMode(context)
         val titleFontSize =
             if (fontSize != androidx.compose.ui.unit.TextUnit.Unspecified) (fontSize.value * 1.5).sp else fontSize
-        val prefs = remember { Prefs(context) }
-        var pushNotificationsEnabled by remember { mutableStateOf(prefs.pushNotificationsEnabled) }
+        
+        val uiState by viewModel.homeUiState.collectAsState()
 
-        // Observe pushNotificationsEnabledFlow for real-time updates
-        val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-        LaunchedEffect(prefs) {
-            lifecycleOwner.lifecycleScope.launch {
-                prefs.pushNotificationsEnabledFlow.collectLatest { enabled ->
-                    pushNotificationsEnabled = enabled
+        // Check if notification listener service is enabled (this is what we need to READ notifications)
+        val hasNotificationListener = remember(context) { isNotificationListenerEnabled(context) }
+        
+        // Use actual listener status for switch state, not just the preference
+        var pushNotificationsEnabled by remember { mutableStateOf(hasNotificationListener) }
+        
+        // Check immediately when composable is created, then poll periodically to catch changes
+        LaunchedEffect(context) {
+            // Check immediately
+            val initialListener = isNotificationListenerEnabled(context)
+            pushNotificationsEnabled = initialListener
+            viewModel.setPushNotificationsEnabled(initialListener)
+            
+            // Then check periodically to catch changes when user returns from settings
+            while (true) {
+                kotlinx.coroutines.delay(1000)
+                val hasListener = isNotificationListenerEnabled(context)
+                if (pushNotificationsEnabled != hasListener) {
+                    pushNotificationsEnabled = hasListener
+                    // Sync with ViewModel
+                    viewModel.setPushNotificationsEnabled(hasListener)
                 }
             }
         }
 
-        // --- Compose state for all notification switches ---
-        var showNotificationBadge by rememberSaveable { mutableStateOf(prefs.showNotificationBadge) }
-        var showNotificationText by rememberSaveable { mutableStateOf(prefs.showNotificationText) }
-        var showMediaIndicator by rememberSaveable { mutableStateOf(prefs.showMediaIndicator) }
-        var showMediaName by rememberSaveable { mutableStateOf(prefs.showMediaName) }
-        var showSenderName by rememberSaveable { mutableStateOf(prefs.showNotificationSenderName) }
-        var showGroupName by rememberSaveable { mutableStateOf(prefs.showNotificationGroupName) }
-        var showMessage by rememberSaveable { mutableStateOf(prefs.showNotificationMessage) }
-            var notificationsEnabled by rememberSaveable { mutableStateOf(prefs.notificationsEnabled) }
-        var charLimit by rememberSaveable { mutableStateOf(prefs.homeAppCharLimit) }
-        var clearConversationOnAppOpen by rememberSaveable { mutableStateOf(prefs.clearConversationOnAppOpen) }
-
-        // --- Add state for allowlists to trigger recomposition ---
-        var badgeAllowlist by remember { mutableStateOf(prefs.allowedBadgeNotificationApps.toSet()) }
-        var allowlist by remember { mutableStateOf(prefs.allowedNotificationApps.toSet()) }
-
-        // When toggling master switch, update all states
-        fun onPushNotificationsToggle(newValue: Boolean) {
-            // Always launch Notification Listener Settings when toggling
-            val intent =
-                android.content.Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+        // Helper function to open notification listener settings
+        fun openNotificationListenerSettings() {
+            val intent = android.content.Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
             try {
                 context.startActivity(intent)
             } catch (_: Exception) {
@@ -232,102 +229,93 @@ class NotificationSettingsFragment : Fragment() {
                         }
                 context.startActivity(fallbackIntent)
             }
-            if (!newValue) {
-                prefs.saveNotificationSwitchesState()
-                prefs.disableAllNotificationSwitches()
-                showNotificationBadge = false
-                showNotificationText = false
-                showMediaIndicator = false
-                showMediaName = false
-                showSenderName = false
-                showGroupName = false
-                showMessage = false
-                notificationsEnabled = false
-                clearConversationOnAppOpen = false
+        }
+        
+        // When toggling master switch, check and request notification listener access
+        fun onPushNotificationsToggle(requestedState: Boolean) {
+            if (requestedState) {
+                // User wants to enable notifications - check if listener is enabled
+                val hasListener = isNotificationListenerEnabled(context)
+                
+                // If listener is already enabled, enable immediately
+                if (hasListener) {
+                    pushNotificationsEnabled = true
+                    viewModel.setPushNotificationsEnabled(true)
+                    return
+                }
+                
+                // Otherwise, open notification listener settings
+                openNotificationListenerSettings()
+                
+                // Don't enable switch yet - wait for listener to be enabled
+                // The periodic check will update it when user returns
+                pushNotificationsEnabled = false
             } else {
-                prefs.restoreNotificationSwitchesState()
-                showNotificationBadge = prefs.showNotificationBadge
-                showNotificationText = prefs.showNotificationText
-                showMediaIndicator = prefs.showMediaIndicator
-                showMediaName = prefs.showMediaName
-                showSenderName = prefs.showNotificationSenderName
-                showGroupName = prefs.showNotificationGroupName
-                showMessage = prefs.showNotificationMessage
-                notificationsEnabled = prefs.notificationsEnabled
-                clearConversationOnAppOpen = prefs.clearConversationOnAppOpen
+                // User wants to disable notifications - open settings so they can revoke the permission
+                openNotificationListenerSettings()
+                
+                // Keep current state - it will update when user returns and actually disables the listener
+                // The periodic check will update it when user returns
             }
-            prefs.pushNotificationsEnabled = newValue
-            pushNotificationsEnabled = newValue
         }
 
         Column(modifier = Modifier.fillMaxWidth()) {
-        SettingsComposable.DashedSeparator()
             // Push Notifications master switch
             SettingsComposable.SettingsSwitch(
                 text = stringResource(R.string.push_notifications),
                 fontSize = titleFontSize,
                 defaultState = pushNotificationsEnabled,
-                onCheckedChange = { onPushNotificationsToggle(!pushNotificationsEnabled) }
+                onCheckedChange = { onPushNotificationsToggle(it) }
             )
-            SettingsComposable.DashedSeparator()
             SettingsComposable.SettingsTitle(
                 text = stringResource(R.string.notification_home),
                 fontSize = titleFontSize
             )
-            SettingsComposable.DashedSeparator()
             // Notification Badge
             SettingsComposable.SettingsSwitch(
                 text = stringResource(R.string.show_notification_badge),
                 fontSize = titleFontSize,
-                defaultState = showNotificationBadge,
+                defaultState = uiState.showNotificationBadge,
                 enabled = pushNotificationsEnabled,
                 onCheckedChange = {
-                    showNotificationBadge = !showNotificationBadge
-                    prefs.showNotificationBadge = showNotificationBadge
+                    viewModel.setShowNotificationBadge(it)
                 }
             )
-            SettingsComposable.DashedSeparator()
             // Notification Text
             SettingsComposable.SettingsSwitch(
                 text = stringResource(R.string.show_notification_text),
                 fontSize = titleFontSize,
-                defaultState = showNotificationText,
+                defaultState = uiState.showNotificationText,
                 enabled = pushNotificationsEnabled,
                 onCheckedChange = {
-                    showNotificationText = !showNotificationText
-                    prefs.showNotificationText = showNotificationText
+                    viewModel.setShowNotificationText(it)
                 }
             )
-            SettingsComposable.DashedSeparator()
             // Media Playing Indicator
             SettingsComposable.SettingsSwitch(
                 text = stringResource(R.string.show_media_playing_indicator),
                 fontSize = titleFontSize,
-                defaultState = showMediaIndicator,
+                defaultState = uiState.showMediaIndicator,
                 enabled = pushNotificationsEnabled,
                 onCheckedChange = {
-                    showMediaIndicator = !showMediaIndicator
-                    prefs.showMediaIndicator = showMediaIndicator
+                    viewModel.setShowMediaIndicator(it)
                 }
             )
-            SettingsComposable.DashedSeparator()
             // Media Playing Name
             SettingsComposable.SettingsSwitch(
                 text = stringResource(R.string.show_media_playing_name),
                 fontSize = titleFontSize,
-                defaultState = showMediaName,
+                defaultState = uiState.showMediaName,
                 enabled = pushNotificationsEnabled,
                 onCheckedChange = {
-                    showMediaName = !showMediaName
-                    prefs.showMediaName = showMediaName
+                    viewModel.setShowMediaName(it)
                 }
             )
-            SettingsComposable.DashedSeparator()
-            val badgeAllowlistState = badgeAllowlist // for recomposition
+            
             var showBadgeDialog by remember { mutableStateOf(false) }
             SettingsComposable.SettingsSelect(
                 title = stringResource(R.string.home_notifications_allowlist),
-                option = badgeAllowlistState.size.toString(),
+                option = uiState.allowedBadgeNotificationApps.size.toString(),
                 fontSize = titleFontSize,
                 onClick = { showBadgeDialog = true },
                 enabled = pushNotificationsEnabled
@@ -337,57 +325,48 @@ class NotificationSettingsFragment : Fragment() {
                     showBadgeDialog = false
                     showAppAllowlistDialog(
                         title = "Label Notification Apps",
-                        initialSelected = badgeAllowlistState,
+                        initialSelected = uiState.allowedBadgeNotificationApps,
                         onConfirm = { selected ->
-                            prefs.allowedBadgeNotificationApps = selected.toMutableSet()
-                            badgeAllowlist = selected.toMutableSet() // update state to refresh UI
+                            viewModel.setAllowedBadgeNotificationApps(selected)
                         }
                     )
                 }
             }
-            SettingsComposable.DashedSeparator()
             // Chat section
             SettingsComposable.SettingsTitle(
                 text = stringResource(R.string.chat_notifications_section),
                 fontSize = titleFontSize
             )
-            SettingsComposable.DashedSeparator()
             SettingsComposable.SettingsSwitch(
                 text = stringResource(R.string.show_sender_name),
                 fontSize = titleFontSize,
-                defaultState = showSenderName,
+                defaultState = uiState.showNotificationSenderName,
                 onCheckedChange = {
-                    showSenderName = !showSenderName
-                    prefs.showNotificationSenderName = showSenderName
+                    viewModel.setShowNotificationSenderName(it)
                 },
                 enabled = pushNotificationsEnabled
             )
-            SettingsComposable.DashedSeparator()
             SettingsComposable.SettingsSwitch(
                 text = stringResource(R.string.show_conversation_group_name),
                 fontSize = titleFontSize,
-                defaultState = showGroupName,
+                defaultState = uiState.showNotificationGroupName,
                 onCheckedChange = {
-                    showGroupName = !showGroupName
-                    prefs.showNotificationGroupName = showGroupName
+                    viewModel.setShowNotificationGroupName(it)
                 },
                 enabled = pushNotificationsEnabled
             )
-            SettingsComposable.DashedSeparator()
             SettingsComposable.SettingsSwitch(
                 text = stringResource(R.string.show_message),
                 fontSize = titleFontSize,
-                defaultState = showMessage,
+                defaultState = uiState.showNotificationMessage,
                 onCheckedChange = {
-                    showMessage = !showMessage
-                    prefs.showNotificationMessage = showMessage
+                    viewModel.setShowNotificationMessage(it)
                 },
                 enabled = pushNotificationsEnabled
             )
-            SettingsComposable.DashedSeparator()
             SettingsComposable.SettingsSelect(
                 title = stringResource(R.string.badge_character_limit),
-                option = charLimit.toString(),
+                option = uiState.homeAppCharLimit.toString(),
                 fontSize = titleFontSize,
                 onClick = {
                     DialogManager(requireContext(), requireActivity()).showSliderDialog(
@@ -395,51 +374,43 @@ class NotificationSettingsFragment : Fragment() {
                         title = getString(R.string.badge_character_limit),
                         minValue = 5,
                         maxValue = 50,
-                        currentValue = charLimit,
+                        currentValue = uiState.homeAppCharLimit,
                         onValueSelected = { newValue ->
-                            prefs.homeAppCharLimit = newValue
-                            charLimit = newValue
+                            viewModel.setHomeAppCharLimit(newValue)
                         }
                     )
                 },
                 enabled = pushNotificationsEnabled
             )
-            SettingsComposable.DashedSeparator()
             // Filter section
             SettingsComposable.SettingsTitle(
                 text = stringResource(R.string.notifications_window_title),
                 fontSize = titleFontSize
             )
-            SettingsComposable.DashedSeparator()
-            // use the outer `notificationsEnabled` declared above instead of redeclaring
-            val allowlistState = allowlist // for recomposition
+            
             var showAllowlistDialog by remember { mutableStateOf(false) }
             SettingsComposable.SettingsSwitch(
                 text = stringResource(R.string.enable_notifications),
                 fontSize = titleFontSize,
-                defaultState = notificationsEnabled,
+                defaultState = uiState.notificationsEnabled,
                 onCheckedChange = {
-                    notificationsEnabled = !notificationsEnabled
-                    prefs.notificationsEnabled = notificationsEnabled
+                    viewModel.setNotificationsEnabled(it)
                 },
                 enabled = pushNotificationsEnabled
             )
-            SettingsComposable.DashedSeparator()
             // Clear conversation on app open
             SettingsComposable.SettingsSwitch(
                 text = stringResource(R.string.clear_conversation_on_app_open),
                 fontSize = titleFontSize,
-                defaultState = clearConversationOnAppOpen,
+                defaultState = uiState.clearConversationOnAppOpen,
                 enabled = pushNotificationsEnabled,
                 onCheckedChange = {
-                    clearConversationOnAppOpen = !clearConversationOnAppOpen
-                    prefs.clearConversationOnAppOpen = clearConversationOnAppOpen
+                    viewModel.setClearConversationOnAppOpen(it)
                 }
             )
-            SettingsComposable.DashedSeparator()
             SettingsComposable.SettingsSelect(
                 title = "Notification Allowlist",
-                option = allowlistState.size.toString(),
+                option = uiState.allowedNotificationApps.size.toString(),
                 fontSize = titleFontSize,
                 onClick = { showAllowlistDialog = true },
                 enabled = pushNotificationsEnabled
@@ -449,16 +420,60 @@ class NotificationSettingsFragment : Fragment() {
                     showAllowlistDialog = false
                     showAppAllowlistDialog(
                         title = "Notification Window Apps",
-                        initialSelected = allowlistState,
+                        initialSelected = uiState.allowedNotificationApps,
                         onConfirm = { selected ->
-                            prefs.allowedNotificationApps = selected.toMutableSet()
-                            allowlist = selected.toMutableSet() // update state to refresh UI
+                            viewModel.setAllowedNotificationApps(selected)
                         },
                         // includeHidden parameter removed; dialog always shows full list
                     )
                 }
             }
-            SettingsComposable.DashedSeparator()
+            
+            // Simple Tray section
+            SettingsComposable.SettingsTitle(
+                text = "Simple Tray",
+                fontSize = titleFontSize
+            )
+            SettingsComposable.SettingsSelect(
+                title = stringResource(R.string.notifications_per_page),
+                option = uiState.notificationsPerPage.toString(),
+                fontSize = titleFontSize,
+                onClick = {
+                    // Cycle through 1, 2, 3 like alignment switch (0, 1, 2 -> 1, 2, 3)
+                    val next = ((uiState.notificationsPerPage - 1 + 1) % 3) + 1
+                    viewModel.setNotificationsPerPage(next)
+                },
+                enabled = pushNotificationsEnabled
+            )
+            SettingsComposable.SettingsSwitch(
+                text = stringResource(R.string.enable_bottom_navigation),
+                fontSize = titleFontSize,
+                defaultState = uiState.enableBottomNav,
+                onCheckedChange = {
+                    viewModel.setEnableBottomNav(it)
+                },
+                enabled = pushNotificationsEnabled
+            )
+            var showSimpleTrayAllowlistDialog by remember { mutableStateOf(false) }
+            SettingsComposable.SettingsSelect(
+                title = "Simple Tray Allowlist",
+                option = uiState.allowedSimpleTrayApps.size.toString(),
+                fontSize = titleFontSize,
+                onClick = { showSimpleTrayAllowlistDialog = true },
+                enabled = pushNotificationsEnabled
+            )
+            if (showSimpleTrayAllowlistDialog) {
+                LaunchedEffect(Unit) {
+                    showSimpleTrayAllowlistDialog = false
+                    showAppAllowlistDialog(
+                        title = "Simple Tray Apps",
+                        initialSelected = uiState.allowedSimpleTrayApps,
+                        onConfirm = { selected ->
+                            viewModel.setAllowedSimpleTrayApps(selected)
+                        },
+                    )
+                }
+            }
         }
     }
 
@@ -473,54 +488,55 @@ class NotificationSettingsFragment : Fragment() {
         // Use MainViewModel's appList instead of getInstalledApps
         val activity = requireActivity()
         val viewModel =
-            androidx.lifecycle.ViewModelProvider(activity)[com.github.gezimos.inkos.MainViewModel::class.java]
+            ViewModelProvider(activity)[com.github.gezimos.inkos.MainViewModel::class.java]
     // Always request the full list (include hidden apps). Keep the dialog
     // simple: we only filter out internal/synthetic entries and show all
     // other apps so both allowlists behave the same.
     viewModel.getAppList(includeHiddenApps = true)
-        val appListLiveData = viewModel.appList
-        // Observe once and show dialog when data is available
-        appListLiveData.observe(viewLifecycleOwner) { appListItems ->
-            if (appListItems == null) return@observe
-            // Exclude internal/synthetic apps only; show everything else
-            val filteredApps = appListItems.filter {
-                val pkg = it.activityPackage
-                pkg.isNotBlank() &&
-                        !pkg.startsWith("com.inkos.internal.") &&
-                        !pkg.startsWith("com.inkos.system.")
-            }
-            val allApps = filteredApps.map {
-                AppInfo(
-                    label = it.customLabel.takeIf { l -> l.isNotEmpty() } ?: it.activityLabel,
-                    packageName = it.activityPackage,
-                    user = it.user.toString()
+        // Collect from StateFlow instead of observing LiveData
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.appsDrawerUiState.collectLatest { appsDrawerState ->
+                val appListItems = appsDrawerState.appList
+                if (appListItems.isEmpty()) return@collectLatest
+                // Exclude internal/synthetic apps only; show everything else
+                val filteredApps = appListItems.filter {
+                    val pkg = it.activityPackage
+                    pkg.isNotBlank() &&
+                            !pkg.startsWith("com.inkos.internal.") &&
+                            !pkg.startsWith("com.inkos.system.")
+                }
+                val allApps = filteredApps.map {
+                    AppInfo(
+                        label = it.customLabel.takeIf { l -> l.isNotEmpty() } ?: it.activityLabel,
+                        packageName = it.activityPackage,
+                        user = it.user.toString()
+                    )
+                }
+                // Sort: selected apps first, then unselected, both alphabetically
+                val sortedApps = allApps.sortedWith(
+                    compareByDescending<AppInfo> { initialSelected.contains(it.packageName) }
+                        .thenBy { it.label.lowercase() }
+                )
+                val appLabels = sortedApps.map { it.label }
+                val appPackages = sortedApps.map { it.packageName }
+                val checkedItems = appPackages.mapIndexed { idx, pkg ->
+                    val userStr = sortedApps[idx].user
+                    val pkgWithUser = if (!userStr.isNullOrBlank()) "$pkg|$userStr" else pkg
+                    initialSelected.contains(pkg) || initialSelected.contains(pkgWithUser)
+                }.toBooleanArray()
+
+                dialogManager.showMultiChoiceDialog(
+                    context = requireContext(),
+                    title = title,
+                    items = appLabels.toTypedArray(),
+                    initialChecked = checkedItems,
+                    maxHeightRatio = 0.60f, // Make allowlist dialogs taller (60% of screen)
+                    onConfirm = { selectedIndices ->
+                        val selectedPkgs = selectedIndices.map { appPackages[it] }.toSet()
+                        onConfirm(selectedPkgs)
+                    }
                 )
             }
-            // Sort: selected apps first, then unselected, both alphabetically
-            val sortedApps = allApps.sortedWith(
-                compareByDescending<AppInfo> { initialSelected.contains(it.packageName) }
-                    .thenBy { it.label.lowercase() }
-            )
-            val appLabels = sortedApps.map { it.label }
-            val appPackages = sortedApps.map { it.packageName }
-            val checkedItems = appPackages.mapIndexed { idx, pkg ->
-                val userStr = sortedApps[idx].user
-                val pkgWithUser = if (!userStr.isNullOrBlank()) "$pkg|$userStr" else pkg
-                initialSelected.contains(pkg) || initialSelected.contains(pkgWithUser)
-            }.toBooleanArray()
-
-            dialogManager.showMultiChoiceDialog(
-                context = requireContext(),
-                title = title,
-                items = appLabels.toTypedArray(),
-                initialChecked = checkedItems,
-                onConfirm = { selectedIndices ->
-                    val selectedPkgs = selectedIndices.map { appPackages[it] }.toSet()
-                    onConfirm(selectedPkgs)
-                }
-            )
-            // Remove observer after first use
-            appListLiveData.removeObservers(viewLifecycleOwner)
         }
     }
 

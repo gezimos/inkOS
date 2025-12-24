@@ -78,16 +78,21 @@ class CrashReportActivity : AppCompatActivity() {
                     val density = resources.displayMetrics.density
                     val radius = (6 * density)
                     val strokeWidth = (3f * density).toInt()
+                    val (resolvedTextColor, resolvedBg) = try {
+                        com.github.gezimos.inkos.style.resolveThemeColors(this@CrashReportActivity)
+                    } catch (_: Exception) {
+                        Pair(p.textColor, p.backgroundColor)
+                    }
                     val bgDrawable = android.graphics.drawable.GradientDrawable().apply {
                         shape = android.graphics.drawable.GradientDrawable.RECTANGLE
                         cornerRadius = radius
-                        setColor(p.backgroundColor)
-                        setStroke(strokeWidth, p.appColor)
+                        setColor(resolvedBg)
+                        setStroke(strokeWidth, resolvedTextColor)
                     }
                     dontSend.background = bgDrawable
                     send.background = bgDrawable.constantState?.newDrawable()?.mutate()
-                    dontSend.setTextColor(p.appColor)
-                    send.setTextColor(p.appColor)
+                    dontSend.setTextColor(resolvedTextColor)
+                    send.setTextColor(resolvedTextColor)
                 } catch (_: Exception) {}
 
                 val spacing = (8 * resources.displayMetrics.density).toInt()
@@ -113,8 +118,8 @@ class CrashReportActivity : AppCompatActivity() {
         val dialog = LockedBottomSheetDialog(this)
         dialog.setContentView(content)
         try {
-            val p = com.github.gezimos.inkos.data.Prefs(this)
-            content.setBackgroundColor(p.backgroundColor)
+            val bg = try { com.github.gezimos.inkos.style.resolveThemeColors(this).second } catch (_: Exception) { com.github.gezimos.inkos.data.Prefs(this).backgroundColor }
+            content.setBackgroundColor(bg)
             dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
         } catch (_: Exception) {}
         dialog.setLocked(true)
