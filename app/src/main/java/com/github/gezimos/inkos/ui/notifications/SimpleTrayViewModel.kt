@@ -7,6 +7,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.database.ContentObserver
 import android.hardware.camera2.CameraManager
 import android.media.AudioManager
 import android.net.ConnectivityManager
@@ -116,6 +117,11 @@ class SimpleTrayViewModel(application: Application) : AndroidViewModel(applicati
 
             // torch state will be updated via TorchCallback when available; set false if not available
             _flashlightEnabled.value = false
+
+            // Update brightness from system
+            _brightnessLevel.value = try {
+                Settings.System.getInt(appContext.contentResolver, Settings.System.SCREEN_BRIGHTNESS)
+            } catch (_: Exception) { prefs.brightnessLevel }
         }
     }
 
@@ -207,6 +213,22 @@ class SimpleTrayViewModel(application: Application) : AndroidViewModel(applicati
                     }
                 }
                 appContext.registerReceiver(simReceiver, IntentFilter("android.intent.action.SIM_STATE_CHANGED"))
+            } catch (_: Exception) {}
+
+            // Brightness observer
+            try {
+                val brightnessObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
+                    override fun onChange(selfChange: Boolean) {
+                        super.onChange(selfChange)
+                        viewModelScope.launch {
+                            try {
+                                val current = Settings.System.getInt(appContext.contentResolver, Settings.System.SCREEN_BRIGHTNESS)
+                                _brightnessLevel.value = current
+                            } catch (_: Exception) {}
+                        }
+                    }
+                }
+                appContext.contentResolver.registerContentObserver(Settings.System.getUriFor(Settings.System.SCREEN_BRIGHTNESS), false, brightnessObserver)
             } catch (_: Exception) {}
 
         } catch (_: Exception) {}

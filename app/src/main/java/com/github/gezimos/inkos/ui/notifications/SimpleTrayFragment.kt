@@ -1178,12 +1178,11 @@ class SimpleTrayFragment : Fragment() {
             }
         }
 
-        // Brightness state (initialize from prefs saved system value using perceptual mapping)
-        val initialBrightnessPref = remember { prefs.brightnessLevel.coerceIn(0, 255) }
-        val initialBrightnessValue = remember { 
-            if (initialBrightnessPref == 0) 0f else kotlin.math.sqrt((initialBrightnessPref / 255f).coerceIn(0f, 1f))
-        }
-        var brightness by remember { mutableFloatStateOf(initialBrightnessValue) }
+        // Brightness state (collect from ViewModel when available)
+        val vmLocal = simpleTrayViewModel
+        val brightnessState = vmLocal?.brightnessLevel?.collectAsState(initial = prefs.brightnessLevel.coerceIn(0, 255)) ?: remember { mutableIntStateOf(prefs.brightnessLevel.coerceIn(0, 255)) }
+        val brightnessLevel by brightnessState
+        val brightness = if (brightnessLevel == 0) 0f else kotlin.math.sqrt((brightnessLevel / 255f).coerceIn(0f, 1f))
         
         val sliderToSystem: (Float) -> Int = { s ->
             val v = (s * s * 255f).toInt().coerceIn(0, 255)
@@ -1191,7 +1190,6 @@ class SimpleTrayFragment : Fragment() {
         }
         
         val onBrightnessChange: (Float) -> Unit = { newBrightness ->
-            brightness = newBrightness
             val systemValue = sliderToSystem(newBrightness)
             
             // Check permission before trying to set brightness
@@ -1217,19 +1215,7 @@ class SimpleTrayFragment : Fragment() {
                     } catch (_: Exception) {}
                 }
             }
-            // Also set window brightness for immediate effect
-            try {
-                val activity = ctx as? android.app.Activity
-                if (activity != null) {
-                    val lp = activity.window.attributes
-                    lp.screenBrightness = (systemValue / 255f).coerceIn(0.0f, 1f)
-                    activity.window.attributes = lp
-                }
-            } catch (_: Exception) {}
         }
-        
-        // Quick settings toggle states reflect system status (collect from ViewModel when available)
-        val vmLocal = simpleTrayViewModel
         val wifiState = vmLocal?.wifiEnabled?.collectAsState(initial = currentWifiState()) ?: remember { mutableStateOf(currentWifiState()) }
         val wifiEnabled by wifiState
         val bluetoothState = vmLocal?.bluetoothEnabled?.collectAsState(initial = currentBluetoothState()) ?: remember { mutableStateOf(currentBluetoothState()) }
@@ -1243,7 +1229,7 @@ class SimpleTrayFragment : Fragment() {
         val signalEnabled by signalState
         val flashlightState = vmLocal?.flashlightEnabled?.collectAsState(initial = false) ?: remember { mutableStateOf(false) }
         val flashlightEnabled by flashlightState
-        val brightnessEnabled = brightness > 0f
+        val brightnessEnabled = brightnessLevel > 1
 
         val phonePermissionGranted = ContextCompat.checkSelfPermission(
             ctx,
@@ -2142,47 +2128,7 @@ class SimpleTrayFragment : Fragment() {
             }
         }
 
-        // Observe system brightness changes so external changes update the slider
-        DisposableEffect(ctx) {
-            val resolver = ctx.contentResolver
-            val observer = object : android.database.ContentObserver(Handler(Looper.getMainLooper())) {
-                override fun onChange(selfChange: Boolean) {
-                    try {
-                        // Read actual system brightness
-                        val systemBrightness = Settings.System.getInt(
-                            resolver,
-                            Settings.System.SCREEN_BRIGHTNESS
-                        )
-                        
-                        // Check if user intended zero (system shows 1 but prefs shows 0)
-                        val userIntended = if (systemBrightness == 1 && prefs.brightnessLevel == 0) {
-                            0
-                        } else {
-                            // External change - update brightness via MainViewModel to keep state in sync
-                            val activity = ctx as? androidx.activity.ComponentActivity
-                            val vm = activity?.let { androidx.lifecycle.ViewModelProvider(it)[com.github.gezimos.inkos.MainViewModel::class.java] }
-                            vm?.setBrightnessLevel(systemBrightness)
-                            systemBrightness
-                        }
-                        
-                        val slider = if (userIntended == 0) {
-                            0f
-                        } else {
-                            systemToSlider(userIntended)
-                        }
-                        internalBrightness = slider
-                        // notify parent so the external change updates the fragment state
-                        try { onBrightnessChange(internalBrightness) } catch (_: Exception) {}
-                    } catch (_: Exception) {}
-                }
-            }
-            try {
-                resolver.registerContentObserver(Settings.System.getUriFor(Settings.System.SCREEN_BRIGHTNESS), false, observer)
-            } catch (_: Exception) {}
-            onDispose {
-                try { resolver.unregisterContentObserver(observer) } catch (_: Exception) {}
-            }
-        }
+        // System brightness changes are handled by the ViewModel
 
         BrightnessSliderBar(
             internalBrightness = internalBrightness,
