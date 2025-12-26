@@ -863,14 +863,12 @@ fun WallpaperEditor(
                                     )
                                 }
                                 
-                            // Algorithm selector buttons (below threshold)
-                            if (ditherEnabled) {
-                                Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(8.dp)) {
-                                    TextButton("Floyd-Steinberg", ditherAlgorithm == WallpaperDither.DitherAlgorithm.FLOYD_STEINBERG,
-                                        { ditherAlgorithm = WallpaperDither.DitherAlgorithm.FLOYD_STEINBERG }, buttonFontSize, buttonShape, Modifier.weight(1f))
-                                    TextButton("Ordered", ditherAlgorithm == WallpaperDither.DitherAlgorithm.ORDERED,
-                                        { ditherAlgorithm = WallpaperDither.DitherAlgorithm.ORDERED }, buttonFontSize, buttonShape, Modifier.weight(1f))
-                                }
+                            // Algorithm selector buttons (below threshold) - ALWAYS SHOW WHEN IN DITHER MODE
+                            Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(8.dp)) {
+                                TextButton("Floyd-Steinberg", ditherAlgorithm == WallpaperDither.DitherAlgorithm.FLOYD_STEINBERG,
+                                    { ditherAlgorithm = WallpaperDither.DitherAlgorithm.FLOYD_STEINBERG }, buttonFontSize, buttonShape, Modifier.weight(1f))
+                                TextButton("Ordered", ditherAlgorithm == WallpaperDither.DitherAlgorithm.ORDERED,
+                                    { ditherAlgorithm = WallpaperDither.DitherAlgorithm.ORDERED }, buttonFontSize, buttonShape, Modifier.weight(1f))
                             }
                         }
                     }
