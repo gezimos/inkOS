@@ -59,7 +59,9 @@ class SimpleTrayViewModel(application: Application) : AndroidViewModel(applicati
     private val _flashlightEnabled = MutableStateFlow(false)
     val flashlightEnabled: StateFlow<Boolean> = _flashlightEnabled.asStateFlow()
 
-    private val _brightnessLevel = MutableStateFlow(prefs.brightnessLevel.coerceIn(0, 255))
+    private val _brightnessLevel = MutableStateFlow(try {
+        Settings.System.getInt(appContext.contentResolver, Settings.System.SCREEN_BRIGHTNESS)
+    } catch (_: Exception) { prefs.brightnessLevel })
     val brightnessLevel: StateFlow<Int> = _brightnessLevel.asStateFlow()
 
     private val _uiEvents = MutableSharedFlow<SimpleTrayUiEvent>(extraBufferCapacity = 4)
@@ -119,11 +121,12 @@ class SimpleTrayViewModel(application: Application) : AndroidViewModel(applicati
             _flashlightEnabled.value = false
 
             // Update brightness from system
-            _brightnessLevel.value = try {
-                val sys = Settings.System.getInt(appContext.contentResolver, Settings.System.SCREEN_BRIGHTNESS)
-                // If system is 1 but prefs is 0, treat as off (user intended off)
-                if (sys == 1 && prefs.brightnessLevel == 0) 0 else sys
+            val currentBrightness = try {
+                Settings.System.getInt(appContext.contentResolver, Settings.System.SCREEN_BRIGHTNESS)
             } catch (_: Exception) { prefs.brightnessLevel }
+            if (_brightnessLevel.value != currentBrightness) {
+                _brightnessLevel.value = currentBrightness
+            }
         }
     }
 
@@ -225,8 +228,9 @@ class SimpleTrayViewModel(application: Application) : AndroidViewModel(applicati
                         viewModelScope.launch {
                             try {
                                 val current = Settings.System.getInt(appContext.contentResolver, Settings.System.SCREEN_BRIGHTNESS)
-                                val userIntended = if (current == 1 && prefs.brightnessLevel == 0) 0 else current
-                                _brightnessLevel.value = userIntended
+                                if (_brightnessLevel.value != current) {
+                                    _brightnessLevel.value = current
+                                }
                             } catch (_: Exception) {}
                         }
                     }

@@ -1180,7 +1180,7 @@ class SimpleTrayFragment : Fragment() {
 
         // Brightness state (collect from ViewModel when available)
         val vmLocal = simpleTrayViewModel
-        val brightnessState = vmLocal?.brightnessLevel?.collectAsState(initial = prefs.brightnessLevel.coerceIn(0, 255)) ?: remember { mutableIntStateOf(prefs.brightnessLevel.coerceIn(0, 255)) }
+        val brightnessState = vmLocal?.brightnessLevel?.collectAsState() ?: remember { mutableIntStateOf(prefs.brightnessLevel.coerceIn(0, 255)) }
         val brightnessLevel by brightnessState
         val brightness = if (brightnessLevel == 0) 0f else kotlin.math.sqrt((brightnessLevel / 255f).coerceIn(0f, 1f))
         
@@ -2106,16 +2106,8 @@ class SimpleTrayFragment : Fragment() {
             return kotlin.math.sqrt(norm)
         }
 
-        // initial brightness from prefs (which stores the user's intended value including 0)
-        val initialSystemBrightness = remember {
-            prefs.brightnessLevel
-        }
-
-        var internalBrightness by remember { 
-            mutableFloatStateOf(
-                if (initialSystemBrightness == 0) 0f else systemToSlider(initialSystemBrightness)
-            )
-        }
+        // initial brightness from parent
+        var internalBrightness by remember(brightness) { mutableFloatStateOf(brightness) }
 
         // Don't automatically request write settings permission on first composition
         // Only request it when user actually tries to adjust brightness
