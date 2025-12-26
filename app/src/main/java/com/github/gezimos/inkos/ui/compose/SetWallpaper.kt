@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.AlertDialog
-import androidx.compose.material.Divider
 import androidx.compose.material.Icon
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
@@ -56,6 +55,7 @@ fun SetWallpaper(
     val prefs = remember { Prefs(context) }
     val hasInkosWallpaper = remember { mutableStateOf(prefs.inkosWallpaperPath != null) }
     val showInkosDialog = remember { mutableStateOf(false) }
+    val showAndroidOptions = remember { mutableStateOf(false) }
     val textIslandsShape = prefs.textIslandsShape
     val titleFontSize = if (fontSize != androidx.compose.ui.unit.TextUnit.Unspecified) (fontSize.value * 1.5).sp else fontSize
     val buttonFontSize = fontSize
@@ -104,7 +104,8 @@ fun SetWallpaper(
             // Content
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .weight(1f)
+                    .fillMaxWidth()
                     .padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
@@ -121,116 +122,142 @@ fun SetWallpaper(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // First box: inkOS wallpaper buttons + info below
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(containerShape)
-                        .background(Theme.colors.background)
-                        .border(2.dp, Theme.colors.text, containerShape)
-                        .padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                // Simplified: show inkOS + Android options; tapping Android shows Android choices
+                if (!showAndroidOptions.value) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(containerShape)
+                            .background(Theme.colors.background)
+                            .border(2.dp, Theme.colors.text, containerShape)
+                            .padding(24.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        SetWallpaperOptionButton(
-                            text = "inkOS Wallpaper",
-                            onClick = onSetInkOSNoCrop,
-                            fontSize = titleFontSize,
-                            shape = buttonShape,
-                            isPrimary = false,
-                            modifier = Modifier.weight(1f)
-                        )
-
                         if (hasInkosWallpaper.value) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                SetWallpaperOptionButton(
+                                    text = "inkOS",
+                                    onClick = {
+                                        onSetInkOSNoCrop()
+                                        hasInkosWallpaper.value = true
+                                    },
+                                    fontSize = titleFontSize,
+                                    shape = buttonShape,
+                                    isPrimary = false,
+                                    modifier = Modifier.weight(1f)
+                                )
+
+                                SetWallpaperOptionButton(
+                                    text = "✕",
+                                    onClick = {
+                                        hasInkosWallpaper.value = false
+                                        val prefs = Prefs(context)
+                                        prefs.inkosWallpaperPath = null
+                                    },
+                                    fontSize = titleFontSize,
+                                    shape = buttonShape,
+                                    isPrimary = false,
+                                    modifier = Modifier.width(60.dp)
+                                )
+                            }
+                        } else {
                             SetWallpaperOptionButton(
-                                text = "✕",
+                                text = "inkOS",
                                 onClick = {
-                                    hasInkosWallpaper.value = false
-                                    val prefs = Prefs(context)
-                                    prefs.inkosWallpaperPath = null
+                                    onSetInkOSNoCrop()
+                                    hasInkosWallpaper.value = true
                                 },
                                 fontSize = titleFontSize,
                                 shape = buttonShape,
                                 isPrimary = false,
-                                modifier = Modifier.width(60.dp)
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
+                        SetWallpaperOptionButton(
+                            text = "Android",
+                            onClick = { showAndroidOptions.value = true },
+                            fontSize = titleFontSize,
+                            shape = buttonShape,
+                            isPrimary = false,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        }
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(containerShape)
+                            .background(Theme.colors.background)
+                            .border(2.dp, Theme.colors.text, containerShape)
+                            .padding(24.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        SetWallpaperOptionButton(
+                            text = "Home Screen",
+                            onClick = onSetForHome,
+                            fontSize = titleFontSize,
+                            shape = buttonShape,
+                            isPrimary = false,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        if (supportsLockScreen) {
+                            SetWallpaperOptionButton(
+                                text = "Lock Screen",
+                                onClick = onSetForLockScreen,
+                                fontSize = titleFontSize,
+                                shape = buttonShape,
+                                isPrimary = false,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+
+                            SetWallpaperOptionButton(
+                                text = "Both",
+                                onClick = onSetForBoth,
+                                fontSize = titleFontSize,
+                                shape = buttonShape,
+                                isPrimary = false,
+                                modifier = Modifier.fillMaxWidth()
                             )
                         }
                     }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Divider(color = Theme.colors.text, thickness = 1.dp)
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Info,
-                            contentDescription = "Info",
-                            tint = Theme.colors.text,
-                            modifier = Modifier
-                                .size(24.dp)
-                                .clickable { showInkosDialog.value = true }
-                        )
-
-                        Spacer(modifier = Modifier.width(8.dp))
-
-                        Text(
-                            text = "What is inkOS wallpaper?",
-                            style = SettingsTheme.typography.body,
-                            fontSize = buttonFontSize,
-                            color = Theme.colors.text,
-                            modifier = Modifier.clickable { showInkosDialog.value = true },
-                            textAlign = TextAlign.Center
-                        )
-                    }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                // Bottom info will be added after this Column so it sits at the bottom of the screen
+            }
 
-                // Second box: set wallpaper for (home/lock/both)
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(containerShape)
-                        .background(Theme.colors.background)
-                        .border(2.dp, Theme.colors.text, containerShape)
-                        .padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+            // Bottom: inkOS info link
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.clickable { showInkosDialog.value = true }
                 ) {
-                    SetWallpaperOptionButton(
-                        text = "Home Screen",
-                        onClick = onSetForHome,
-                        fontSize = titleFontSize,
-                        shape = buttonShape,
-                        isPrimary = false,
-                        modifier = Modifier.fillMaxWidth()
+                    Icon(
+                        imageVector = Icons.Filled.Info,
+                        contentDescription = "Info",
+                        tint = Theme.colors.text,
+                        modifier = Modifier.size(20.dp)
                     )
 
-                    if (supportsLockScreen) {
-                        SetWallpaperOptionButton(
-                            text = "Lock Screen",
-                            onClick = onSetForLockScreen,
-                            fontSize = titleFontSize,
-                            shape = buttonShape,
-                            isPrimary = false,
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                    Spacer(modifier = Modifier.width(8.dp))
 
-                        SetWallpaperOptionButton(
-                            text = "Both",
-                            onClick = onSetForBoth,
-                            fontSize = titleFontSize,
-                            shape = buttonShape,
-                            isPrimary = false,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
+                    Text(
+                        text = "What is inkOS wallpaper?",
+                        style = SettingsTheme.typography.body,
+                        fontSize = buttonFontSize,
+                        color = Theme.colors.text,
+                        textAlign = TextAlign.Center
+                    )
                 }
             }
         }

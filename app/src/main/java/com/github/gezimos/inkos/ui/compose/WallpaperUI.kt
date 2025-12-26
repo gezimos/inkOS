@@ -50,6 +50,8 @@ import com.github.gezimos.inkos.style.SettingsTheme
 import com.github.gezimos.inkos.style.Theme
 import com.google.gson.Gson
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Composable
 fun WallpaperUI(
@@ -579,24 +581,46 @@ fun WallpaperUI(
                     },
                     onSetInkOSNoCrop = {
                         val prefs = Prefs(context)
-                        val bitmap = if (currentImageUri != null) {
-                            wallpaperUtility.loadBitmapFromUri(currentImageUri!!)
-                        } else if (currentImageResourceId != null) {
-                            wallpaperUtility.loadBitmapFromResource(currentImageResourceId!!)
-                        } else null
-                        if (bitmap != null) {
-                            val processed = currentEditorState?.let { wallpaperUtility.applyEditorStateToBitmap(bitmap, it) } ?: bitmap
-                            val path = wallpaperUtility.saveBitmapToInternalStorage(processed, "inkos_wallpaper.png")
-                            prefs.inkosWallpaperPath = path
-                            if (processed != bitmap) processed.recycle()
-                            bitmap.recycle()
-                        }
+
+                        // Capture current inputs then hide the selection screen so the loading overlay can show.
+                        val resourceId = currentImageResourceId
+                        val uri = currentImageUri
+                        val editorState = currentEditorState ?: WallpaperEditorState()
+
                         showSetWallpaperScreen = false
                         pendingWallpaperAction = null
                         currentImageResourceId = null
                         currentImageUri = null
                         currentEditorState = null
-                        onWallpaperSet?.invoke() ?: onBackClick()
+
+                        scope.launch {
+                            try {
+                                isLoading = true
+
+                                val bitmap = withContext(Dispatchers.IO) {
+                                    if (uri != null) {
+                                        wallpaperUtility.loadBitmapFromUri(uri)
+                                    } else if (resourceId != null) {
+                                        wallpaperUtility.loadBitmapFromResource(resourceId)
+                                    } else null
+                                }
+
+                                if (bitmap != null) {
+                                    val processed = editorState.let { wallpaperUtility.applyEditorStateToBitmap(bitmap, it) }
+                                    withContext(Dispatchers.IO) {
+                                        val path = wallpaperUtility.saveBitmapToInternalStorage(processed, "inkos_wallpaper.png")
+                                        prefs.inkosWallpaperPath = path
+                                    }
+                                    if (processed != bitmap) processed.recycle()
+                                    bitmap.recycle()
+                                }
+
+                                isLoading = false
+                                onWallpaperSet?.invoke() ?: onBackClick()
+                            } catch (_: Exception) {
+                                isLoading = false
+                            }
+                        }
                     },
                     fontSize = buttonFontSize,
                     isDark = isDark,
