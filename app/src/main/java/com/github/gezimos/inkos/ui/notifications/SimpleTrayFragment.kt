@@ -1996,7 +1996,8 @@ class SimpleTrayFragment : Fragment() {
             )
             QuickSettingButton(
                 icon = if (brightnessEnabled) Icons.Rounded.BrightnessHigh else Icons.Rounded.BrightnessLow,
-                enabled = brightnessEnabled,
+                enabled = true,
+                isActive = brightnessEnabled,
                 onClick = onBrightnessToggle,
                 onLongClick = onBrightnessLongPress,
                 isFocused = isDpadMode && focusZone == com.github.gezimos.inkos.ui.compose.SimpleTrayFocusZone.QUICK_SETTINGS && selectedIndex == 4
@@ -2009,6 +2010,7 @@ class SimpleTrayFragment : Fragment() {
     fun QuickSettingButton(
         icon: androidx.compose.ui.graphics.vector.ImageVector,
         enabled: Boolean,
+        isActive: Boolean = enabled,
         onClick: () -> Unit,
         onLongClick: (() -> Unit)? = null,
         isFocused: Boolean = false
@@ -2024,8 +2026,8 @@ class SimpleTrayFragment : Fragment() {
                 try { onLongClick() } catch (_: Exception) {}
             }
         } else null
-        val bgColor = if (enabled) Theme.colors.text else Theme.colors.background
-        val iconTint = if (enabled) Theme.colors.background else Theme.colors.text
+        val bgColor = if (isActive) Theme.colors.text else Theme.colors.background
+        val iconTint = if (isActive) Theme.colors.background else Theme.colors.text
         val borderColor = Theme.colors.text
         val highlightColor = Theme.colors.text.copy(alpha = 0.3f)
         val density = LocalDensity.current

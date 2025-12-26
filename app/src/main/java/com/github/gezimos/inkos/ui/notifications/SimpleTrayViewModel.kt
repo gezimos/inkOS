@@ -120,7 +120,9 @@ class SimpleTrayViewModel(application: Application) : AndroidViewModel(applicati
 
             // Update brightness from system
             _brightnessLevel.value = try {
-                Settings.System.getInt(appContext.contentResolver, Settings.System.SCREEN_BRIGHTNESS)
+                val sys = Settings.System.getInt(appContext.contentResolver, Settings.System.SCREEN_BRIGHTNESS)
+                // If system is 1 but prefs is 0, treat as off (user intended off)
+                if (sys == 1 && prefs.brightnessLevel == 0) 0 else sys
             } catch (_: Exception) { prefs.brightnessLevel }
         }
     }
@@ -223,7 +225,8 @@ class SimpleTrayViewModel(application: Application) : AndroidViewModel(applicati
                         viewModelScope.launch {
                             try {
                                 val current = Settings.System.getInt(appContext.contentResolver, Settings.System.SCREEN_BRIGHTNESS)
-                                _brightnessLevel.value = current
+                                val userIntended = if (current == 1 && prefs.brightnessLevel == 0) 0 else current
+                                _brightnessLevel.value = userIntended
                             } catch (_: Exception) {}
                         }
                     }
@@ -305,6 +308,8 @@ class SimpleTrayViewModel(application: Application) : AndroidViewModel(applicati
     fun setBrightness(level: Int) {
         viewModelScope.launch {
             val v = level.coerceIn(0, 255)
+            // Some vendor drivers don't accept 0. Write 1 to system but keep prefs/UI as 0.
+            val writeVal = if (v == 0) 1 else v
             try {
                 prefs.brightnessLevel = v
                 // Save non-zero values to lastBrightnessLevel for restoration
@@ -312,7 +317,7 @@ class SimpleTrayViewModel(application: Application) : AndroidViewModel(applicati
                     prefs.lastBrightnessLevel = v
                 }
                 if (Settings.System.canWrite(appContext)) {
-                    try { Settings.System.putInt(appContext.contentResolver, Settings.System.SCREEN_BRIGHTNESS, v) } catch (_: Exception) {}
+                    try { Settings.System.putInt(appContext.contentResolver, Settings.System.SCREEN_BRIGHTNESS, writeVal) } catch (_: Exception) {}
                 }
                 _brightnessLevel.value = v
             } catch (_: Exception) {}
