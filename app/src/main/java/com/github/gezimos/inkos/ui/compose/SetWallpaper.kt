@@ -7,12 +7,15 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.AlertDialog
 import androidx.compose.material.Text
+import androidx.compose.material.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -21,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.material.AlertDialog
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.github.gezimos.inkos.R
@@ -45,6 +49,7 @@ fun SetWallpaper(
     val context = LocalContext.current
     val prefs = remember { Prefs(context) }
     val hasInkosWallpaper = remember { mutableStateOf(prefs.inkosWallpaperPath != null) }
+    val showInkosDialog = remember { mutableStateOf(false) }
     val textIslandsShape = prefs.textIslandsShape
     val titleFontSize = if (fontSize != androidx.compose.ui.unit.TextUnit.Unspecified) (fontSize.value * 1.5).sp else fontSize
     val buttonFontSize = fontSize
@@ -118,13 +123,25 @@ fun SetWallpaper(
                         )
                     }
                     
+                    // Title for inkOS wallpaper
+                    Text(
+                        text = "What is inkOS wallpaper?",
+                        style = SettingsTheme.typography.title,
+                        fontSize = titleFontSize,
+                        color = Theme.colors.text,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showInkosDialog.value = true },
+                        textAlign = TextAlign.Center
+                    )
+                    
                     // inkOS buttons row
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         SetWallpaperOptionButton(
-                            text = "inkOS no crop",
+                            text = "inkOS Wallpaper",
                             onClick = onSetInkOSNoCrop,
                             fontSize = titleFontSize,
                             shape = buttonShape,
@@ -202,6 +219,44 @@ fun SetWallpaper(
             }
         }
     }
+    
+    // Dialog for inkOS wallpaper explanation
+    if (showInkosDialog.value) {
+        AlertDialog(
+            onDismissRequest = { showInkosDialog.value = false },
+            title = {
+                Text(
+                    text = "What is inkOS Wallpaper?",
+                    style = SettingsTheme.typography.title,
+                    fontSize = titleFontSize,
+                    color = Theme.colors.text
+                )
+            },
+            text = {
+                Text(
+                    text = "inkOS wallpaper is a \"faux\" wallpaper, it's an image that appears over the actual android wallpaper layer.\n\n" +
+                           "It's function it's meant to circumvent Android cropping and zooming in your wallpaper which might break the the 1:1 pixel scaling which can cause defect to your image especially if you're using an e-ink device.\n\n" +
+                           "Make sure to use correct aspect ratio, or have the exact resolution as your display.\n\n" +
+                           "If you want to go back to using android wallpaper then click the X (clear button near the inkOS Wallpaper button)",
+                    style = SettingsTheme.typography.body,
+                    fontSize = buttonFontSize,
+                    color = Theme.colors.text
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { showInkosDialog.value = false }) {
+                    Text(
+                        text = "OK",
+                        style = SettingsTheme.typography.title,
+                        fontSize = buttonFontSize,
+                        color = Theme.colors.text
+                    )
+                }
+            },
+            backgroundColor = Theme.colors.background.copy(alpha = 1f),
+            contentColor = Theme.colors.text
+        )
+    }
 }
 
 @Composable
@@ -228,7 +283,7 @@ private fun SetWallpaperOptionButton(
                 }
             )
             .clickable(onClick = onClick)
-            .padding(vertical = 12.dp, horizontal = 16.dp),
+            .padding(vertical = 6.dp, horizontal = 16.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
