@@ -92,7 +92,7 @@ class SimpleTrayViewModel(application: Application) : AndroidViewModel(applicati
 
             _mobileDataEnabled.value = try {
                 // If airplane mode is on, treat mobile data as OFF
-                val airplane = try { android.provider.Settings.Global.getInt(appContext.contentResolver, android.provider.Settings.Global.AIRPLANE_MODE_ON, 0) } catch (_: Exception) { 0 }
+                val airplane = try { Settings.Global.getInt(appContext.contentResolver, Settings.Global.AIRPLANE_MODE_ON, 0) } catch (_: Exception) { 0 }
                 if (airplane == 1) {
                     false
                 } else {
@@ -108,10 +108,10 @@ class SimpleTrayViewModel(application: Application) : AndroidViewModel(applicati
                         // treating a wifi-only connectivity change as mobile data being on.
                         if (ContextCompat.checkSelfPermission(appContext, android.Manifest.permission.READ_PHONE_STATE) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
                             try { tm.isDataEnabled } catch (_: Exception) {
-                                try { android.provider.Settings.Global.getInt(appContext.contentResolver, "mobile_data", 0) == 1 } catch (_: Exception) { currentCellState() }
+                                try { Settings.Global.getInt(appContext.contentResolver, "mobile_data", 0) == 1 } catch (_: Exception) { currentCellState() }
                             }
                         } else {
-                            try { android.provider.Settings.Global.getInt(appContext.contentResolver, "mobile_data", 0) == 1 } catch (_: Exception) { currentCellState() }
+                            try { Settings.Global.getInt(appContext.contentResolver, "mobile_data", 0) == 1 } catch (_: Exception) { currentCellState() }
                         }
                     }
                 }
@@ -207,7 +207,7 @@ class SimpleTrayViewModel(application: Application) : AndroidViewModel(applicati
                         try { viewModelScope.launch { refreshStates() } } catch (_: Exception) {}
                     }
                 }
-                appContext.registerReceiver(airplaneReceiver, IntentFilter(android.content.Intent.ACTION_AIRPLANE_MODE_CHANGED))
+                appContext.registerReceiver(airplaneReceiver, IntentFilter(Intent.ACTION_AIRPLANE_MODE_CHANGED))
             } catch (_: Exception) {}
 
             // SIM state changes: update mobile data state when SIMs inserted/removed
