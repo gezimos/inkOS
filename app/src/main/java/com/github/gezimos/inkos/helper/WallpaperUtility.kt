@@ -56,32 +56,32 @@ class WallpaperUtility(private val context: Context) {
         try {
             val wallpaperManager = WallpaperManager.getInstance(context)
             android.util.Log.d("WallpaperUtility", "Setting wallpaper with flags: $flags, SDK: ${Build.VERSION.SDK_INT}")
+            android.util.Log.d("WallpaperUtility", "Bitmap size: ${bitmap.width}x${bitmap.height}, Screen: ${screenWidth}x${screenHeight}")
             
-            // Pass the original bitmap to WallpaperManager without scaling/cropping.
-            // The display/fitting is handled automatically by Android via windowShowWallpaper
-            // (configured in styles.xml), so no manual processing is needed.
+            // Force the bitmap to be exactly screen size to prevent parallax scrolling
+            val screenSizedBitmap = createFittedBitmap(bitmap, screenWidth, screenHeight)
             
             // If both flags are set, set them individually for better compatibility
             if (flags == (WallpaperManager.FLAG_SYSTEM or WallpaperManager.FLAG_LOCK)) {
                 android.util.Log.d("WallpaperUtility", "Setting both wallpapers individually")
                 try {
-                    // Use false for allowBackup to prevent system cropping
-                    wallpaperManager.setBitmap(bitmap, null, false, WallpaperManager.FLAG_SYSTEM)
+                    wallpaperManager.setBitmap(screenSizedBitmap, null, false, WallpaperManager.FLAG_SYSTEM)
                     android.util.Log.d("WallpaperUtility", "Home screen wallpaper set")
                 } catch (e: Exception) {
                     android.util.Log.e("WallpaperUtility", "Failed to set home screen wallpaper", e)
                 }
                 try {
-                    wallpaperManager.setBitmap(bitmap, null, false, WallpaperManager.FLAG_LOCK)
+                    wallpaperManager.setBitmap(screenSizedBitmap, null, false, WallpaperManager.FLAG_LOCK)
                     android.util.Log.d("WallpaperUtility", "Lock screen wallpaper set")
                 } catch (e: Exception) {
                     android.util.Log.e("WallpaperUtility", "Failed to set lock screen wallpaper", e)
                 }
             } else {
-                // Use false for allowBackup to prevent system cropping
-                wallpaperManager.setBitmap(bitmap, null, false, flags)
+                wallpaperManager.setBitmap(screenSizedBitmap, null, false, flags)
                 android.util.Log.d("WallpaperUtility", "Wallpaper set successfully with flags: $flags")
             }
+            
+            screenSizedBitmap.recycle()
             
             true
         } catch (e: Exception) {
@@ -902,21 +902,20 @@ class WallpaperUtility(private val context: Context) {
         val canvasBitmap = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(canvasBitmap)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-        // Fill with black to avoid transparent areas
-        canvas.drawColor(android.graphics.Color.BLACK)
         val srcWidth = sourceBitmap.width.toFloat()
         val srcHeight = sourceBitmap.height.toFloat()
         val scaleX = targetWidth.toFloat() / srcWidth
         val scaleY = targetHeight.toFloat() / srcHeight
-        val scale = minOf(1f, minOf(scaleX, scaleY))
+        val scale = maxOf(scaleX, scaleY)
         val scaledWidth = srcWidth * scale
         val scaledHeight = srcHeight * scale
-        val left = (targetWidth - scaledWidth) / 2
-        val top = (targetHeight - scaledHeight) / 2
-        val matrix = Matrix()
-        matrix.postScale(scale, scale)
-        matrix.postTranslate(left, top)
-        canvas.drawBitmap(sourceBitmap, matrix, paint)
+        val srcLeft = maxOf(0f, (scaledWidth - targetWidth) / 2 / scale)
+        val srcTop = maxOf(0f, (scaledHeight - targetHeight) / 2 / scale)
+        val srcRight = minOf(srcWidth, srcLeft + targetWidth / scale)
+        val srcBottom = minOf(srcHeight, srcTop + targetHeight / scale)
+        val srcRect = android.graphics.Rect(srcLeft.toInt(), srcTop.toInt(), srcRight.toInt(), srcBottom.toInt())
+        val dstRect = android.graphics.RectF(0f, 0f, targetWidth.toFloat(), targetHeight.toFloat())
+        canvas.drawBitmap(sourceBitmap, srcRect, dstRect, paint)
         return canvasBitmap
     }
     
