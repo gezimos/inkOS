@@ -6,12 +6,15 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,6 +44,7 @@ fun SetWallpaper(
 ) {
     val context = LocalContext.current
     val prefs = remember { Prefs(context) }
+    val hasInkosWallpaper = remember { mutableStateOf(prefs.inkosWallpaperPath != null) }
     val textIslandsShape = prefs.textIslandsShape
     val titleFontSize = if (fontSize != androidx.compose.ui.unit.TextUnit.Unspecified) (fontSize.value * 1.5).sp else fontSize
     val buttonFontSize = fontSize
@@ -114,6 +118,44 @@ fun SetWallpaper(
                         )
                     }
                     
+                    // inkOS buttons row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        SetWallpaperOptionButton(
+                            text = "inkOS no crop",
+                            onClick = onSetInkOSNoCrop,
+                            fontSize = titleFontSize,
+                            shape = buttonShape,
+                            isPrimary = false,
+                            modifier = Modifier.weight(1f)
+                        )
+                        
+                        if (hasInkosWallpaper.value) {
+                            SetWallpaperOptionButton(
+                                text = "✕",
+                                onClick = {
+                                    hasInkosWallpaper.value = false
+                                    val prefs = Prefs(context)
+                                    prefs.inkosWallpaperPath = null
+                                },
+                                fontSize = titleFontSize,
+                                shape = buttonShape,
+                                isPrimary = false,
+                                modifier = Modifier.width(60.dp)
+                            )
+                        }
+                    }
+                    
+                    // Separator line
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(2.dp)
+                            .background(Theme.colors.text)
+                    )
+                    
                     // Title
                     Text(
                         text = "Set wallpaper for",
@@ -123,16 +165,6 @@ fun SetWallpaper(
                         modifier = Modifier
                             .fillMaxWidth(),
                         textAlign = TextAlign.Center
-                    )
-                    
-                    // inkOS no crop button
-                    SetWallpaperOptionButton(
-                        text = "inkOS no crop",
-                        onClick = onSetInkOSNoCrop,
-                        fontSize = titleFontSize,
-                        shape = buttonShape,
-                        isPrimary = false,
-                        modifier = Modifier.fillMaxWidth()
                     )
                     
                     // Home Screen button

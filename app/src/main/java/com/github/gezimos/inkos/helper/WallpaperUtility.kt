@@ -90,6 +90,23 @@ class WallpaperUtility(private val context: Context) {
     }
 
     /**
+     * Set wallpaper to a solid color
+     * @param color The color to set as wallpaper
+     * @param flags WallpaperManager.FLAG_SYSTEM for home, FLAG_LOCK for lock screen, or both
+     */
+    suspend fun setSolidColorWallpaper(color: Int, flags: Int = WallpaperManager.FLAG_SYSTEM): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val bitmap = Bitmap.createBitmap(screenWidth, screenHeight, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bitmap)
+            canvas.drawColor(color)
+            setWallpaperFromBitmap(bitmap, flags)
+        } catch (e: Exception) {
+            android.util.Log.e("WallpaperUtility", "Failed to set solid color wallpaper", e)
+            false
+        }
+    }
+
+    /**
      * Set wallpaper from a resource ID (drawable)
      * @param flags WallpaperManager.FLAG_SYSTEM for home, FLAG_LOCK for lock screen, or both
      * @param flipHorizontal Whether to flip the image horizontally
