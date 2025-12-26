@@ -18,7 +18,7 @@ import androidx.compose.material.AlertDialog
 import androidx.compose.material.Icon
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Text
 import androidx.compose.material.TextButton
 import androidx.compose.runtime.Composable
@@ -123,21 +123,10 @@ fun SetWallpaper(
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "What is inkOS wallpaper?",
-                            style = SettingsTheme.typography.title,
-                            fontSize = titleFontSize,
-                            color = Theme.colors.text,
-                            modifier = Modifier.clickable { showInkosDialog.value = true },
-                            textAlign = TextAlign.Center
-                        )
-
-                        Spacer(modifier = Modifier.width(8.dp))
-
                         Box(
                             modifier = Modifier
                                 .size(28.dp)
-                                .clip(CircleShape)
+                                .clip(RoundedCornerShape(6.dp))
                                 .background(Theme.colors.text)
                                 .clickable { showInkosDialog.value = true },
                             contentAlignment = Alignment.Center
@@ -149,6 +138,17 @@ fun SetWallpaper(
                                 modifier = Modifier.size(16.dp)
                             )
                         }
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        Text(
+                            text = "What is inkOS wallpaper?",
+                            style = SettingsTheme.typography.title,
+                            fontSize = titleFontSize,
+                            color = Theme.colors.text,
+                            modifier = Modifier.clickable { showInkosDialog.value = true },
+                            textAlign = TextAlign.Center
+                        )
                     }
 
                     Row(
