@@ -27,6 +27,8 @@ class WallpaperUtility(private val context: Context) {
     companion object {
         // Preset wallpapers - using actual wallpaper images
         val PRESET_WALLPAPERS = listOf(
+            PresetWallpaper("White", -1),
+            PresetWallpaper("Black", -2),
             PresetWallpaper("Japan", R.drawable.japan_left),
             PresetWallpaper("Japan 2", R.drawable.japan2),
             PresetWallpaper("NYC", R.drawable.nyc_left),
@@ -463,6 +465,14 @@ class WallpaperUtility(private val context: Context) {
      */
     fun loadBitmapFromResource(resourceId: Int): Bitmap? {
         return try {
+            if (resourceId == -1) {
+                // White wallpaper
+                return Bitmap.createBitmap(screenWidth, screenHeight, Bitmap.Config.ARGB_8888).apply { eraseColor(android.graphics.Color.WHITE) }
+            } else if (resourceId == -2) {
+                // Black wallpaper
+                return Bitmap.createBitmap(screenWidth, screenHeight, Bitmap.Config.ARGB_8888).apply { eraseColor(android.graphics.Color.BLACK) }
+            }
+            
             // First get the dimensions without loading
             val options = BitmapFactory.Options().apply {
                 inJustDecodeBounds = true

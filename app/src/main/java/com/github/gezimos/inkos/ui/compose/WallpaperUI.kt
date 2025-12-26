@@ -905,16 +905,21 @@ fun PresetItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .then(if (imageHeight != androidx.compose.ui.unit.Dp.Unspecified && imageHeight > 0.dp) Modifier.height(imageHeight) else Modifier.aspectRatio(1f))
+                .clip(imageShape)
+                .clickable { onClick() }
         ) {
-            Image(
-                painter = painterResource(id = preset.resourceId),
-                contentDescription = preset.name,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(imageShape)
-                    .clickable { onClick() },
-                contentScale = ContentScale.Crop
-            )
+            if (preset.resourceId == -1) {
+                Box(modifier = Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.White))
+            } else if (preset.resourceId == -2) {
+                Box(modifier = Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black))
+            } else {
+                Image(
+                    painter = painterResource(id = preset.resourceId),
+                    contentDescription = preset.name,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            }
         }
         Spacer(modifier = Modifier.height(8.dp))
         Text(
