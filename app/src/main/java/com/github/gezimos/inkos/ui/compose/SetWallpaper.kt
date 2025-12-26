@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.AlertDialog
+import androidx.compose.material.Divider
 import androidx.compose.material.Icon
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
@@ -108,7 +109,19 @@ fun SetWallpaper(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                // First box: inkOS wallpaper info + inkOS buttons
+                // Title for both boxes
+                Text(
+                    text = "Set wallpaper for",
+                    style = SettingsTheme.typography.title,
+                    fontSize = titleFontSize,
+                    color = Theme.colors.text,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // First box: inkOS wallpaper buttons + info below
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -118,39 +131,6 @@ fun SetWallpaper(
                         .padding(24.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(28.dp)
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(Theme.colors.text)
-                                .clickable { showInkosDialog.value = true },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Info,
-                                contentDescription = "Info",
-                                tint = Theme.colors.background,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.width(8.dp))
-
-                        Text(
-                            text = "What is inkOS wallpaper?",
-                            style = SettingsTheme.typography.title,
-                            fontSize = titleFontSize,
-                            color = Theme.colors.text,
-                            modifier = Modifier.clickable { showInkosDialog.value = true },
-                            textAlign = TextAlign.Center
-                        )
-                    }
-
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -179,6 +159,36 @@ fun SetWallpaper(
                             )
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Divider(color = Theme.colors.text, thickness = 1.dp)
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Info,
+                            contentDescription = "Info",
+                            tint = Theme.colors.text,
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clickable { showInkosDialog.value = true }
+                        )
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        Text(
+                            text = "What is inkOS wallpaper?",
+                            style = SettingsTheme.typography.body,
+                            fontSize = buttonFontSize,
+                            color = Theme.colors.text,
+                            modifier = Modifier.clickable { showInkosDialog.value = true },
+                            textAlign = TextAlign.Center
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -193,15 +203,6 @@ fun SetWallpaper(
                         .padding(24.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text(
-                        text = "Set wallpaper for",
-                        style = SettingsTheme.typography.title,
-                        fontSize = titleFontSize,
-                        color = Theme.colors.text,
-                        modifier = Modifier.fillMaxWidth(),
-                        textAlign = TextAlign.Center
-                    )
-
                     SetWallpaperOptionButton(
                         text = "Home Screen",
                         onClick = onSetForHome,
