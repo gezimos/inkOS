@@ -128,9 +128,9 @@ fun WallpaperEditor(
     // State for showing image selection buttons overlay
     var showImageSelectionButtons by remember { mutableStateOf(false) }
     
-    // Disable back gesture/button - user must use the explicit back button in the UI
+    // Handle system back/gesture by invoking the provided onBackClick
     BackHandler(enabled = true) {
-        // Do nothing - this prevents accidental edge swipes from going back
+        onBackClick()
     }
     
     // Create color matrix for brightness/contrast/invert - applied instantly via ColorFilter
@@ -362,7 +362,8 @@ fun WallpaperEditor(
         thresholdLevel = 50
         ditherEnabled = false
         ditherAlgorithm = WallpaperDither.DitherAlgorithm.FLOYD_STEINBERG
-        // Don't reset effectMode - keep the last tool used
+        // After reset, switch to the brightness tool
+        effectMode = "brightness"
     }
     
     SettingsTheme(isDark) {

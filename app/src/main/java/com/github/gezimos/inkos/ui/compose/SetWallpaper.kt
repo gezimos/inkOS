@@ -12,8 +12,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.AlertDialog
+import androidx.compose.material.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.Text
 import androidx.compose.material.TextButton
 import androidx.compose.runtime.Composable
@@ -76,15 +81,25 @@ fun SetWallpaper(
                 .fillMaxSize()
                 .background(Theme.colors.background)
         ) {
-            // Header
-            SettingsComposable.PageHeader(
-                iconRes = R.drawable.ic_back,
-                title = "Set Wallpaper",
-                onClick = onBackClick,
-                showStatusBar = showStatusBar,
-                titleFontSize = titleFontSize
-            )
-            
+            // Top: full-width Wallpaper Editor button (replaces header)
+            if (allowEdit) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 24.dp, end = 24.dp, top = 24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    SetWallpaperOptionButton(
+                        text = "Wallpaper Editor",
+                        onClick = onEditWallpaper,
+                        fontSize = titleFontSize,
+                        shape = buttonShape,
+                        isPrimary = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+
             // Content
             Column(
                 modifier = Modifier
@@ -93,7 +108,7 @@ fun SetWallpaper(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                // Container with rounded corners and border
+                // First box: inkOS wallpaper info + inkOS buttons
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -101,41 +116,41 @@ fun SetWallpaper(
                         .background(Theme.colors.background)
                         .border(2.dp, Theme.colors.text, containerShape)
                         .padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(24.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Wallpaper Editor button (only show if editing is allowed)
-                    if (allowEdit) {
-                        SetWallpaperOptionButton(
-                            text = "Wallpaper Editor",
-                            onClick = onEditWallpaper,
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "What is inkOS wallpaper?",
+                            style = SettingsTheme.typography.title,
                             fontSize = titleFontSize,
-                            shape = buttonShape,
-                            isPrimary = true,
-                            modifier = Modifier.fillMaxWidth()
+                            color = Theme.colors.text,
+                            modifier = Modifier.clickable { showInkosDialog.value = true },
+                            textAlign = TextAlign.Center
                         )
-                        
-                        // Separator line (full width, no padding)
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
                         Box(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .height(2.dp)
+                                .size(28.dp)
+                                .clip(CircleShape)
                                 .background(Theme.colors.text)
-                        )
+                                .clickable { showInkosDialog.value = true },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Info,
+                                contentDescription = "Info",
+                                tint = Theme.colors.background,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
                     }
-                    
-                    // Title for inkOS wallpaper
-                    Text(
-                        text = "What is inkOS wallpaper?",
-                        style = SettingsTheme.typography.title,
-                        fontSize = titleFontSize,
-                        color = Theme.colors.text,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { showInkosDialog.value = true },
-                        textAlign = TextAlign.Center
-                    )
-                    
-                    // inkOS buttons row
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -148,7 +163,7 @@ fun SetWallpaper(
                             isPrimary = false,
                             modifier = Modifier.weight(1f)
                         )
-                        
+
                         if (hasInkosWallpaper.value) {
                             SetWallpaperOptionButton(
                                 text = "✕",
@@ -164,27 +179,29 @@ fun SetWallpaper(
                             )
                         }
                     }
-                    
-                    // Separator line
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(2.dp)
-                            .background(Theme.colors.text)
-                    )
-                    
-                    // Title
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Second box: set wallpaper for (home/lock/both)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(containerShape)
+                        .background(Theme.colors.background)
+                        .border(2.dp, Theme.colors.text, containerShape)
+                        .padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
                     Text(
                         text = "Set wallpaper for",
                         style = SettingsTheme.typography.title,
                         fontSize = titleFontSize,
                         color = Theme.colors.text,
-                        modifier = Modifier
-                            .fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth(),
                         textAlign = TextAlign.Center
                     )
-                    
-                    // Home Screen button
+
                     SetWallpaperOptionButton(
                         text = "Home Screen",
                         onClick = onSetForHome,
@@ -193,8 +210,7 @@ fun SetWallpaper(
                         isPrimary = false,
                         modifier = Modifier.fillMaxWidth()
                     )
-                    
-                    // Lock Screen button (if supported)
+
                     if (supportsLockScreen) {
                         SetWallpaperOptionButton(
                             text = "Lock Screen",
@@ -204,8 +220,7 @@ fun SetWallpaper(
                             isPrimary = false,
                             modifier = Modifier.fillMaxWidth()
                         )
-                        
-                        // Both button
+
                         SetWallpaperOptionButton(
                             text = "Both",
                             onClick = onSetForBoth,
