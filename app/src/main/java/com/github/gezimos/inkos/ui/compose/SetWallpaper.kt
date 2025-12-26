@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.AlertDialog
+import androidx.compose.material.Divider
 import androidx.compose.material.Icon
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
@@ -133,11 +134,40 @@ fun SetWallpaper(
                             .padding(24.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        if (hasInkosWallpaper.value) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            if (hasInkosWallpaper.value) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    SetWallpaperOptionButton(
+                                        text = "inkOS",
+                                        onClick = {
+                                            onSetInkOSNoCrop()
+                                            hasInkosWallpaper.value = true
+                                        },
+                                        fontSize = titleFontSize,
+                                        shape = buttonShape,
+                                        isPrimary = false,
+                                        modifier = Modifier.weight(1f)
+                                    )
+
+                                    SetWallpaperOptionButton(
+                                        text = "✕",
+                                        onClick = {
+                                            hasInkosWallpaper.value = false
+                                            val prefs = Prefs(context)
+                                            prefs.inkosWallpaperPath = null
+                                        },
+                                        fontSize = titleFontSize,
+                                        shape = buttonShape,
+                                        isPrimary = false,
+                                        modifier = Modifier.width(60.dp)
+                                    )
+                                }
+                            } else {
                                 SetWallpaperOptionButton(
                                     text = "inkOS",
                                     onClick = {
@@ -147,44 +177,43 @@ fun SetWallpaper(
                                     fontSize = titleFontSize,
                                     shape = buttonShape,
                                     isPrimary = false,
-                                    modifier = Modifier.weight(1f)
-                                )
-
-                                SetWallpaperOptionButton(
-                                    text = "✕",
-                                    onClick = {
-                                        hasInkosWallpaper.value = false
-                                        val prefs = Prefs(context)
-                                        prefs.inkosWallpaperPath = null
-                                    },
-                                    fontSize = titleFontSize,
-                                    shape = buttonShape,
-                                    isPrimary = false,
-                                    modifier = Modifier.width(60.dp)
+                                    modifier = Modifier.fillMaxWidth()
                                 )
                             }
-                        } else {
+
+                            Text(
+                                text = "Image overlay no crop",
+                                style = SettingsTheme.typography.body,
+                                fontSize = buttonFontSize,
+                                color = Theme.colors.text,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
+                        Divider(color = Theme.colors.text, thickness = 1.dp)
+
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
                             SetWallpaperOptionButton(
-                                text = "inkOS",
-                                onClick = {
-                                    onSetInkOSNoCrop()
-                                    hasInkosWallpaper.value = true
-                                },
+                                text = "Android",
+                                onClick = { showAndroidOptions.value = true },
                                 fontSize = titleFontSize,
                                 shape = buttonShape,
                                 isPrimary = false,
                                 modifier = Modifier.fillMaxWidth()
                             )
-                        }
 
-                        SetWallpaperOptionButton(
-                            text = "Android",
-                            onClick = { showAndroidOptions.value = true },
-                            fontSize = titleFontSize,
-                            shape = buttonShape,
-                            isPrimary = false,
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                            Text(
+                                text = "Android wallpaper with crop/zoom",
+                                style = SettingsTheme.typography.body,
+                                fontSize = buttonFontSize,
+                                color = Theme.colors.text,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
                         }
                 } else {
                     Column(
