@@ -20,6 +20,10 @@ import kotlinx.coroutines.withContext
 
 class WallpaperUtility(private val context: Context) {
 
+    val displayMetrics = context.resources.displayMetrics
+    val screenWidth = displayMetrics.widthPixels
+    val screenHeight = displayMetrics.heightPixels
+
     companion object {
         // Preset wallpapers - using actual wallpaper images
         val PRESET_WALLPAPERS = listOf(
@@ -465,6 +469,122 @@ class WallpaperUtility(private val context: Context) {
     }
     
     /**
+     * Load bitmap from a URI (image file)
+     */
+    fun loadBitmapFromUri(uri: Uri): Bitmap? {
+        try {
+            val inputStream = context.contentResolver.openInputStream(uri)
+            if (inputStream == null) return null
+            val bitmap = BitmapFactory.decodeStream(inputStream)
+            inputStream.close()
+            return bitmap
+        } catch (e: Exception) {
+            android.util.Log.e("WallpaperUtility", "Failed to load bitmap from URI", e)
+            return null
+        }
+    }
+    
+    /**
+     * Apply editor state effects to a bitmap
+     */
+    fun applyEditorStateToBitmap(bitmap: Bitmap, editorState: com.github.gezimos.inkos.ui.compose.WallpaperEditorState): Bitmap {
+        var b = bitmap.copy(Bitmap.Config.ARGB_8888, true) ?: return bitmap
+        
+        // Apply flips
+        if (editorState.flipHorizontal) {
+            val flipped = flipBitmapHorizontally(b)
+            if (flipped != b) {
+                b.recycle()
+                b = flipped
+            }
+        }
+        if (editorState.flipVertical) {
+            val flipped = flipBitmapVertically(b)
+            if (flipped != b) {
+                b.recycle()
+                b = flipped
+            }
+        }
+        
+        // Brightness and contrast
+        if (editorState.brightness != 0) {
+            val adjusted = adjustBrightness(b, editorState.brightness)
+            if (adjusted != b) {
+                b.recycle()
+                b = adjusted
+            }
+        }
+        if (editorState.contrast != 0) {
+            val adjusted = adjustContrast(b, editorState.contrast)
+            if (adjusted != b) {
+                b.recycle()
+                b = adjusted
+            }
+        }
+        
+        if (editorState.isInverted) {
+            val inverted = invertBitmapColors(b)
+            if (inverted != b) {
+                b.recycle()
+                b = inverted
+            }
+        }
+        
+        if (editorState.thresholdLevel != 50) {
+            val threshold = applyThreshold(b, editorState.thresholdLevel)
+            if (threshold != b) {
+                b.recycle()
+                b = threshold
+            }
+        }
+        
+        if (editorState.ditherEnabled) {
+            val dither = WallpaperDither()
+            val dithered = dither.applyDithering(b, editorState.ditherAlgorithm)
+            if (dithered != b) {
+                b.recycle()
+                b = dithered
+            }
+        }
+        
+        if (editorState.halftoneIntensity > 0) {
+            val halftone = WallpaperHalftone(context)
+            val halftoned = halftone.convertToHalftone(b, editorState.halftoneIntensity, editorState.halftoneDotSize, editorState.halftoneShape)
+            if (halftoned != b) {
+                b.recycle()
+                b = halftoned
+            }
+        }
+        
+        if (editorState.overlayEnabled) {
+            val prefs = com.github.gezimos.inkos.data.Prefs(context)
+            val overlay = addGradientOverlay(b, prefs.backgroundColor, editorState.overlaySide, editorState.overlaySpread, editorState.overlayFalloff)
+            if (overlay != b) {
+                b.recycle()
+                b = overlay
+            }
+        }
+        
+        return b
+    }
+    
+    /**
+     * Save bitmap to internal storage
+     */
+    fun saveBitmapToInternalStorage(bitmap: Bitmap, filename: String): String? {
+        try {
+            val file = java.io.File(context.filesDir, filename)
+            java.io.FileOutputStream(file).use { out ->
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+            }
+            return file.absolutePath
+        } catch (e: Exception) {
+            android.util.Log.e("WallpaperUtility", "Failed to save bitmap", e)
+            return null
+        }
+    }
+    
+    /**
      * Flip bitmap horizontally
      */
     fun flipBitmapHorizontally(bitmap: Bitmap): Bitmap {
@@ -748,6 +868,329 @@ class WallpaperUtility(private val context: Context) {
         } catch (e: Exception) {
             android.util.Log.e("WallpaperUtility", "Failed to add gradient overlay", e)
             bitmap
+        }
+    }
+    
+    private fun createFittedBitmap(sourceBitmap: Bitmap, targetWidth: Int, targetHeight: Int): Bitmap {
+        val canvasBitmap = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(canvasBitmap)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        // Fill with black to avoid transparent areas
+        canvas.drawColor(android.graphics.Color.BLACK)
+        val srcWidth = sourceBitmap.width.toFloat()
+        val srcHeight = sourceBitmap.height.toFloat()
+        val scaleX = targetWidth.toFloat() / srcWidth
+        val scaleY = targetHeight.toFloat() / srcHeight
+        val scale = minOf(1f, minOf(scaleX, scaleY))
+        val scaledWidth = srcWidth * scale
+        val scaledHeight = srcHeight * scale
+        val left = (targetWidth - scaledWidth) / 2
+        val top = (targetHeight - scaledHeight) / 2
+        val matrix = Matrix()
+        matrix.postScale(scale, scale)
+        matrix.postTranslate(left, top)
+        canvas.drawBitmap(sourceBitmap, matrix, paint)
+        return canvasBitmap
+    }
+    
+    suspend fun setNoCropWallpaperFromResource(
+        resourceId: Int, 
+        flags: Int = WallpaperManager.FLAG_SYSTEM,
+        flipHorizontal: Boolean = false,
+        flipVertical: Boolean = false,
+        brightness: Int = 0,
+        contrast: Int = 0,
+        isInverted: Boolean = false,
+        thresholdLevel: Int = 50,
+        ditherEnabled: Boolean = false,
+        ditherAlgorithm: WallpaperDither.DitherAlgorithm = WallpaperDither.DitherAlgorithm.FLOYD_STEINBERG,
+        halftoneIntensity: Int = 0,
+        halftoneDotSize: Int = 50,
+        halftoneShape: WallpaperHalftone.HalftoneShape = WallpaperHalftone.HalftoneShape.DOTS,
+        overlayEnabled: Boolean = false,
+        overlaySide: String = "left",
+        overlaySpread: Int = 40,
+        overlayFalloff: Int = 60
+    ): Boolean = withContext(Dispatchers.IO) {
+        var bitmap: Bitmap? = null
+        var fitted: Bitmap? = null
+        try {
+            val originalBitmap = loadBitmapFromResource(resourceId)
+            if (originalBitmap != null) {
+                // Create a fresh mutable copy to avoid any recycling/caching issues
+                bitmap = originalBitmap.copy(Bitmap.Config.ARGB_8888, true)
+                
+                // Apply transformations in order: Flip → Brightness → Contrast → Invert → Threshold → Dithering → Halftone → Overlay
+                android.util.Log.d("WallpaperUtility", "setNoCropWallpaperFromResource: flipH=$flipHorizontal, flipV=$flipVertical, brightness=$brightness, contrast=$contrast, invert=$isInverted, threshold=$thresholdLevel, dither=$ditherEnabled, halftone=$halftoneIntensity dotSize=$halftoneDotSize, overlay=$overlayEnabled side=$overlaySide spread=$overlaySpread")
+                var transformedBitmap = bitmap
+                
+                if (flipHorizontal) {
+                    android.util.Log.d("WallpaperUtility", "Applying horizontal flip")
+                    val flipped = flipBitmapHorizontally(transformedBitmap)
+                    if (flipped != transformedBitmap) {
+                        if (transformedBitmap != bitmap) transformedBitmap?.recycle()
+                    }
+                    transformedBitmap = flipped
+                }
+                if (flipVertical) {
+                    android.util.Log.d("WallpaperUtility", "Applying vertical flip")
+                    val flipped = flipBitmapVertically(transformedBitmap)
+                    if (flipped != transformedBitmap) {
+                        if (transformedBitmap != bitmap) transformedBitmap?.recycle()
+                    }
+                    transformedBitmap = flipped
+                }
+                if (brightness != 0) {
+                    android.util.Log.d("WallpaperUtility", "Applying brightness: $brightness")
+                    val adjusted = adjustBrightness(transformedBitmap, brightness)
+                    if (adjusted != transformedBitmap) {
+                        if (transformedBitmap != bitmap) transformedBitmap?.recycle()
+                    }
+                    transformedBitmap = adjusted
+                }
+                if (contrast != 0) {
+                    android.util.Log.d("WallpaperUtility", "Applying contrast: $contrast")
+                    val adjusted = adjustContrast(transformedBitmap, contrast)
+                    if (adjusted != transformedBitmap) {
+                        if (transformedBitmap != bitmap) transformedBitmap?.recycle()
+                    }
+                    transformedBitmap = adjusted
+                }
+                if (isInverted) {
+                    android.util.Log.d("WallpaperUtility", "Applying invert")
+                    val inverted = invertBitmapColors(transformedBitmap)
+                    if (inverted != transformedBitmap) {
+                        if (transformedBitmap != bitmap) transformedBitmap?.recycle()
+                    }
+                    transformedBitmap = inverted
+                }
+                // Apply threshold (converts to grayscale then black/white)
+                if (thresholdLevel != 50) {
+                    android.util.Log.d("WallpaperUtility", "Applying threshold: $thresholdLevel")
+                    val threshold = applyThreshold(transformedBitmap, thresholdLevel)
+                    if (threshold != transformedBitmap) {
+                        if (transformedBitmap != bitmap) transformedBitmap?.recycle()
+                    }
+                    transformedBitmap = threshold
+                }
+                // Apply dithering (works on grayscale, converts to black/white with error diffusion)
+                if (ditherEnabled && ditherAlgorithm != WallpaperDither.DitherAlgorithm.NONE) {
+                    android.util.Log.d("WallpaperUtility", "Applying dithering: $ditherAlgorithm")
+                    val ditherUtil = WallpaperDither()
+                    val dithered = ditherUtil.applyDithering(transformedBitmap, ditherAlgorithm)
+                    if (dithered != transformedBitmap) {
+                        if (transformedBitmap != bitmap) transformedBitmap?.recycle()
+                    }
+                    transformedBitmap = dithered
+                }
+                // Apply halftone (slow, shows loading indicator)
+                if (halftoneIntensity > 0) {
+                    android.util.Log.d("WallpaperUtility", "Applying halftone: intensity=$halftoneIntensity, dotSize=$halftoneDotSize, shape=$halftoneShape")
+                    val halftoneUtility = WallpaperHalftone(context)
+                    val halftoneBitmap = halftoneUtility.convertToHalftone(transformedBitmap, halftoneIntensity, halftoneDotSize, halftoneShape)
+                    if (halftoneBitmap != transformedBitmap) {
+                        if (transformedBitmap != bitmap) transformedBitmap?.recycle()
+                    }
+                    transformedBitmap = halftoneBitmap
+                }
+                // Apply overlay (fast, no loading indicator needed)
+                if (overlayEnabled && overlaySpread > 0) {
+                    android.util.Log.d("WallpaperUtility", "Applying overlay: side=$overlaySide, spread=$overlaySpread, falloff=$overlayFalloff")
+                    val prefs = com.github.gezimos.inkos.data.Prefs(context)
+                    val backgroundColor = prefs.backgroundColor
+                    val overlay = addGradientOverlay(transformedBitmap, backgroundColor, overlaySide, overlaySpread, overlayFalloff)
+                    if (overlay != transformedBitmap) {
+                        if (transformedBitmap != bitmap) transformedBitmap?.recycle()
+                    }
+                    transformedBitmap = overlay
+                }
+                android.util.Log.d("WallpaperUtility", "All transformations applied, creating fitted bitmap")
+                
+                fitted = createFittedBitmap(transformedBitmap, screenWidth, screenHeight)
+                val result = setWallpaperFromBitmap(fitted, flags)
+                // Clean up
+                if (transformedBitmap != bitmap) transformedBitmap?.recycle()
+                result
+            } else {
+                false
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("WallpaperUtility", "Failed to set no crop wallpaper from resource", e)
+            false
+        } finally {
+            bitmap?.recycle()
+            fitted?.recycle()
+        }
+    }
+    
+    suspend fun setNoCropWallpaperFromUri(
+        uri: Uri, 
+        flags: Int = WallpaperManager.FLAG_SYSTEM,
+        flipHorizontal: Boolean = false,
+        flipVertical: Boolean = false,
+        brightness: Int = 0,
+        contrast: Int = 0,
+        isInverted: Boolean = false,
+        thresholdLevel: Int = 50,
+        ditherEnabled: Boolean = false,
+        ditherAlgorithm: WallpaperDither.DitherAlgorithm = WallpaperDither.DitherAlgorithm.FLOYD_STEINBERG,
+        halftoneIntensity: Int = 0,
+        halftoneDotSize: Int = 50,
+        halftoneShape: WallpaperHalftone.HalftoneShape = WallpaperHalftone.HalftoneShape.DOTS,
+        overlayEnabled: Boolean = false,
+        overlaySide: String = "left",
+        overlaySpread: Int = 40,
+        overlayFalloff: Int = 60
+    ): Boolean = withContext(Dispatchers.IO) {
+        var bitmap: Bitmap? = null
+        var fitted: Bitmap? = null
+        try {
+            // Decode with options to get orientation info
+            val options = BitmapFactory.Options().apply {
+                inJustDecodeBounds = true
+            }
+            val inputStream1 = context.contentResolver.openInputStream(uri)
+            if (inputStream1 == null) {
+                return@withContext false
+            }
+            BitmapFactory.decodeStream(inputStream1, null, options)
+            inputStream1.close()
+            
+            // Get EXIF orientation
+            var orientation = ExifInterface.ORIENTATION_NORMAL
+            try {
+                val parcelFileDescriptor = context.contentResolver.openFileDescriptor(uri, "r")
+                if (parcelFileDescriptor != null) {
+                    val exif = ExifInterface(parcelFileDescriptor.fileDescriptor)
+                    orientation = exif.getAttributeInt(
+                        ExifInterface.TAG_ORIENTATION,
+                        ExifInterface.ORIENTATION_NORMAL
+                    )
+                    parcelFileDescriptor.close()
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("WallpaperUtility", "Could not read EXIF orientation", e)
+            }
+            
+            // Decode the actual bitmap
+            val decodeOptions = BitmapFactory.Options().apply {
+                inJustDecodeBounds = false
+                inPreferredConfig = Bitmap.Config.ARGB_8888
+                inScaled = false
+            }
+            val inputStream2 = context.contentResolver.openInputStream(uri)
+            if (inputStream2 == null) {
+                return@withContext false
+            }
+            bitmap = BitmapFactory.decodeStream(inputStream2, null, decodeOptions)
+            inputStream2.close()
+            
+            if (bitmap != null) {
+                // Apply orientation correction
+                var transformedBitmap = applyOrientation(bitmap, orientation)
+                if (transformedBitmap != bitmap) {
+                    bitmap.recycle()
+                }
+                
+                // Apply transformations in order: Flip → Brightness → Contrast → Invert → Threshold → Dithering → Halftone → Overlay
+                android.util.Log.d("WallpaperUtility", "setNoCropWallpaperFromUri: flipH=$flipHorizontal, flipV=$flipVertical, brightness=$brightness, contrast=$contrast, invert=$isInverted, threshold=$thresholdLevel, dither=$ditherEnabled, halftone=$halftoneIntensity dotSize=$halftoneDotSize, overlay=$overlayEnabled side=$overlaySide spread=$overlaySpread")
+                
+                if (flipHorizontal) {
+                    android.util.Log.d("WallpaperUtility", "Applying horizontal flip")
+                    val flipped = flipBitmapHorizontally(transformedBitmap)
+                    if (flipped != transformedBitmap) {
+                        transformedBitmap.recycle()
+                    }
+                    transformedBitmap = flipped
+                }
+                if (flipVertical) {
+                    android.util.Log.d("WallpaperUtility", "Applying vertical flip")
+                    val flipped = flipBitmapVertically(transformedBitmap)
+                    if (flipped != transformedBitmap) {
+                        transformedBitmap.recycle()
+                    }
+                    transformedBitmap = flipped
+                }
+                if (brightness != 0) {
+                    android.util.Log.d("WallpaperUtility", "Applying brightness: $brightness")
+                    val adjusted = adjustBrightness(transformedBitmap, brightness)
+                    if (adjusted != transformedBitmap) {
+                        transformedBitmap.recycle()
+                    }
+                    transformedBitmap = adjusted
+                }
+                if (contrast != 0) {
+                    android.util.Log.d("WallpaperUtility", "Applying contrast: $contrast")
+                    val adjusted = adjustContrast(transformedBitmap, contrast)
+                    if (adjusted != transformedBitmap) {
+                        transformedBitmap.recycle()
+                    }
+                    transformedBitmap = adjusted
+                }
+                if (isInverted) {
+                    android.util.Log.d("WallpaperUtility", "Applying invert")
+                    val inverted = invertBitmapColors(transformedBitmap)
+                    if (inverted != transformedBitmap) {
+                        transformedBitmap.recycle()
+                    }
+                    transformedBitmap = inverted
+                }
+                // Apply threshold (converts to grayscale then black/white)
+                if (thresholdLevel != 50) {
+                    android.util.Log.d("WallpaperUtility", "Applying threshold: $thresholdLevel")
+                    val threshold = applyThreshold(transformedBitmap, thresholdLevel)
+                    if (threshold != transformedBitmap) {
+                        transformedBitmap.recycle()
+                    }
+                    transformedBitmap = threshold
+                }
+                // Apply dithering (works on grayscale, converts to black/white with error diffusion)
+                if (ditherEnabled && ditherAlgorithm != WallpaperDither.DitherAlgorithm.NONE) {
+                    android.util.Log.d("WallpaperUtility", "Applying dithering: $ditherAlgorithm")
+                    val ditherUtil = WallpaperDither()
+                    val dithered = ditherUtil.applyDithering(transformedBitmap, ditherAlgorithm)
+                    if (dithered != transformedBitmap) {
+                        transformedBitmap.recycle()
+                    }
+                    transformedBitmap = dithered
+                }
+                // Apply halftone (slow, shows loading indicator)
+                if (halftoneIntensity > 0) {
+                    android.util.Log.d("WallpaperUtility", "Applying halftone: intensity=$halftoneIntensity, dotSize=$halftoneDotSize, shape=$halftoneShape")
+                    val halftoneUtility = WallpaperHalftone(context)
+                    val halftoneBitmap = halftoneUtility.convertToHalftone(transformedBitmap, halftoneIntensity, halftoneDotSize, halftoneShape)
+                    if (halftoneBitmap != transformedBitmap) {
+                        transformedBitmap.recycle()
+                    }
+                    transformedBitmap = halftoneBitmap
+                }
+                // Apply overlay (fast, no loading indicator needed)
+                if (overlayEnabled && overlaySpread > 0) {
+                    android.util.Log.d("WallpaperUtility", "Applying overlay: side=$overlaySide, spread=$overlaySpread, falloff=$overlayFalloff")
+                    val prefs = com.github.gezimos.inkos.data.Prefs(context)
+                    val backgroundColor = prefs.backgroundColor
+                    val overlay = addGradientOverlay(transformedBitmap, backgroundColor, overlaySide, overlaySpread, overlayFalloff)
+                    if (overlay != transformedBitmap) {
+                        transformedBitmap.recycle()
+                    }
+                    transformedBitmap = overlay
+                }
+                android.util.Log.d("WallpaperUtility", "All transformations applied, creating fitted bitmap")
+                
+                fitted = createFittedBitmap(transformedBitmap, screenWidth, screenHeight)
+                val result = setWallpaperFromBitmap(fitted, flags)
+                // Clean up
+                transformedBitmap.recycle()
+                result
+            } else {
+                false
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("WallpaperUtility", "Failed to set no crop wallpaper from URI", e)
+            false
+        } finally {
+            bitmap?.recycle()
+            fitted?.recycle()
         }
     }
     

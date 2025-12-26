@@ -103,6 +103,10 @@ private const val TEXT_ISLANDS = "TEXT_ISLANDS"
 private const val TEXT_ISLANDS_INVERTED = "TEXT_ISLANDS_INVERTED"
 private const val TEXT_ISLANDS_SHAPE = "TEXT_ISLANDS_SHAPE"
 private const val SHOW_ICONS = "SHOW_ICONS"
+private const val INKOS_WALLPAPER_URI = "INKOS_WALLPAPER_URI"
+private const val INKOS_WALLPAPER_RESOURCE_ID = "INKOS_WALLPAPER_RESOURCE_ID"
+private const val INKOS_WALLPAPER_EDITOR_STATE = "INKOS_WALLPAPER_EDITOR_STATE"
+private const val INKOS_WALLPAPER_PATH = "INKOS_WALLPAPER_PATH"
 
 class Prefs(val context: Context) {
     private val BRIGHTNESS_LEVEL = "BRIGHTNESS_LEVEL"
@@ -1456,6 +1460,22 @@ class Prefs(val context: Context) {
             else -> {}
         }
     }
+
+    var inkosWallpaperUri: String?
+        get() = prefs.getString(INKOS_WALLPAPER_URI, null)
+        set(value) = prefs.edit { putString(INKOS_WALLPAPER_URI, value) }
+
+    var inkosWallpaperResourceId: Int?
+        get() = prefs.getInt(INKOS_WALLPAPER_RESOURCE_ID, -1).takeIf { it != -1 }
+        set(value) = prefs.edit { putInt(INKOS_WALLPAPER_RESOURCE_ID, value ?: -1) }
+
+    var inkosWallpaperEditorState: String?
+        get() = prefs.getString(INKOS_WALLPAPER_EDITOR_STATE, null)
+        set(value) = prefs.edit { putString(INKOS_WALLPAPER_EDITOR_STATE, value) }
+
+    var inkosWallpaperPath: String?
+        get() = prefs.getString(INKOS_WALLPAPER_PATH, null)
+        set(value) = prefs.edit { putString(INKOS_WALLPAPER_PATH, value) }
 
     companion object {
 

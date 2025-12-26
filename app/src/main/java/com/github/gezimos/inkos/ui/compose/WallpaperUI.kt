@@ -48,6 +48,7 @@ import com.github.gezimos.inkos.helper.ShapeHelper
 import com.github.gezimos.inkos.helper.WallpaperUtility
 import com.github.gezimos.inkos.style.SettingsTheme
 import com.github.gezimos.inkos.style.Theme
+import com.google.gson.Gson
 import kotlinx.coroutines.launch
 
 @Composable
@@ -69,7 +70,7 @@ fun WallpaperUI(
     var isLoading by remember { mutableStateOf(false) }
     var showSetWallpaperScreen by remember { mutableStateOf(false) }
     var showWallpaperEditorScreen by remember { mutableStateOf(false) }
-    var pendingWallpaperAction by remember { mutableStateOf<((Int, WallpaperEditorState) -> Unit)?>(null) }
+    var pendingWallpaperAction by remember { mutableStateOf<((Int, WallpaperEditorState, Boolean) -> Unit)?>(null) }
     var currentImageResourceId by remember { mutableStateOf<Int?>(null) }
     var currentImageUri by remember { mutableStateOf<android.net.Uri?>(null) }
     var currentEditorState by remember { mutableStateOf<WallpaperEditorState?>(null) }
@@ -87,29 +88,51 @@ fun WallpaperUI(
         if (uri != null) {
             currentImageResourceId = null
             currentImageUri = uri
-            pendingWallpaperAction = { flags, editorState ->
+            pendingWallpaperAction = { flags, editorState, isNoCrop ->
                 scope.launch {
                     try {
                         isLoading = true
-                        val success = wallpaperUtility.setWallpaperFromUri(
-                            uri, 
-                            flags,
-                            flipHorizontal = editorState.flipHorizontal,
-                            flipVertical = editorState.flipVertical,
-                            brightness = editorState.brightness,
-                            contrast = editorState.contrast,
-                            isInverted = editorState.isInverted,
-                            thresholdLevel = editorState.thresholdLevel,
-                            ditherEnabled = editorState.ditherEnabled,
-                            ditherAlgorithm = editorState.ditherAlgorithm,
-                            halftoneIntensity = editorState.halftoneIntensity,
-                            halftoneDotSize = editorState.halftoneDotSize,
-                            halftoneShape = editorState.halftoneShape,
-                            overlayEnabled = editorState.overlayEnabled,
-                            overlaySide = editorState.overlaySide,
-                            overlaySpread = editorState.overlaySpread,
-                            overlayFalloff = editorState.overlayFalloff
-                        )
+                        val success = if (isNoCrop) {
+                            wallpaperUtility.setNoCropWallpaperFromUri(
+                                uri, 
+                                flags,
+                                flipHorizontal = editorState.flipHorizontal,
+                                flipVertical = editorState.flipVertical,
+                                brightness = editorState.brightness,
+                                contrast = editorState.contrast,
+                                isInverted = editorState.isInverted,
+                                thresholdLevel = editorState.thresholdLevel,
+                                ditherEnabled = editorState.ditherEnabled,
+                                ditherAlgorithm = editorState.ditherAlgorithm,
+                                halftoneIntensity = editorState.halftoneIntensity,
+                                halftoneDotSize = editorState.halftoneDotSize,
+                                halftoneShape = editorState.halftoneShape,
+                                overlayEnabled = editorState.overlayEnabled,
+                                overlaySide = editorState.overlaySide,
+                                overlaySpread = editorState.overlaySpread,
+                                overlayFalloff = editorState.overlayFalloff
+                            )
+                        } else {
+                            wallpaperUtility.setWallpaperFromUri(
+                                uri, 
+                                flags,
+                                flipHorizontal = editorState.flipHorizontal,
+                                flipVertical = editorState.flipVertical,
+                                brightness = editorState.brightness,
+                                contrast = editorState.contrast,
+                                isInverted = editorState.isInverted,
+                                thresholdLevel = editorState.thresholdLevel,
+                                ditherEnabled = editorState.ditherEnabled,
+                                ditherAlgorithm = editorState.ditherAlgorithm,
+                                halftoneIntensity = editorState.halftoneIntensity,
+                                halftoneDotSize = editorState.halftoneDotSize,
+                                halftoneShape = editorState.halftoneShape,
+                                overlayEnabled = editorState.overlayEnabled,
+                                overlaySide = editorState.overlaySide,
+                                overlaySpread = editorState.overlaySpread,
+                                overlayFalloff = editorState.overlayFalloff
+                            )
+                        }
                         isLoading = false
                         if (success) {
                             onWallpaperSet?.invoke() ?: onBackClick()
@@ -198,6 +221,60 @@ fun WallpaperUI(
                         onPresetClick = { preset ->
                             currentImageResourceId = preset.resourceId
                             currentImageUri = null
+                            pendingWallpaperAction = { flags, editorState, isNoCrop ->
+                                scope.launch {
+                                    try {
+                                        isLoading = true
+                                        val success = if (isNoCrop) {
+                                            wallpaperUtility.setNoCropWallpaperFromResource(
+                                                preset.resourceId,
+                                                flags,
+                                                flipHorizontal = editorState.flipHorizontal,
+                                                flipVertical = editorState.flipVertical,
+                                                brightness = editorState.brightness,
+                                                contrast = editorState.contrast,
+                                                isInverted = editorState.isInverted,
+                                                thresholdLevel = editorState.thresholdLevel,
+                                                ditherEnabled = editorState.ditherEnabled,
+                                                ditherAlgorithm = editorState.ditherAlgorithm,
+                                                halftoneIntensity = editorState.halftoneIntensity,
+                                                halftoneDotSize = editorState.halftoneDotSize,
+                                                halftoneShape = editorState.halftoneShape,
+                                                overlayEnabled = editorState.overlayEnabled,
+                                                overlaySide = editorState.overlaySide,
+                                                overlaySpread = editorState.overlaySpread,
+                                                overlayFalloff = editorState.overlayFalloff
+                                            )
+                                        } else {
+                                            wallpaperUtility.setWallpaperFromResource(
+                                                preset.resourceId,
+                                                flags,
+                                                flipHorizontal = editorState.flipHorizontal,
+                                                flipVertical = editorState.flipVertical,
+                                                brightness = editorState.brightness,
+                                                contrast = editorState.contrast,
+                                                isInverted = editorState.isInverted,
+                                                thresholdLevel = editorState.thresholdLevel,
+                                                ditherEnabled = editorState.ditherEnabled,
+                                                ditherAlgorithm = editorState.ditherAlgorithm,
+                                                halftoneIntensity = editorState.halftoneIntensity,
+                                                halftoneDotSize = editorState.halftoneDotSize,
+                                                halftoneShape = editorState.halftoneShape,
+                                                overlayEnabled = editorState.overlayEnabled,
+                                                overlaySide = editorState.overlaySide,
+                                                overlaySpread = editorState.overlaySpread,
+                                                overlayFalloff = editorState.overlayFalloff
+                                            )
+                                        }
+                                        isLoading = false
+                                        if (success) {
+                                            onWallpaperSet?.invoke() ?: onBackClick()
+                                        }
+                                    } catch (_: Exception) {
+                                        isLoading = false
+                                    }
+                                }
+                            }
                             showSetWallpaperScreen = true
                         },
                         fontSize = titleFontSize,
@@ -277,7 +354,7 @@ fun WallpaperUI(
                         currentEditorState = null
                         
                         if (action != null) {
-                            action(android.app.WallpaperManager.FLAG_SYSTEM, editorState)
+                            action(android.app.WallpaperManager.FLAG_SYSTEM, editorState, false)
                         } else if (resourceId != null) {
                             scope.launch {
                                 try {
@@ -355,7 +432,7 @@ fun WallpaperUI(
                         currentEditorState = null
                         
                         if (action != null) {
-                            action(android.app.WallpaperManager.FLAG_LOCK, editorState)
+                            action(android.app.WallpaperManager.FLAG_LOCK, editorState, false)
                         } else if (resourceId != null) {
                             scope.launch {
                                 try {
@@ -435,7 +512,7 @@ fun WallpaperUI(
                         val flags = android.app.WallpaperManager.FLAG_SYSTEM or android.app.WallpaperManager.FLAG_LOCK
                         
                         if (action != null) {
-                            action(flags, editorState)
+                            action(flags, editorState, false)
                         } else if (resourceId != null) {
                             scope.launch {
                                 try {
@@ -500,6 +577,27 @@ fun WallpaperUI(
                             }
                         }
                     },
+                    onSetInkOSNoCrop = {
+                        val prefs = Prefs(context)
+                        val bitmap = if (currentImageUri != null) {
+                            wallpaperUtility.loadBitmapFromUri(currentImageUri!!)
+                        } else if (currentImageResourceId != null) {
+                            wallpaperUtility.loadBitmapFromResource(currentImageResourceId!!)
+                        } else null
+                        if (bitmap != null) {
+                            val processed = currentEditorState?.let { wallpaperUtility.applyEditorStateToBitmap(bitmap, it) } ?: bitmap
+                            val path = wallpaperUtility.saveBitmapToInternalStorage(processed, "inkos_wallpaper.png")
+                            prefs.inkosWallpaperPath = path
+                            if (processed != bitmap) processed.recycle()
+                            bitmap.recycle()
+                        }
+                        showSetWallpaperScreen = false
+                        pendingWallpaperAction = null
+                        currentImageResourceId = null
+                        currentImageUri = null
+                        currentEditorState = null
+                        onWallpaperSet?.invoke() ?: onBackClick()
+                    },
                     fontSize = buttonFontSize,
                     isDark = isDark,
                     showStatusBar = showStatusBar
@@ -556,7 +654,7 @@ fun WallpaperUI(
                             currentImageUri = null
                             
                             if (action != null) {
-                                action(flags, editorState)
+                                action(flags, editorState, false)
                             } else if (resourceId != null) {
                                 scope.launch {
                                     try {

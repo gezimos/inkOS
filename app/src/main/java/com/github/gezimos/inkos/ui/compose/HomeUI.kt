@@ -81,6 +81,9 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.ui.input.pointer.pointerInput
 import kotlin.math.abs
+import com.github.gezimos.inkos.helper.WallpaperUtility
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 
 @Composable
 fun HomeUI(
@@ -125,8 +128,39 @@ fun HomeUI(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Theme.colors.background.copy(alpha = bgAlpha))
     ) {
+        // Layering: Android system wallpaper (bottom) -> inkOS wallpaper (middle) -> background color with opacity (top) -> UI elements
+        val wallpaperUtility = remember { WallpaperUtility(context) }
+        val inkosBitmap: Bitmap? = remember(prefs.inkosWallpaperPath) {
+            prefs.inkosWallpaperPath?.let {
+                val file = java.io.File(it)
+                if (file.exists()) {
+                    try {
+                        BitmapFactory.decodeFile(it)
+                    } catch (e: Exception) {
+                        android.util.Log.e("HomeUI", "Failed to decode inkOS wallpaper bitmap", e)
+                        null
+                    }
+                } else null
+            }
+        }
+        if (inkosBitmap != null) {
+            androidx.compose.foundation.Image(
+                bitmap = inkosBitmap.asImageBitmap(),
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxSize(),
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+            )
+        }
+        
+        // Background overlay on top of inkOS wallpaper
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Theme.colors.background.copy(alpha = bgAlpha))
+        )
+        
         // Header pinned to top (uses topWidgetMargin) so it doesn't push the centered apps
         val headerAlign = when (state.homeAlignment) {
             0 -> Alignment.TopStart

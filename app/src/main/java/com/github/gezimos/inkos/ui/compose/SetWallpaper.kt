@@ -33,6 +33,7 @@ fun SetWallpaper(
     onSetForHome: () -> Unit,
     onSetForLockScreen: () -> Unit,
     onSetForBoth: () -> Unit,
+    onSetInkOSNoCrop: () -> Unit = {},
     fontSize: androidx.compose.ui.unit.TextUnit = androidx.compose.ui.unit.TextUnit.Unspecified,
     isDark: Boolean = false,
     showStatusBar: Boolean = false,
@@ -122,6 +123,16 @@ fun SetWallpaper(
                         modifier = Modifier
                             .fillMaxWidth(),
                         textAlign = TextAlign.Center
+                    )
+                    
+                    // inkOS no crop button
+                    SetWallpaperOptionButton(
+                        text = "inkOS no crop",
+                        onClick = onSetInkOSNoCrop,
+                        fontSize = titleFontSize,
+                        shape = buttonShape,
+                        isPrimary = false,
+                        modifier = Modifier.fillMaxWidth()
                     )
                     
                     // Home Screen button
