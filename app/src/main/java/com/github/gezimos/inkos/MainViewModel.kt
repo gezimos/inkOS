@@ -230,6 +230,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         appSize = prefs.appSize,
         clockSize = prefs.clockSize,
         quoteSize = prefs.quoteSize,
+        settingsSize = prefs.settingsSize,
         backgroundOpacity = prefs.backgroundOpacity,
         showStatusBar = prefs.showStatusBar,
         showNavigationBar = prefs.showNavigationBar,
