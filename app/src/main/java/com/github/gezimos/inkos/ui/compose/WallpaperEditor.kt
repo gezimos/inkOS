@@ -8,6 +8,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,6 +18,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -28,6 +31,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BlurOn
 import androidx.compose.material.icons.filled.Brightness6
 import androidx.compose.material.icons.filled.Contrast
+import androidx.compose.material.icons.filled.CropFree
 import androidx.compose.material.icons.filled.Gradient
 import androidx.compose.material.icons.filled.Grain
 import androidx.compose.material.icons.filled.InvertColors
@@ -49,6 +53,7 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -106,6 +111,19 @@ fun WallpaperEditor(
     var halftoneIntensity by remember { mutableIntStateOf(0) }
     var halftoneDotSize by remember { mutableIntStateOf(50) }  // 0-100: controls dot/line size within cell
     var halftoneShape by remember { mutableStateOf(WallpaperHalftone.HalftoneShape.DOTS) }
+    
+    // Crop state
+    var cropEnabled by remember { mutableStateOf(false) }
+    var showCropOverlay by remember { mutableStateOf(false) }  // Controls visibility of crop box
+    var cropX by remember { mutableStateOf(0.5f) }  // Normalized X position (0-1)
+    var cropY by remember { mutableStateOf(0.5f) }  // Normalized Y position (0-1)
+    var cropScale by remember { mutableStateOf(0.8f) }  // Crop box scale (0.3-1.0)
+    
+    // Screen aspect ratio for crop box
+    val displayMetrics = context.resources.displayMetrics
+    val screenWidth = displayMetrics.widthPixels
+    val screenHeight = displayMetrics.heightPixels
+    val screenAspectRatio = screenHeight.toFloat() / screenWidth.toFloat()
     var overlayEnabled by remember { mutableStateOf(false) }
     var overlaySide by remember { mutableStateOf("left") }
     var overlaySpread by remember { mutableIntStateOf(40) }
@@ -328,7 +346,9 @@ fun WallpaperEditor(
     }
     
     // Helper functions
-    fun createEditorState() = WallpaperEditorState(
+    fun createEditorState(): WallpaperEditorState {
+        android.util.Log.d("WallpaperEditor", "createEditorState: cropEnabled=$cropEnabled, cropX=$cropX, cropY=$cropY, cropScale=$cropScale")
+        return WallpaperEditorState(
         flipHorizontal = flipHorizontal,
         flipVertical = flipVertical,
         brightness = brightness,
@@ -343,8 +363,13 @@ fun WallpaperEditor(
         overlayFalloff = overlayFalloff,
         thresholdLevel = thresholdLevel,
         ditherEnabled = ditherEnabled,
-        ditherAlgorithm = ditherAlgorithm
-    )
+        ditherAlgorithm = ditherAlgorithm,
+        cropEnabled = cropEnabled,
+        cropX = cropX,
+        cropY = cropY,
+        cropScale = cropScale
+        )
+    }
     
     fun resetAll() {
         halftoneIntensity = 0
@@ -362,6 +387,11 @@ fun WallpaperEditor(
         thresholdLevel = 50
         ditherEnabled = false
         ditherAlgorithm = WallpaperDither.DitherAlgorithm.FLOYD_STEINBERG
+        cropEnabled = false
+        showCropOverlay = false
+        cropX = 0.5f
+        cropY = 0.5f
+        cropScale = 0.8f
         // After reset, switch to the brightness tool
         effectMode = "brightness"
     }
@@ -433,12 +463,141 @@ fun WallpaperEditor(
                                     scaleX = if (flipHorizontal) -1f else 1f
                                     scaleY = if (flipVertical) -1f else 1f
                                 },
-                            contentScale = ContentScale.Crop,
+                            contentScale = ContentScale.Fit,
                             // Brightness/contrast/invert via ColorFilter - instant, no bitmap processing
                             colorFilter = if (brightness != 0 || contrast != 0 || isInverted) {
                                 ColorFilter.colorMatrix(colorMatrix)
                             } else null
                         )
+                    }
+                    
+                    // Crop box overlay (when crop mode is enabled)
+                    if (showCropOverlay && displayBitmap != null) {
+                        androidx.compose.foundation.layout.BoxWithConstraints(
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            val previewWidth = maxWidth.value
+                            val previewHeight = maxHeight.value
+                            
+                            // Calculate actual image display size based on ContentScale.Fit
+                            val imageAspectRatio = displayBitmap.width.toFloat() / displayBitmap.height.toFloat()
+                            val previewAspectRatio = previewWidth / previewHeight
+                            
+                            val (imageDisplayWidth, imageDisplayHeight) = if (imageAspectRatio > previewAspectRatio) {
+                                // Image is wider, fit to width
+                                previewWidth to previewWidth / imageAspectRatio
+                            } else {
+                                // Image is taller, fit to height
+                                previewHeight * imageAspectRatio to previewHeight
+                            }
+                            
+                            // Calculate crop box size (matching screen aspect ratio) based on scale
+                            val maxCropHeight = imageDisplayHeight
+                            val maxCropWidth = imageDisplayWidth
+                            
+                            // Determine size based on scale (0.3 to 1.0)
+                            val targetHeight = maxCropHeight * cropScale.coerceIn(0.3f, 1.0f)
+                            val targetWidth = targetHeight / screenAspectRatio
+                            
+                            // Ensure crop box fits within image bounds
+                            val finalCropBoxWidth = targetWidth.coerceAtMost(maxCropWidth)
+                            val finalCropBoxHeight = (finalCropBoxWidth * screenAspectRatio).coerceAtMost(maxCropHeight)
+                            
+                            // Calculate position bounds (keep crop box within image bounds)
+                            val minX = (previewWidth - imageDisplayWidth) / 2f
+                            val maxX = minX + imageDisplayWidth - finalCropBoxWidth
+                            val minY = (previewHeight - imageDisplayHeight) / 2f
+                            val maxY = minY + imageDisplayHeight - finalCropBoxHeight
+                            
+                            // Convert normalized position to absolute position
+                            val cropBoxX = (minX + (maxX - minX) * cropX).coerceIn(minX, maxX)
+                            val cropBoxY = (minY + (maxY - minY) * cropY).coerceIn(minY, maxY)
+                            
+                            // Dimmed overlay outside crop area
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(Theme.colors.background.copy(alpha = 0.6f))
+                            )
+                            
+                            // Crop box with drag and pinch gestures
+                            Box(
+                                modifier = Modifier
+                                    .size(finalCropBoxWidth.dp, finalCropBoxHeight.dp)
+                                    .offset(cropBoxX.dp, cropBoxY.dp)
+                                    .border(3.dp, Theme.colors.text, RoundedCornerShape(4.dp))
+                                    .pointerInput(cropScale, imageDisplayWidth, imageDisplayHeight) {
+                                        detectTransformGestures { _, pan, zoom, _ ->
+                                            // Handle pan (drag)
+                                            if (pan.x != 0f || pan.y != 0f) {
+                                                // Convert pixel drag to normalized coordinates
+                                                val rangeX = (maxX - minX).coerceAtLeast(1f)
+                                                val rangeY = (maxY - minY).coerceAtLeast(1f)
+                                                val deltaX = (pan.x / density) / rangeX
+                                                val deltaY = (pan.y / density) / rangeY
+                                                cropX = (cropX + deltaX).coerceIn(0f, 1f)
+                                                cropY = (cropY + deltaY).coerceIn(0f, 1f)
+                                                // Lock in the crop once user interacts
+                                                cropEnabled = true
+                                            }
+                                            // Handle pinch (zoom)
+                                            if (zoom != 1f) {
+                                                cropScale = (cropScale * zoom).coerceIn(0.3f, 1.0f)
+                                                // Lock in the crop once user interacts
+                                                cropEnabled = true
+                                            }
+                                        }
+                                    }
+                            ) {
+                                // Corner indicators
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.TopStart)
+                                        .size(20.dp)
+                                        .border(3.dp, Theme.colors.text, RoundedCornerShape(topStart = 4.dp))
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .size(20.dp)
+                                        .border(3.dp, Theme.colors.text, RoundedCornerShape(topEnd = 4.dp))
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomStart)
+                                        .size(20.dp)
+                                        .border(3.dp, Theme.colors.text, RoundedCornerShape(bottomStart = 4.dp))
+                                )
+                                
+                                // Draggable resize handle in bottom right
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomEnd)
+                                        .size(32.dp)
+                                        .background(Theme.colors.text, RoundedCornerShape(bottomEnd = 4.dp))
+                                        .pointerInput(Unit) {
+                                            detectDragGestures { change, dragAmount ->
+                                                change.consume()
+                                                // Calculate diagonal drag for resize
+                                                val diagonal = (dragAmount.x + dragAmount.y) / 2f
+                                                val scaleDelta = diagonal / (finalCropBoxWidth * 2f)
+                                                cropScale = (cropScale + scaleDelta).coerceIn(0.3f, 1.0f)
+                                                // Lock in the crop once user interacts
+                                                cropEnabled = true
+                                            }
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    // Resize icon indicator
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_foreground),
+                                        contentDescription = "Resize",
+                                        tint = Theme.colors.background,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        }
                     }
                     
                     // Image selection buttons overlay
@@ -512,6 +671,33 @@ fun WallpaperEditor(
                             onClick = { isInverted = !isInverted },
                             icon = Icons.Default.InvertColors,
                             contentDescription = "Invert",
+                            shape = buttonShape,
+                            modifier = Modifier
+                        )
+                    }
+                    
+                    // Crop button in top right corner
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(12.dp)
+                    ) {
+                        EffectButton(
+                            isSelected = showCropOverlay,
+                            onClick = { 
+                                if (showCropOverlay) {
+                                    // Hiding overlay = SAVE the crop
+                                    showCropOverlay = false
+                                    cropEnabled = true  // Lock in crop
+                                    android.util.Log.d("WallpaperEditor", "CROP SAVED: x=$cropX, y=$cropY, scale=$cropScale, enabled=$cropEnabled")
+                                } else {
+                                    // Show overlay and enable crop
+                                    showCropOverlay = true
+                                    cropEnabled = true
+                                }
+                            },
+                            icon = Icons.Default.CropFree,
+                            contentDescription = "Crop",
                             shape = buttonShape,
                             modifier = Modifier
                         )

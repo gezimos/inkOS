@@ -139,7 +139,11 @@ class WallpaperUtility(private val context: Context) {
         overlayEnabled: Boolean = false,
         overlaySide: String = "left",
         overlaySpread: Int = 40,
-        overlayFalloff: Int = 60
+        overlayFalloff: Int = 60,
+        cropEnabled: Boolean = false,
+        cropX: Float = 0.5f,
+        cropY: Float = 0.5f,
+        cropScale: Float = 0.8f
     ): Boolean = withContext(Dispatchers.IO) {
         var bitmap: Bitmap? = null
         try {
@@ -232,6 +236,20 @@ class WallpaperUtility(private val context: Context) {
                     }
                     transformedBitmap = overlay
                 }
+                
+                android.util.Log.d("WallpaperUtility", "BEFORE CROP CHECK: cropEnabled=$cropEnabled, cropX=$cropX, cropY=$cropY, cropScale=$cropScale")
+                
+                // Apply crop (should be last transformation to get final wallpaper size)
+                if (cropEnabled) {
+                    android.util.Log.d("WallpaperUtility", "Applying crop: x=$cropX, y=$cropY, scale=$cropScale")
+                    val cropped = cropBitmap(transformedBitmap, cropX, cropY, cropScale)
+                    if (cropped != transformedBitmap) {
+                        if (transformedBitmap != bitmap) transformedBitmap?.recycle()
+                    }
+                    transformedBitmap = cropped
+                } else {
+                    android.util.Log.d("WallpaperUtility", "CROP SKIPPED: cropEnabled=$cropEnabled")
+                }
                 android.util.Log.d("WallpaperUtility", "All transformations applied, setting wallpaper")
                 
                 val result = setWallpaperFromBitmap(transformedBitmap, flags)
@@ -279,7 +297,11 @@ class WallpaperUtility(private val context: Context) {
         overlayEnabled: Boolean = false,
         overlaySide: String = "left",
         overlaySpread: Int = 40,
-        overlayFalloff: Int = 60
+        overlayFalloff: Int = 60,
+        cropEnabled: Boolean = false,
+        cropX: Float = 0.5f,
+        cropY: Float = 0.5f,
+        cropScale: Float = 0.8f
     ): Boolean = withContext(Dispatchers.IO) {
         var bitmap: Bitmap? = null
         try {
@@ -413,6 +435,20 @@ class WallpaperUtility(private val context: Context) {
                     }
                     transformedBitmap = overlay
                 }
+                
+                android.util.Log.d("WallpaperUtility", "BEFORE CROP CHECK (URI): cropEnabled=$cropEnabled, cropX=$cropX, cropY=$cropY, cropScale=$cropScale")
+                
+                // Apply crop (should be last transformation to get final wallpaper size)
+                if (cropEnabled) {
+                    android.util.Log.d("WallpaperUtility", "Applying crop: x=$cropX, y=$cropY, scale=$cropScale")
+                    val cropped = cropBitmap(transformedBitmap, cropX, cropY, cropScale)
+                    if (cropped != transformedBitmap) {
+                        transformedBitmap.recycle()
+                    }
+                    transformedBitmap = cropped
+                } else {
+                    android.util.Log.d("WallpaperUtility", "CROP SKIPPED (URI): cropEnabled=$cropEnabled")
+                }
                 android.util.Log.d("WallpaperUtility", "All transformations applied, setting wallpaper")
                 
                 setWallpaperFromBitmap(transformedBitmap, flags)
@@ -516,6 +552,15 @@ class WallpaperUtility(private val context: Context) {
      */
     fun applyEditorStateToBitmap(bitmap: Bitmap, editorState: com.github.gezimos.inkos.ui.compose.WallpaperEditorState): Bitmap {
         var b = bitmap.copy(Bitmap.Config.ARGB_8888, true) ?: return bitmap
+        
+        // Apply crop first
+        if (editorState.cropEnabled) {
+            val cropped = cropBitmap(b, editorState.cropX, editorState.cropY, editorState.cropScale)
+            if (cropped != b) {
+                b.recycle()
+                b = cropped
+            }
+        }
         
         // Apply flips
         if (editorState.flipHorizontal) {
@@ -664,6 +709,83 @@ class WallpaperUtility(private val context: Context) {
             Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
         } catch (e: Exception) {
             android.util.Log.e("WallpaperUtility", "Failed to flip bitmap vertically", e)
+            bitmap
+        }
+    }
+    
+    /**
+     * Crop bitmap based on normalized crop position and scale
+     * @param bitmap Source bitmap
+     * @param cropX Normalized X position (0-1) of crop center
+     * @param cropY Normalized Y position (0-1) of crop center
+     * @param cropScale Scale of crop area (0.3-1.0)
+     * @param targetWidth Target width for the cropped image (usually screen width)
+     * @param targetHeight Target height for the cropped image (usually screen height)
+     * @return Cropped bitmap matching target dimensions
+     */
+    fun cropBitmap(
+        bitmap: Bitmap,
+        cropX: Float,
+        cropY: Float,
+        cropScale: Float = 0.8f,
+        targetWidth: Int = screenWidth,
+        targetHeight: Int = screenHeight
+    ): Bitmap {
+        return try {
+            android.util.Log.d("WallpaperUtility", "cropBitmap called: cropX=$cropX, cropY=$cropY, scale=$cropScale")
+            android.util.Log.d("WallpaperUtility", "Source bitmap: ${bitmap.width}x${bitmap.height}")
+            android.util.Log.d("WallpaperUtility", "Target size: ${targetWidth}x${targetHeight}")
+            
+            val sourceWidth = bitmap.width
+            val sourceHeight = bitmap.height
+            val targetAspectRatio = targetHeight.toFloat() / targetWidth.toFloat()
+            val scale = cropScale.coerceIn(0.3f, 1.0f)
+            
+            // Calculate maximum possible crop region dimensions (maintaining target aspect ratio)
+            val maxCropWidth: Int
+            val maxCropHeight: Int
+            val sourceAspectRatio = sourceHeight.toFloat() / sourceWidth.toFloat()
+            
+            if (sourceAspectRatio > targetAspectRatio) {
+                // Source is taller than target, crop height
+                maxCropWidth = sourceWidth
+                maxCropHeight = (sourceWidth * targetAspectRatio).toInt()
+            } else {
+                // Source is wider than target, crop width
+                maxCropHeight = sourceHeight
+                maxCropWidth = (sourceHeight / targetAspectRatio).toInt()
+            }
+            
+            // Apply scale to crop dimensions
+            val cropWidth = (maxCropWidth * scale).toInt().coerceAtMost(sourceWidth)
+            val cropHeight = (maxCropHeight * scale).toInt().coerceAtMost(sourceHeight)
+            
+            android.util.Log.d("WallpaperUtility", "Crop dimensions: ${cropWidth}x${cropHeight}")
+            
+            // Calculate maximum allowed crop area (leaving space for the crop box to move)
+            val availableWidth = sourceWidth - cropWidth
+            val availableHeight = sourceHeight - cropHeight
+            
+            // Convert normalized position to absolute pixel position
+            val cropLeft = (availableWidth * cropX).toInt().coerceIn(0, availableWidth.coerceAtLeast(0))
+            val cropTop = (availableHeight * cropY).toInt().coerceIn(0, availableHeight.coerceAtLeast(0))
+            
+            android.util.Log.d("WallpaperUtility", "Crop position: left=$cropLeft, top=$cropTop")
+            
+            // Extract the crop region
+            val croppedBitmap = Bitmap.createBitmap(
+                bitmap,
+                cropLeft,
+                cropTop,
+                cropWidth.coerceAtMost(sourceWidth - cropLeft),
+                cropHeight.coerceAtMost(sourceHeight - cropTop)
+            )
+            
+            android.util.Log.d("WallpaperUtility", "Cropped bitmap: ${croppedBitmap.width}x${croppedBitmap.height}")
+            croppedBitmap
+        } catch (e: Exception) {
+            android.util.Log.e("WallpaperUtility", "Failed to crop bitmap", e)
+            e.printStackTrace()
             bitmap
         }
     }

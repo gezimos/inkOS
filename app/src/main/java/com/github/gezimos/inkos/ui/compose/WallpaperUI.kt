@@ -132,7 +132,11 @@ fun WallpaperUI(
                                 overlayEnabled = editorState.overlayEnabled,
                                 overlaySide = editorState.overlaySide,
                                 overlaySpread = editorState.overlaySpread,
-                                overlayFalloff = editorState.overlayFalloff
+                                overlayFalloff = editorState.overlayFalloff,
+                                cropEnabled = editorState.cropEnabled,
+                                cropX = editorState.cropX,
+                                cropY = editorState.cropY,
+                                cropScale = editorState.cropScale
                             )
                         }
                         isLoading = false
@@ -265,7 +269,11 @@ fun WallpaperUI(
                                                 overlayEnabled = editorState.overlayEnabled,
                                                 overlaySide = editorState.overlaySide,
                                                 overlaySpread = editorState.overlaySpread,
-                                                overlayFalloff = editorState.overlayFalloff
+                                                overlayFalloff = editorState.overlayFalloff,
+                                                cropEnabled = editorState.cropEnabled,
+                                                cropX = editorState.cropX,
+                                                cropY = editorState.cropY,
+                                                cropScale = editorState.cropScale
                                             )
                                         }
                                         isLoading = false
@@ -378,7 +386,11 @@ fun WallpaperUI(
                                         overlayEnabled = editorState.overlayEnabled,
                                         overlaySide = editorState.overlaySide,
                                         overlaySpread = editorState.overlaySpread,
-                                        overlayFalloff = editorState.overlayFalloff
+                                        overlayFalloff = editorState.overlayFalloff,
+                                        cropEnabled = editorState.cropEnabled,
+                                        cropX = editorState.cropX,
+                                        cropY = editorState.cropY,
+                                        cropScale = editorState.cropScale
                                     )
                                     isLoading = false
                                     if (success) {
@@ -409,7 +421,11 @@ fun WallpaperUI(
                                         overlayEnabled = editorState.overlayEnabled,
                                         overlaySide = editorState.overlaySide,
                                         overlaySpread = editorState.overlaySpread,
-                                        overlayFalloff = editorState.overlayFalloff
+                                        overlayFalloff = editorState.overlayFalloff,
+                                        cropEnabled = editorState.cropEnabled,
+                                        cropX = editorState.cropX,
+                                        cropY = editorState.cropY,
+                                        cropScale = editorState.cropScale
                                     )
                                     isLoading = false
                                     if (success) {
@@ -456,7 +472,11 @@ fun WallpaperUI(
                                         overlayEnabled = editorState.overlayEnabled,
                                         overlaySide = editorState.overlaySide,
                                         overlaySpread = editorState.overlaySpread,
-                                        overlayFalloff = editorState.overlayFalloff
+                                        overlayFalloff = editorState.overlayFalloff,
+                                        cropEnabled = editorState.cropEnabled,
+                                        cropX = editorState.cropX,
+                                        cropY = editorState.cropY,
+                                        cropScale = editorState.cropScale
                                     )
                                     isLoading = false
                                     if (success) {
@@ -487,7 +507,11 @@ fun WallpaperUI(
                                         overlayEnabled = editorState.overlayEnabled,
                                         overlaySide = editorState.overlaySide,
                                         overlaySpread = editorState.overlaySpread,
-                                        overlayFalloff = editorState.overlayFalloff
+                                        overlayFalloff = editorState.overlayFalloff,
+                                        cropEnabled = editorState.cropEnabled,
+                                        cropX = editorState.cropX,
+                                        cropY = editorState.cropY,
+                                        cropScale = editorState.cropScale
                                     )
                                     isLoading = false
                                     if (success) {
@@ -536,7 +560,11 @@ fun WallpaperUI(
                                         overlayEnabled = editorState.overlayEnabled,
                                         overlaySide = editorState.overlaySide,
                                         overlaySpread = editorState.overlaySpread,
-                                        overlayFalloff = editorState.overlayFalloff
+                                        overlayFalloff = editorState.overlayFalloff,
+                                        cropEnabled = editorState.cropEnabled,
+                                        cropX = editorState.cropX,
+                                        cropY = editorState.cropY,
+                                        cropScale = editorState.cropScale
                                     )
                                     isLoading = false
                                     if (success) {
@@ -567,7 +595,11 @@ fun WallpaperUI(
                                         overlayEnabled = editorState.overlayEnabled,
                                         overlaySide = editorState.overlaySide,
                                         overlaySpread = editorState.overlaySpread,
-                                        overlayFalloff = editorState.overlayFalloff
+                                        overlayFalloff = editorState.overlayFalloff,
+                                        cropEnabled = editorState.cropEnabled,
+                                        cropX = editorState.cropX,
+                                        cropY = editorState.cropY,
+                                        cropScale = editorState.cropScale
                                     )
                                     isLoading = false
                                     if (success) {
@@ -700,7 +732,11 @@ fun WallpaperUI(
                                             overlayEnabled = editorState.overlayEnabled,
                                             overlaySide = editorState.overlaySide,
                                             overlaySpread = editorState.overlaySpread,
-                                            overlayFalloff = editorState.overlayFalloff
+                                            overlayFalloff = editorState.overlayFalloff,
+                                            cropEnabled = editorState.cropEnabled,
+                                            cropX = editorState.cropX,
+                                            cropY = editorState.cropY,
+                                            cropScale = editorState.cropScale
                                         )
                                         isLoading = false
                                         if (success) {
