@@ -131,7 +131,7 @@ fun WallpaperEditor(
     var thresholdLevel by remember { mutableIntStateOf(50) }  // 0-100: threshold for black/white conversion
     var ditherEnabled by remember { mutableStateOf(false) }
     var ditherAlgorithm by remember { mutableStateOf(WallpaperDither.DitherAlgorithm.FLOYD_STEINBERG) }
-    var effectMode by remember { mutableStateOf("crop") }
+    var effectMode by remember { mutableStateOf("brightness-contrast") }
     
     // Bitmap states
     // sourceBitmap: original loaded image, never modified
@@ -735,13 +735,6 @@ fun WallpaperEditor(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        EffectButton(effectMode == "crop", { 
-                            effectMode = "crop"
-                            if (!showCropOverlay) {
-                                showCropOverlay = true
-                                cropEnabled = true
-                            }
-                        }, Icons.Default.CropFree, "Crop", buttonShape, Modifier.weight(1f))
                         EffectButton(effectMode == "brightness-contrast", { effectMode = "brightness-contrast" }, 
                             Icons.Default.Brightness6, "Brightness/Contrast", buttonShape, Modifier.weight(1f))
                         EffectButton(effectMode == "flip", { 
@@ -757,6 +750,13 @@ fun WallpaperEditor(
                         }, Icons.Default.BlurOn, "Dither", buttonShape, Modifier.weight(1f))
                         EffectButton(effectMode == "halftone", { effectMode = "halftone" },
                             Icons.Default.Grain, "Halftone", buttonShape, Modifier.weight(1f))
+                        EffectButton(effectMode == "crop", { 
+                            effectMode = "crop"
+                            if (!showCropOverlay) {
+                                showCropOverlay = true
+                                cropEnabled = true
+                            }
+                        }, Icons.Default.CropFree, "Crop", buttonShape, Modifier.weight(1f))
                     }
                     
                     // Flip/Rotate controls
@@ -810,43 +810,7 @@ fun WallpaperEditor(
                     
                     // Slider section
                     if (effectMode != "flip" && effectMode != "dither") {
-                        if (effectMode == "crop") {
-                            // Save Crop and Reset Crop buttons
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                TextButton(
-                                    text = "Save Crop",
-                                    isSelected = false,
-                                    onClick = {
-                                        // Save the current crop settings
-                                        cropEnabled = true
-                                        // Optionally switch to another mode or stay
-                                        effectMode = "brightness-contrast" // or keep as "crop"
-                                    },
-                                    fontSize = buttonFontSize,
-                                    shape = buttonShape,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                TextButton(
-                                    text = "Reset Crop",
-                                    isSelected = false,
-                                    onClick = {
-                                        // Reset crop to default (no crop)
-                                        cropX = 0f
-                                        cropY = 0f
-                                        cropScale = 1f
-                                        cropEnabled = false
-                                        showCropOverlay = false
-                                    },
-                                    fontSize = buttonFontSize,
-                                    shape = buttonShape,
-                                    modifier = Modifier.weight(1f)
-                                )
-                            }
-                        } else if (effectMode == "brightness-contrast") {
+                        if (effectMode == "brightness-contrast") {
                             // Brightness and Contrast sliders
                             Column(
                                 modifier = Modifier.fillMaxWidth(),

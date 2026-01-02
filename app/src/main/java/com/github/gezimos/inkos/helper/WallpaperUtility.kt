@@ -55,30 +55,24 @@ class WallpaperUtility(private val context: Context) {
     suspend fun setWallpaperFromBitmap(bitmap: Bitmap, flags: Int = WallpaperManager.FLAG_SYSTEM): Boolean = withContext(Dispatchers.IO) {
         try {
             val wallpaperManager = WallpaperManager.getInstance(context)
-            android.util.Log.d("WallpaperUtility", "Setting wallpaper with flags: $flags, SDK: ${Build.VERSION.SDK_INT}")
-            android.util.Log.d("WallpaperUtility", "Bitmap size: ${bitmap.width}x${bitmap.height}, Screen: ${screenWidth}x${screenHeight}")
             
             // Force the bitmap to be exactly screen size to prevent parallax scrolling
             val screenSizedBitmap = createFittedBitmap(bitmap, screenWidth, screenHeight)
             
             // If both flags are set, set them individually for better compatibility
             if (flags == (WallpaperManager.FLAG_SYSTEM or WallpaperManager.FLAG_LOCK)) {
-                android.util.Log.d("WallpaperUtility", "Setting both wallpapers individually")
                 try {
                     wallpaperManager.setBitmap(screenSizedBitmap, null, false, WallpaperManager.FLAG_SYSTEM)
-                    android.util.Log.d("WallpaperUtility", "Home screen wallpaper set")
                 } catch (e: Exception) {
                     android.util.Log.e("WallpaperUtility", "Failed to set home screen wallpaper", e)
                 }
                 try {
                     wallpaperManager.setBitmap(screenSizedBitmap, null, false, WallpaperManager.FLAG_LOCK)
-                    android.util.Log.d("WallpaperUtility", "Lock screen wallpaper set")
                 } catch (e: Exception) {
                     android.util.Log.e("WallpaperUtility", "Failed to set lock screen wallpaper", e)
                 }
             } else {
                 wallpaperManager.setBitmap(screenSizedBitmap, null, false, flags)
-                android.util.Log.d("WallpaperUtility", "Wallpaper set successfully with flags: $flags")
             }
             
             screenSizedBitmap.recycle()
@@ -153,7 +147,6 @@ class WallpaperUtility(private val context: Context) {
                 bitmap = originalBitmap.copy(Bitmap.Config.ARGB_8888, true)
                 
                 // Apply transformations in order: Flip → Brightness → Contrast → Invert → Threshold → Dithering → Halftone → Overlay
-                android.util.Log.d("WallpaperUtility", "setWallpaperFromResource: flipH=$flipHorizontal, flipV=$flipVertical, brightness=$brightness, contrast=$contrast, invert=$isInverted, threshold=$thresholdLevel, dither=$ditherEnabled, halftone=$halftoneIntensity dotSize=$halftoneDotSize, overlay=$overlayEnabled side=$overlaySide spread=$overlaySpread")
                 var transformedBitmap = bitmap
                 
                 if (flipHorizontal) {
