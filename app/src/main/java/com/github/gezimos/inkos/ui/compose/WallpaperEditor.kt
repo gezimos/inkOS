@@ -31,7 +31,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BlurOn
 import androidx.compose.material.icons.filled.Brightness6
-import androidx.compose.material.icons.filled.Contrast
 import androidx.compose.material.icons.filled.CropFree
 import androidx.compose.material.icons.filled.Flip
 import androidx.compose.material.icons.filled.Gradient
@@ -39,7 +38,6 @@ import androidx.compose.material.icons.filled.Grain
 import androidx.compose.material.icons.filled.InvertColors
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -54,7 +52,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -134,7 +131,7 @@ fun WallpaperEditor(
     var thresholdLevel by remember { mutableIntStateOf(50) }  // 0-100: threshold for black/white conversion
     var ditherEnabled by remember { mutableStateOf(false) }
     var ditherAlgorithm by remember { mutableStateOf(WallpaperDither.DitherAlgorithm.FLOYD_STEINBERG) }
-    var effectMode by remember { mutableStateOf("brightness") }
+    var effectMode by remember { mutableStateOf("crop") }
     
     // Bitmap states
     // sourceBitmap: original loaded image, never modified
@@ -420,7 +417,7 @@ fun WallpaperEditor(
         cropY = 0.5f
         cropScale = 0.8f
         // After reset, switch to the brightness tool
-        effectMode = "brightness"
+        effectMode = "crop"
     }
     
     SettingsTheme(isDark) {
@@ -494,7 +491,7 @@ fun WallpaperEditor(
                     }
                     
                     // Crop box overlay (when crop mode is enabled)
-                    if (showCropOverlay && displayBitmap != null) {
+                    if (effectMode == "crop" && displayBitmap != null) {
                         androidx.compose.foundation.layout.BoxWithConstraints(
                             modifier = Modifier.fillMaxSize()
                         ) {
@@ -689,7 +686,7 @@ fun WallpaperEditor(
                     }
                     
                     // Invert button in bottom left corner (hidden when crop mode is active)
-                    if (!showCropOverlay) {
+                    if (effectMode != "crop") {
                         Box(
                             modifier = Modifier
                                 .align(Alignment.BottomStart)
@@ -706,35 +703,8 @@ fun WallpaperEditor(
                         }
                     }
                     
-                    // Crop button in top right corner
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(12.dp)
-                    ) {
-                        EffectButton(
-                            isSelected = showCropOverlay,
-                            onClick = { 
-                                if (showCropOverlay) {
-                                    // Hiding overlay = SAVE the crop
-                                    showCropOverlay = false
-                                    cropEnabled = true  // Lock in crop
-                                    android.util.Log.d("WallpaperEditor", "CROP SAVED: x=$cropX, y=$cropY, scale=$cropScale, enabled=$cropEnabled")
-                                } else {
-                                    // Show overlay and enable crop
-                                    showCropOverlay = true
-                                    cropEnabled = true
-                                }
-                            },
-                            icon = Icons.Default.CropFree,
-                            contentDescription = "Crop",
-                            shape = buttonShape,
-                            modifier = Modifier
-                        )
-                    }
-                    
                     // Reset button in bottom right corner (hidden when crop mode is active)
-                    if (!showCropOverlay) {
+                    if (effectMode != "crop") {
                         Box(
                             modifier = Modifier
                                 .align(Alignment.BottomEnd)
@@ -765,10 +735,15 @@ fun WallpaperEditor(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        EffectButton(effectMode == "brightness", { effectMode = "brightness" }, 
-                            Icons.Default.Brightness6, "Brightness", buttonShape, Modifier.weight(1f))
-                        EffectButton(effectMode == "contrast", { effectMode = "contrast" },
-                            Icons.Default.Contrast, "Contrast", buttonShape, Modifier.weight(1f))
+                        EffectButton(effectMode == "crop", { 
+                            effectMode = "crop"
+                            if (!showCropOverlay) {
+                                showCropOverlay = true
+                                cropEnabled = true
+                            }
+                        }, Icons.Default.CropFree, "Crop", buttonShape, Modifier.weight(1f))
+                        EffectButton(effectMode == "brightness-contrast", { effectMode = "brightness-contrast" }, 
+                            Icons.Default.Brightness6, "Brightness/Contrast", buttonShape, Modifier.weight(1f))
                         EffectButton(effectMode == "flip", { 
                             effectMode = "flip"
                         }, Icons.Default.Flip, "Flip", buttonShape, Modifier.weight(1f))
@@ -835,15 +810,154 @@ fun WallpaperEditor(
                     
                     // Slider section
                     if (effectMode != "flip" && effectMode != "dither") {
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
+                        if (effectMode == "crop") {
+                            // Save Crop and Reset Crop buttons
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                TextButton(
+                                    text = "Save Crop",
+                                    isSelected = false,
+                                    onClick = {
+                                        // Save the current crop settings
+                                        cropEnabled = true
+                                        // Optionally switch to another mode or stay
+                                        effectMode = "brightness-contrast" // or keep as "crop"
+                                    },
+                                    fontSize = buttonFontSize,
+                                    shape = buttonShape,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                TextButton(
+                                    text = "Reset Crop",
+                                    isSelected = false,
+                                    onClick = {
+                                        // Reset crop to default (no crop)
+                                        cropX = 0f
+                                        cropY = 0f
+                                        cropScale = 1f
+                                        cropEnabled = false
+                                        showCropOverlay = false
+                                    },
+                                    fontSize = buttonFontSize,
+                                    shape = buttonShape,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        } else if (effectMode == "brightness-contrast") {
+                            // Brightness and Contrast sliders
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                // Brightness slider
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(
+                                        text = "Brightness: $brightness",
+                                        style = SettingsTheme.typography.title,
+                                        fontSize = titleFontSize,
+                                        color = Theme.colors.text
+                                    )
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Remove,
+                                            contentDescription = "Decrease Brightness",
+                                            tint = Theme.colors.text,
+                                            modifier = Modifier
+                                                .size(32.dp)
+                                                .clickable {
+                                                    brightness = (brightness - 1).coerceIn(-100, 100)
+                                                }
+                                        )
+                                        Slider(
+                                            value = brightness.toFloat(),
+                                            onValueChange = { v -> brightness = v.roundToInt().coerceIn(-100, 100) },
+                                            valueRange = -100f..100f,
+                                            modifier = Modifier.weight(1f),
+                                            colors = SliderDefaults.colors(
+                                                thumbColor = Theme.colors.text,
+                                                activeTrackColor = Theme.colors.text,
+                                                inactiveTrackColor = Theme.colors.text
+                                            )
+                                        )
+                                        Icon(
+                                            imageVector = Icons.Default.Add,
+                                            contentDescription = "Increase Brightness",
+                                            tint = Theme.colors.text,
+                                            modifier = Modifier
+                                                .size(32.dp)
+                                                .clickable {
+                                                    brightness = (brightness + 1).coerceIn(-100, 100)
+                                                }
+                                        )
+                                    }
+                                }
+                                
+                                // Contrast slider
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(
+                                        text = "Contrast: $contrast",
+                                        style = SettingsTheme.typography.title,
+                                        fontSize = titleFontSize,
+                                        color = Theme.colors.text
+                                    )
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Remove,
+                                            contentDescription = "Decrease Contrast",
+                                            tint = Theme.colors.text,
+                                            modifier = Modifier
+                                                .size(32.dp)
+                                                .clickable {
+                                                    contrast = (contrast - 1).coerceIn(-100, 100)
+                                                }
+                                        )
+                                        Slider(
+                                            value = contrast.toFloat(),
+                                            onValueChange = { v -> contrast = v.roundToInt().coerceIn(-100, 100) },
+                                            valueRange = -100f..100f,
+                                            modifier = Modifier.weight(1f),
+                                            colors = SliderDefaults.colors(
+                                                thumbColor = Theme.colors.text,
+                                                activeTrackColor = Theme.colors.text,
+                                                inactiveTrackColor = Theme.colors.text
+                                            )
+                                        )
+                                        Icon(
+                                            imageVector = Icons.Default.Add,
+                                            contentDescription = "Increase Contrast",
+                                            tint = Theme.colors.text,
+                                            modifier = Modifier
+                                                .size(32.dp)
+                                                .clickable {
+                                                    contrast = (contrast + 1).coerceIn(-100, 100)
+                                                }
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
                             Text(
                                 text = when (effectMode) {
-                                    "brightness" -> "Brightness: $brightness"
-                                    "contrast" -> "Contrast: $contrast"
                                     "overlay" -> "Coverage: $overlaySpread%"
                                     else -> "Halftone: $halftoneIntensity"
                                 },
@@ -866,8 +980,6 @@ fun WallpaperEditor(
                                         .size(32.dp)
                                         .clickable {
                                             when (effectMode) {
-                                                "brightness" -> brightness = (brightness - 1).coerceIn(-100, 100)
-                                                "contrast" -> contrast = (contrast - 1).coerceIn(-100, 100)
                                                 "overlay" -> overlaySpread = (overlaySpread - 1).coerceIn(25, 100)
                                                 else -> halftoneIntensity = (halftoneIntensity - 1).coerceIn(0, 200)
                                             }
@@ -877,21 +989,16 @@ fun WallpaperEditor(
                                 // Slider
                                 Slider(
                                     value = when (effectMode) {
-                                        "brightness" -> brightness.toFloat()
-                                        "contrast" -> contrast.toFloat()
                                         "overlay" -> overlaySpread.toFloat()
                                         else -> halftoneIntensity.toFloat()
                                     },
                                     onValueChange = { v ->
                                         when (effectMode) {
-                                            "brightness" -> brightness = v.roundToInt().coerceIn(-100, 100)
-                                            "contrast" -> contrast = v.roundToInt().coerceIn(-100, 100)
                                             "overlay" -> overlaySpread = v.roundToInt().coerceIn(25, 100)
                                             else -> halftoneIntensity = v.roundToInt().coerceIn(0, 200)
                                         }
                                     },
                                     valueRange = when (effectMode) {
-                                        "brightness", "contrast" -> -100f..100f
                                         "overlay" -> 25f..100f
                                         else -> 0f..200f
                                     },
@@ -912,8 +1019,6 @@ fun WallpaperEditor(
                                         .size(32.dp)
                                         .clickable {
                                             when (effectMode) {
-                                                "brightness" -> brightness = (brightness + 1).coerceIn(-100, 100)
-                                                "contrast" -> contrast = (contrast + 1).coerceIn(-100, 100)
                                                 "overlay" -> overlaySpread = (overlaySpread + 1).coerceIn(25, 100)
                                                 else -> halftoneIntensity = (halftoneIntensity + 1).coerceIn(0, 200)
                                             }
