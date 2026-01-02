@@ -187,7 +187,8 @@ class AppsRepository(application: Application) {
                 val hiddenAppsSet = prefs.hiddenApps
                 
                 // Build a set of activityPackage|user for apps currently set on the home screen
-                val homeAppKeys: Set<String> = if (prefs.hideHomeApps) {
+                // Only filter home apps when hideHomeApps is enabled AND in normal app drawer (LaunchApp flag)
+                val homeAppKeys: Set<String> = if (prefs.hideHomeApps && (flag == null || flag == AppDrawerFlag.LaunchApp)) {
                     (0 until prefs.homeAppsNum).mapNotNull { index ->
                         val homeApp = prefs.getHomeAppModel(index)
                         if (homeApp.activityPackage.isNotEmpty()) {

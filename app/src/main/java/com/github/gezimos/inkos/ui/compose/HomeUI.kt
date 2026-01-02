@@ -204,27 +204,22 @@ fun HomeUI(
                 .align(Alignment.Center),
             contentAlignment = Alignment.Center
         ) {
-            if (!state.hideHomeApps) {
-                HomeAppsPager(
-                    state = state,
-                    callbacks = callbacks,
-                    selectedAppId = selectedAppId,
-                    showDpadMode = showDpadMode,
-                    dpadActivatedAppId = dpadActivatedAppId,
-                    onDpadActivatedHandled = onDpadActivatedHandled,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .offset(y = state.homeAppsYOffset.dp)
-                        .onGloballyPositioned { coordinates ->
-                            val bounds = coordinates.boundsInParent()
-                            appBounds = bounds
-                            onHomeAppsBoundsChanged(bounds)
-                        }
-                )
-            } else {
-                appBounds = null
-                onHomeAppsBoundsChanged(null)
-            }
+            HomeAppsPager(
+                state = state,
+                callbacks = callbacks,
+                selectedAppId = selectedAppId,
+                showDpadMode = showDpadMode,
+                dpadActivatedAppId = dpadActivatedAppId,
+                onDpadActivatedHandled = onDpadActivatedHandled,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .offset(y = state.homeAppsYOffset.dp)
+                    .onGloballyPositioned { coordinates ->
+                        val bounds = coordinates.boundsInParent()
+                        appBounds = bounds
+                        onHomeAppsBoundsChanged(bounds)
+                    }
+            )
 
             if (state.pageIndicatorVisible && state.totalPages > 1) {
                 PageIndicator(
