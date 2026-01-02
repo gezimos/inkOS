@@ -714,6 +714,21 @@ class WallpaperUtility(private val context: Context) {
     }
     
     /**
+     * Rotate bitmap by specified degrees
+     */
+    fun rotateBitmap(bitmap: Bitmap, degrees: Int): Bitmap {
+        return try {
+            val matrix = Matrix().apply {
+                postRotate(degrees.toFloat())
+            }
+            Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+        } catch (e: Exception) {
+            android.util.Log.e("WallpaperUtility", "Failed to rotate bitmap", e)
+            bitmap
+        }
+    }
+    
+    /**
      * Crop bitmap based on normalized crop position and scale
      * @param bitmap Source bitmap
      * @param cropX Normalized X position (0-1) of crop center

@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.BlurOn
 import androidx.compose.material.icons.filled.Brightness6
 import androidx.compose.material.icons.filled.Contrast
 import androidx.compose.material.icons.filled.CropFree
+import androidx.compose.material.icons.filled.Flip
 import androidx.compose.material.icons.filled.Gradient
 import androidx.compose.material.icons.filled.Grain
 import androidx.compose.material.icons.filled.InvertColors
@@ -104,6 +105,7 @@ fun WallpaperEditor(
     // Editor state - "light" effects (applied via Compose graphics layer - instant)
     var flipHorizontal by remember { mutableStateOf(false) }
     var flipVertical by remember { mutableStateOf(false) }
+    var rotation by remember { mutableIntStateOf(0) }  // 0, 90, 180, 270 degrees
     var brightness by remember { mutableIntStateOf(0) }
     var contrast by remember { mutableIntStateOf(0) }
     var isInverted by remember { mutableStateOf(false) }
@@ -212,10 +214,12 @@ fun WallpaperEditor(
         isLoading = false
     }
     
-    // Process only heavy effects (threshold, dithering, overlay, halftone) - these require bitmap manipulation
-    // Brightness/contrast/flip/invert are handled by Compose graphics layer (instant)
+    // Process effects that require bitmap manipulation
     LaunchedEffect(
         sourceBitmap,
+        flipHorizontal,
+        flipVertical,
+        rotation,
         thresholdLevel,
         ditherEnabled,
         ditherAlgorithm,
@@ -239,6 +243,9 @@ fun WallpaperEditor(
         val myGeneration = processingGeneration
         
         // Capture current parameter values to detect if they change during processing
+        val currentFlipHorizontal = flipHorizontal
+        val currentFlipVertical = flipVertical
+        val currentRotation = rotation
         val currentThresholdLevel = thresholdLevel
         val currentDitherEnabled = ditherEnabled
         val currentDitherAlgorithm = ditherAlgorithm
@@ -250,14 +257,16 @@ fun WallpaperEditor(
         val currentOverlaySpread = overlaySpread
         val currentOverlayFalloff = overlayFalloff
         
-        // Check if any heavy effects are enabled
+        // Check if any effects are enabled
         val hasThreshold = currentThresholdLevel != 50  // 50 is default/neutral
         val hasDithering = currentDitherEnabled
         val hasHalftone = currentHalftoneIntensity > 0
         val hasOverlay = currentOverlayEnabled
+        val hasFlip = currentFlipHorizontal || currentFlipVertical
+        val hasRotation = currentRotation != 0
         
-        // If no heavy effects, just convert source to ImageBitmap
-        if (!hasThreshold && !hasDithering && !hasHalftone && !hasOverlay) {
+        // If no effects at all, just convert source to ImageBitmap
+        if (!hasThreshold && !hasDithering && !hasHalftone && !hasOverlay && !hasFlip && !hasRotation) {
             // Only update if this is still the current generation
             if (processingGeneration == myGeneration) {
                 processedBitmap = source.asImageBitmap()
@@ -277,6 +286,20 @@ fun WallpaperEditor(
                 if (source.isRecycled) return@withContext null
                 
                 var bitmap = source.copy(Bitmap.Config.ARGB_8888, true) ?: return@withContext null
+                
+                // Apply flip and rotation first (fast operations)
+                if (currentFlipHorizontal) {
+                    val new = wallpaperUtility.flipBitmapHorizontally(bitmap)
+                    if (new !== bitmap) { bitmap.recycle(); bitmap = new }
+                }
+                if (currentFlipVertical) {
+                    val new = wallpaperUtility.flipBitmapVertically(bitmap)
+                    if (new !== bitmap) { bitmap.recycle(); bitmap = new }
+                }
+                if (currentRotation != 0) {
+                    val new = wallpaperUtility.rotateBitmap(bitmap, currentRotation)
+                    if (new !== bitmap) { bitmap.recycle(); bitmap = new }
+                }
                 
                 // Processing order: threshold → dithering → halftone → overlay
                 
@@ -321,6 +344,9 @@ fun WallpaperEditor(
         if (result != null && 
             processingGeneration == myGeneration &&
             sourceBitmap === source &&
+            currentFlipHorizontal == flipHorizontal &&
+            currentFlipVertical == flipVertical &&
+            currentRotation == rotation &&
             currentThresholdLevel == thresholdLevel &&
             currentDitherEnabled == ditherEnabled &&
             currentDitherAlgorithm == ditherAlgorithm &&
@@ -458,11 +484,6 @@ fun WallpaperEditor(
                                 .fillMaxSize()
                                 .clickable(enabled = onBrowseClick != null || onPresetsClick != null) {
                                     showImageSelectionButtons = !showImageSelectionButtons
-                                }
-                                .graphicsLayer {
-                                    // Flip via scale - instant, no bitmap processing
-                                    scaleX = if (flipHorizontal) -1f else 1f
-                                    scaleY = if (flipVertical) -1f else 1f
                                 },
                             contentScale = ContentScale.Fit,
                             // Brightness/contrast/invert via ColorFilter - instant, no bitmap processing
@@ -748,28 +769,9 @@ fun WallpaperEditor(
                             Icons.Default.Brightness6, "Brightness", buttonShape, Modifier.weight(1f))
                         EffectButton(effectMode == "contrast", { effectMode = "contrast" },
                             Icons.Default.Contrast, "Contrast", buttonShape, Modifier.weight(1f))
-                        EffectButton(effectMode == "flip" || flipHorizontal || flipVertical, { 
-                            // Cycle through flip modes: none -> horizontal -> vertical -> both -> none
-                            when {
-                                !flipHorizontal && !flipVertical -> {
-                                    flipHorizontal = true
-                                    flipVertical = false
-                                }
-                                flipHorizontal && !flipVertical -> {
-                                    flipHorizontal = false
-                                    flipVertical = true
-                                }
-                                !flipHorizontal && flipVertical -> {
-                                    flipHorizontal = true
-                                    flipVertical = true
-                                }
-                                else -> {
-                                    flipHorizontal = false
-                                    flipVertical = false
-                                }
-                            }
+                        EffectButton(effectMode == "flip", { 
                             effectMode = "flip"
-                        }, Icons.Default.SwapHoriz, "Flip", buttonShape, Modifier.weight(1f))
+                        }, Icons.Default.Flip, "Flip", buttonShape, Modifier.weight(1f))
                         EffectButton(effectMode == "overlay" || overlayEnabled, { 
                             effectMode = "overlay"
                             overlayEnabled = true 
@@ -782,23 +784,53 @@ fun WallpaperEditor(
                             Icons.Default.Grain, "Halftone", buttonShape, Modifier.weight(1f))
                     }
                     
-                    // Flip state display
+                    // Flip/Rotate controls
                     if (effectMode == "flip") {
-                        val flipState = when {
-                            flipHorizontal && flipVertical -> "Both"
-                            flipHorizontal -> "Horizontal"
-                            flipVertical -> "Vertical"
-                            else -> "None"
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TextButton(
+                                text = "Flip",
+                                isSelected = flipHorizontal || flipVertical,
+                                onClick = {
+                                    // Cycle through flip modes: none -> horizontal -> vertical -> both -> none
+                                    when {
+                                        !flipHorizontal && !flipVertical -> {
+                                            flipHorizontal = true
+                                            flipVertical = false
+                                        }
+                                        flipHorizontal && !flipVertical -> {
+                                            flipHorizontal = false
+                                            flipVertical = true
+                                        }
+                                        !flipHorizontal && flipVertical -> {
+                                            flipHorizontal = true
+                                            flipVertical = true
+                                        }
+                                        else -> {
+                                            flipHorizontal = false
+                                            flipVertical = false
+                                        }
+                                    }
+                                },
+                                fontSize = buttonFontSize,
+                                shape = buttonShape,
+                                modifier = Modifier.weight(1f)
+                            )
+                            TextButton(
+                                text = "Rotate",
+                                isSelected = rotation != 0,
+                                onClick = {
+                                    // Cycle through rotation: 0° -> 90° -> 180° -> 270° -> 0°
+                                    rotation = (rotation + 90) % 360
+                                },
+                                fontSize = buttonFontSize,
+                                shape = buttonShape,
+                                modifier = Modifier.weight(1f)
+                            )
                         }
-                        Text(
-                            text = "Flip: $flipState",
-                            style = SettingsTheme.typography.title,
-                            fontSize = titleFontSize,
-                            color = Theme.colors.text,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp)
-                        )
                     }
                     
                     // Slider section
