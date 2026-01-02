@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Icon
 import androidx.compose.material.Slider
@@ -513,11 +514,37 @@ fun WallpaperEditor(
                             val cropBoxX = (minX + (maxX - minX) * cropX).coerceIn(minX, maxX)
                             val cropBoxY = (minY + (maxY - minY) * cropY).coerceIn(minY, maxY)
                             
-                            // Dimmed overlay outside crop area
+                            // Dimmed overlay outside crop area (four rectangles)
+                            // Top area
                             Box(
                                 modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(Theme.colors.background.copy(alpha = 0.6f))
+                                    .fillMaxWidth()
+                                    .height(cropBoxY.dp)
+                                    .background(Theme.colors.background.copy(alpha = 0.75f))
+                            )
+                            // Bottom area
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height((previewHeight - cropBoxY - finalCropBoxHeight).dp)
+                                    .offset(y = (cropBoxY + finalCropBoxHeight).dp)
+                                    .background(Theme.colors.background.copy(alpha = 0.75f))
+                            )
+                            // Left area
+                            Box(
+                                modifier = Modifier
+                                    .width(cropBoxX.dp)
+                                    .height(finalCropBoxHeight.dp)
+                                    .offset(y = cropBoxY.dp)
+                                    .background(Theme.colors.background.copy(alpha = 0.75f))
+                            )
+                            // Right area
+                            Box(
+                                modifier = Modifier
+                                    .width((previewWidth - cropBoxX - finalCropBoxWidth).dp)
+                                    .height(finalCropBoxHeight.dp)
+                                    .offset(x = (cropBoxX + finalCropBoxWidth).dp, y = cropBoxY.dp)
+                                    .background(Theme.colors.background.copy(alpha = 0.75f))
                             )
                             
                             // Crop box with drag and pinch gestures
@@ -525,7 +552,7 @@ fun WallpaperEditor(
                                 modifier = Modifier
                                     .size(finalCropBoxWidth.dp, finalCropBoxHeight.dp)
                                     .offset(cropBoxX.dp, cropBoxY.dp)
-                                    .border(3.dp, Theme.colors.text, RoundedCornerShape(4.dp))
+                                    .border(2.dp, Theme.colors.text, RoundedCornerShape(4.dp))
                                     .pointerInput(cropScale, imageDisplayWidth, imageDisplayHeight) {
                                         detectTransformGestures { _, pan, zoom, _ ->
                                             // Handle pan (drag)
@@ -549,26 +576,6 @@ fun WallpaperEditor(
                                         }
                                     }
                             ) {
-                                // Corner indicators
-                                Box(
-                                    modifier = Modifier
-                                        .align(Alignment.TopStart)
-                                        .size(20.dp)
-                                        .border(3.dp, Theme.colors.text, RoundedCornerShape(topStart = 4.dp))
-                                )
-                                Box(
-                                    modifier = Modifier
-                                        .align(Alignment.TopEnd)
-                                        .size(20.dp)
-                                        .border(3.dp, Theme.colors.text, RoundedCornerShape(topEnd = 4.dp))
-                                )
-                                Box(
-                                    modifier = Modifier
-                                        .align(Alignment.BottomStart)
-                                        .size(20.dp)
-                                        .border(3.dp, Theme.colors.text, RoundedCornerShape(bottomStart = 4.dp))
-                                )
-                                
                                 // Draggable resize handle in bottom right
                                 Box(
                                     modifier = Modifier
@@ -660,20 +667,22 @@ fun WallpaperEditor(
                         }
                     }
                     
-                    // Invert button in bottom left corner
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .padding(12.dp)
-                    ) {
-                        EffectButton(
-                            isSelected = isInverted,
-                            onClick = { isInverted = !isInverted },
-                            icon = Icons.Default.InvertColors,
-                            contentDescription = "Invert",
-                            shape = buttonShape,
+                    // Invert button in bottom left corner (hidden when crop mode is active)
+                    if (!showCropOverlay) {
+                        Box(
                             modifier = Modifier
-                        )
+                                .align(Alignment.BottomStart)
+                                .padding(12.dp)
+                        ) {
+                            EffectButton(
+                                isSelected = isInverted,
+                                onClick = { isInverted = !isInverted },
+                                icon = Icons.Default.InvertColors,
+                                contentDescription = "Invert",
+                                shape = buttonShape,
+                                modifier = Modifier
+                            )
+                        }
                     }
                     
                     // Crop button in top right corner
@@ -703,20 +712,22 @@ fun WallpaperEditor(
                         )
                     }
                     
-                    // Reset button in bottom right corner
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(12.dp)
-                    ) {
-                        EffectButton(
-                            isSelected = false,
-                            onClick = { resetAll() },
-                            icon = Icons.Default.Refresh,
-                            contentDescription = "Reset",
-                            shape = buttonShape,
+                    // Reset button in bottom right corner (hidden when crop mode is active)
+                    if (!showCropOverlay) {
+                        Box(
                             modifier = Modifier
-                        )
+                                .align(Alignment.BottomEnd)
+                                .padding(12.dp)
+                        ) {
+                            EffectButton(
+                                isSelected = false,
+                                onClick = { resetAll() },
+                                icon = Icons.Default.Refresh,
+                                contentDescription = "Reset",
+                                shape = buttonShape,
+                                modifier = Modifier
+                            )
+                        }
                     }
                 }
                 
