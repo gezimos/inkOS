@@ -31,7 +31,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BlurOn
 import androidx.compose.material.icons.filled.Brightness6
-import androidx.compose.material.icons.filled.CropFree
+import androidx.compose.material.icons.filled.Crop
+import androidx.compose.material.icons.filled.ControlCamera
 import androidx.compose.material.icons.filled.Flip
 import androidx.compose.material.icons.filled.Gradient
 import androidx.compose.material.icons.filled.Grain
@@ -791,7 +792,7 @@ fun WallpaperEditor(
                                 ) {
                                     // Resize icon indicator
                                     Icon(
-                                        painter = painterResource(id = R.drawable.ic_foreground),
+                                        imageVector = Icons.Default.ControlCamera,
                                         contentDescription = "Resize",
                                         tint = Theme.colors.background,
                                         modifier = Modifier.size(16.dp)
@@ -852,11 +853,11 @@ fun WallpaperEditor(
                                 .background(Theme.colors.background.copy(alpha = 0.7f)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Image(
-                                painter = painterResource(id = R.drawable.ic_foreground),
+                            Icon(
+                                imageVector = Icons.Default.ControlCamera,
                                 contentDescription = "Loading",
                                 modifier = Modifier.size(48.dp),
-                                colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(Theme.colors.text)
+                                tint = Theme.colors.text
                             )
                         }
                     }
@@ -932,7 +933,7 @@ fun WallpaperEditor(
                                 showCropOverlay = true
                                 cropEnabled = true
                             }
-                        }, Icons.Default.CropFree, "Crop", buttonShape, Modifier.weight(1f))
+                        }, Icons.Default.Crop, "Crop", buttonShape, Modifier.weight(1f))
                     }
 
                     if (effectMode == "crop") {
