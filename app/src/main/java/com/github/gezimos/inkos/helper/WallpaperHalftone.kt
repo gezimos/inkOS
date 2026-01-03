@@ -120,15 +120,20 @@ class WallpaperHalftone(private val context: Context) {
                         val cellWidth = (endX - startX).toFloat()
                         val cellHeight = (endY - startY).toFloat()
                         
-                        when (shape) {
+                            when (shape) {
                             HalftoneShape.DOTS -> {
                                 // Calculate circle radius (proportional to darkness)
                                 // Dark areas (low gray) should have large dots, light areas (high gray) should have small dots
                                 // Invert: (1 - normalizedGray) so dark areas get large dots
                                 val radius = (1f - normalizedGray) * maxRadius
-                                
+
                                 if (radius > 0.5f) { // Only draw if radius is meaningful
+                                    // Draw without anti-aliasing to avoid gray fringes; use pure textColor
+                                    val oldAA = paint.isAntiAlias
+                                    paint.isAntiAlias = false
+                                    paint.style = Paint.Style.FILL
                                     canvas.drawCircle(centerX, centerY, radius, paint)
+                                    paint.isAntiAlias = oldAA
                                 }
                             }
                             HalftoneShape.LINES -> {
@@ -145,30 +150,27 @@ class WallpaperHalftone(private val context: Context) {
                                 val lineThickness = (1f - normalizedGray) * (maxLineThickness - minLineThickness) + minLineThickness
                                 
                                 if (lineThickness > 0.3f) {
-                                    // Draw diagonal line at 45 degrees (like Photoshop)
-                                    val angleRad = lineAngle * PI / 180.0
-                                    val cosAngle = cos(angleRad).toFloat()
-                                    val sinAngle = sin(angleRad).toFloat()
-                                    
-                                    // Calculate line endpoints to span the cell diagonally
+                                    // Draw diagonal filled rectangle (no anti-aliasing) to avoid gray edges
+                                    // Calculate angle and half-diagonal
+                                    val angleDeg = lineAngle
                                     val halfDiagonal = sqrt((cellWidth * cellWidth + cellHeight * cellHeight).toDouble()).toFloat() / 2f
-                                    val offsetX = halfDiagonal * cosAngle
-                                    val offsetY = halfDiagonal * sinAngle
-                                    
-                                    paint.style = Paint.Style.STROKE
-                                    paint.strokeWidth = lineThickness
-                                    paint.strokeCap = Paint.Cap.ROUND
-                                    
-                                    // Draw line from one corner to opposite corner
-                                    canvas.drawLine(
-                                        centerX - offsetX,
-                                        centerY - offsetY,
-                                        centerX + offsetX,
-                                        centerY + offsetY,
-                                        paint
-                                    )
-                                    
-                                    paint.style = Paint.Style.FILL  // Reset for next iteration
+
+                                    // Use a filled rect centered at (centerX, centerY) with length = 2*halfDiagonal and
+                                    // height = lineThickness. Rotate the canvas to draw the rect at desired angle.
+                                    paint.isAntiAlias = false
+                                    paint.style = Paint.Style.FILL
+
+                                    canvas.save()
+                                    canvas.rotate(angleDeg, centerX, centerY)
+                                    val left = centerX - halfDiagonal
+                                    val top = centerY - lineThickness / 2f
+                                    val right = centerX + halfDiagonal
+                                    val bottom = centerY + lineThickness / 2f
+                                    canvas.drawRect(left, top, right, bottom, paint)
+                                    canvas.restore()
+
+                                    // restore anti-alias for other shapes if needed
+                                    paint.isAntiAlias = true
                                 }
                             }
                         }
