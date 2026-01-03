@@ -917,13 +917,11 @@ fun WallpaperEditor(
                         EffectButton(effectMode == "flip", { 
                             effectMode = "flip"
                         }, Icons.Default.Flip, "Flip", buttonShape, Modifier.weight(1f))
-                        EffectButton(effectMode == "overlay" || overlayEnabled, { 
+                        EffectButton(effectMode == "overlay", {
                             effectMode = "overlay"
-                            overlayEnabled = true 
                         }, Icons.Default.Gradient, "Overlay", buttonShape, Modifier.weight(1f))
-                        EffectButton(effectMode == "dither" || ditherEnabled, { 
+                        EffectButton(effectMode == "dither", {
                             effectMode = "dither"
-                            ditherEnabled = !ditherEnabled
                         }, Icons.Default.BlurOn, "Dither", buttonShape, Modifier.weight(1f))
                         EffectButton(effectMode == "halftone", { effectMode = "halftone" },
                             Icons.Default.Grain, "Halftone", buttonShape, Modifier.weight(1f))
