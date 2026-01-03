@@ -1,6 +1,8 @@
 package com.github.gezimos.inkos.ui.compose
 
 import android.content.Intent
+import android.graphics.Bitmap
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -80,7 +82,37 @@ fun WallpaperUI(
     
     // Page state for presets
     var currentPresetPage by remember { mutableStateOf(0) }
-    
+
+    suspend fun applyAndSetWallpaper(
+        flags: Int,
+        editorState: WallpaperEditorState,
+        resourceId: Int?,
+        uri: Uri?
+    ): Boolean = withContext(Dispatchers.IO) {
+        // Only ever honor the baked crop; ignore live crop params to prevent re-cropping the full image.
+        val effectiveState = editorState.copy(cropEnabled = false)
+
+        // If user said they applied a crop but we have no baked file, refuse to proceed to avoid setting the full image.
+        if (effectiveState.cropApplied && effectiveState.bakedCroppedPath.isNullOrEmpty()) {
+            return@withContext false
+        }
+
+        val base: Bitmap? = when {
+            !effectiveState.bakedCroppedPath.isNullOrEmpty() -> wallpaperUtility.loadBitmapFromPath(effectiveState.bakedCroppedPath!!)
+            uri != null -> wallpaperUtility.loadBitmapFromUri(uri)
+            resourceId != null -> wallpaperUtility.loadBitmapFromResource(resourceId)
+            else -> null
+        }
+
+        if (base == null) return@withContext false
+
+        val processed = wallpaperUtility.applyEditorStateToBitmap(base, effectiveState)
+        val ok = wallpaperUtility.setWallpaperFromBitmap(processed, flags)
+        if (processed != base) processed.recycle()
+        base.recycle()
+        ok
+    }
+
 
     // Image picker launcher (for single image selection)
     val imagePickerLauncher = rememberLauncherForActivityResult(
@@ -115,29 +147,12 @@ fun WallpaperUI(
                                 overlayFalloff = editorState.overlayFalloff
                             )
                         } else {
-                            wallpaperUtility.setWallpaperFromUri(
-                                uri, 
-                                flags,
-                                flipHorizontal = editorState.flipHorizontal,
-                                flipVertical = editorState.flipVertical,
-                                brightness = editorState.brightness,
-                                contrast = editorState.contrast,
-                                isInverted = editorState.isInverted,
-                                thresholdLevel = editorState.thresholdLevel,
-                                ditherEnabled = editorState.ditherEnabled,
-                                ditherAlgorithm = editorState.ditherAlgorithm,
-                                halftoneIntensity = editorState.halftoneIntensity,
-                                halftoneDotSize = editorState.halftoneDotSize,
-                                halftoneShape = editorState.halftoneShape,
-                                overlayEnabled = editorState.overlayEnabled,
-                                overlaySide = editorState.overlaySide,
-                                overlaySpread = editorState.overlaySpread,
-                                overlayFalloff = editorState.overlayFalloff,
-                                cropEnabled = editorState.cropEnabled,
-                                cropX = editorState.cropX,
-                                cropY = editorState.cropY,
-                                cropScale = editorState.cropScale
-                            )
+                                            applyAndSetWallpaper(
+                                                flags = flags,
+                                                editorState = editorState,
+                                                resourceId = null,
+                                                uri = uri
+                                            )
                         }
                         isLoading = false
                         if (success) {
@@ -151,7 +166,6 @@ fun WallpaperUI(
             showSetWallpaperScreen = true
         }
     }
-
 
     SettingsTheme(isDark) {
         Column(
@@ -252,28 +266,11 @@ fun WallpaperUI(
                                                 overlayFalloff = editorState.overlayFalloff
                                             )
                                         } else {
-                                            wallpaperUtility.setWallpaperFromResource(
-                                                preset.resourceId,
-                                                flags,
-                                                flipHorizontal = editorState.flipHorizontal,
-                                                flipVertical = editorState.flipVertical,
-                                                brightness = editorState.brightness,
-                                                contrast = editorState.contrast,
-                                                isInverted = editorState.isInverted,
-                                                thresholdLevel = editorState.thresholdLevel,
-                                                ditherEnabled = editorState.ditherEnabled,
-                                                ditherAlgorithm = editorState.ditherAlgorithm,
-                                                halftoneIntensity = editorState.halftoneIntensity,
-                                                halftoneDotSize = editorState.halftoneDotSize,
-                                                halftoneShape = editorState.halftoneShape,
-                                                overlayEnabled = editorState.overlayEnabled,
-                                                overlaySide = editorState.overlaySide,
-                                                overlaySpread = editorState.overlaySpread,
-                                                overlayFalloff = editorState.overlayFalloff,
-                                                cropEnabled = editorState.cropEnabled,
-                                                cropX = editorState.cropX,
-                                                cropY = editorState.cropY,
-                                                cropScale = editorState.cropScale
+                                            applyAndSetWallpaper(
+                                                flags = flags,
+                                                editorState = editorState,
+                                                resourceId = preset.resourceId,
+                                                uri = null
                                             )
                                         }
                                         isLoading = false
@@ -363,69 +360,21 @@ fun WallpaperUI(
                         currentImageUri = null
                         currentEditorState = null
                         
+                        // Clear inkOS wallpaper when setting Android wallpaper
+                        val prefs = Prefs(context)
+                        prefs.inkosWallpaperPath = null
+                        
                         if (action != null) {
                             action(android.app.WallpaperManager.FLAG_SYSTEM, editorState, false)
-                        } else if (resourceId != null) {
+                        } else {
                             scope.launch {
                                 try {
                                     isLoading = true
-                                    val success = wallpaperUtility.setWallpaperFromResource(
+                                    val success = applyAndSetWallpaper(
+                                        android.app.WallpaperManager.FLAG_SYSTEM,
+                                        editorState,
                                         resourceId,
-                                        android.app.WallpaperManager.FLAG_SYSTEM,
-                                        flipHorizontal = editorState.flipHorizontal,
-                                        flipVertical = editorState.flipVertical,
-                                        brightness = editorState.brightness,
-                                        contrast = editorState.contrast,
-                                        isInverted = editorState.isInverted,
-                                        thresholdLevel = editorState.thresholdLevel,
-                                        ditherEnabled = editorState.ditherEnabled,
-                                        ditherAlgorithm = editorState.ditherAlgorithm,
-                                        halftoneIntensity = editorState.halftoneIntensity,
-                                        halftoneDotSize = editorState.halftoneDotSize,
-                                        halftoneShape = editorState.halftoneShape,
-                                        overlayEnabled = editorState.overlayEnabled,
-                                        overlaySide = editorState.overlaySide,
-                                        overlaySpread = editorState.overlaySpread,
-                                        overlayFalloff = editorState.overlayFalloff,
-                                        cropEnabled = editorState.cropEnabled,
-                                        cropX = editorState.cropX,
-                                        cropY = editorState.cropY,
-                                        cropScale = editorState.cropScale
-                                    )
-                                    isLoading = false
-                                    if (success) {
-                                        onWallpaperSet?.invoke() ?: onBackClick()
-                                    }
-                                } catch (_: Exception) {
-                                    isLoading = false
-                                }
-                            }
-                        } else if (uri != null) {
-                            scope.launch {
-                                try {
-                                    isLoading = true
-                                    val success = wallpaperUtility.setWallpaperFromUri(
-                                        uri,
-                                        android.app.WallpaperManager.FLAG_SYSTEM,
-                                        flipHorizontal = editorState.flipHorizontal,
-                                        flipVertical = editorState.flipVertical,
-                                        brightness = editorState.brightness,
-                                        contrast = editorState.contrast,
-                                        isInverted = editorState.isInverted,
-                                        thresholdLevel = editorState.thresholdLevel,
-                                        ditherEnabled = editorState.ditherEnabled,
-                                        ditherAlgorithm = editorState.ditherAlgorithm,
-                                        halftoneIntensity = editorState.halftoneIntensity,
-                                        halftoneDotSize = editorState.halftoneDotSize,
-                                        halftoneShape = editorState.halftoneShape,
-                                        overlayEnabled = editorState.overlayEnabled,
-                                        overlaySide = editorState.overlaySide,
-                                        overlaySpread = editorState.overlaySpread,
-                                        overlayFalloff = editorState.overlayFalloff,
-                                        cropEnabled = editorState.cropEnabled,
-                                        cropX = editorState.cropX,
-                                        cropY = editorState.cropY,
-                                        cropScale = editorState.cropScale
+                                        uri
                                     )
                                     isLoading = false
                                     if (success) {
@@ -449,69 +398,21 @@ fun WallpaperUI(
                         currentImageUri = null
                         currentEditorState = null
                         
+                        // Clear inkOS wallpaper when setting Android wallpaper
+                        val prefs = Prefs(context)
+                        prefs.inkosWallpaperPath = null
+                        
                         if (action != null) {
                             action(android.app.WallpaperManager.FLAG_LOCK, editorState, false)
-                        } else if (resourceId != null) {
+                        } else {
                             scope.launch {
                                 try {
                                     isLoading = true
-                                    val success = wallpaperUtility.setWallpaperFromResource(
+                                    val success = applyAndSetWallpaper(
+                                        android.app.WallpaperManager.FLAG_LOCK,
+                                        editorState,
                                         resourceId,
-                                        android.app.WallpaperManager.FLAG_LOCK,
-                                        flipHorizontal = editorState.flipHorizontal,
-                                        flipVertical = editorState.flipVertical,
-                                        brightness = editorState.brightness,
-                                        contrast = editorState.contrast,
-                                        isInverted = editorState.isInverted,
-                                        thresholdLevel = editorState.thresholdLevel,
-                                        ditherEnabled = editorState.ditherEnabled,
-                                        ditherAlgorithm = editorState.ditherAlgorithm,
-                                        halftoneIntensity = editorState.halftoneIntensity,
-                                        halftoneDotSize = editorState.halftoneDotSize,
-                                        halftoneShape = editorState.halftoneShape,
-                                        overlayEnabled = editorState.overlayEnabled,
-                                        overlaySide = editorState.overlaySide,
-                                        overlaySpread = editorState.overlaySpread,
-                                        overlayFalloff = editorState.overlayFalloff,
-                                        cropEnabled = editorState.cropEnabled,
-                                        cropX = editorState.cropX,
-                                        cropY = editorState.cropY,
-                                        cropScale = editorState.cropScale
-                                    )
-                                    isLoading = false
-                                    if (success) {
-                                        onWallpaperSet?.invoke() ?: onBackClick()
-                                    }
-                                } catch (_: Exception) {
-                                    isLoading = false
-                                }
-                            }
-                        } else if (uri != null) {
-                            scope.launch {
-                                try {
-                                    isLoading = true
-                                    val success = wallpaperUtility.setWallpaperFromUri(
-                                        uri,
-                                        android.app.WallpaperManager.FLAG_LOCK,
-                                        flipHorizontal = editorState.flipHorizontal,
-                                        flipVertical = editorState.flipVertical,
-                                        brightness = editorState.brightness,
-                                        contrast = editorState.contrast,
-                                        isInverted = editorState.isInverted,
-                                        thresholdLevel = editorState.thresholdLevel,
-                                        ditherEnabled = editorState.ditherEnabled,
-                                        ditherAlgorithm = editorState.ditherAlgorithm,
-                                        halftoneIntensity = editorState.halftoneIntensity,
-                                        halftoneDotSize = editorState.halftoneDotSize,
-                                        halftoneShape = editorState.halftoneShape,
-                                        overlayEnabled = editorState.overlayEnabled,
-                                        overlaySide = editorState.overlaySide,
-                                        overlaySpread = editorState.overlaySpread,
-                                        overlayFalloff = editorState.overlayFalloff,
-                                        cropEnabled = editorState.cropEnabled,
-                                        cropX = editorState.cropX,
-                                        cropY = editorState.cropY,
-                                        cropScale = editorState.cropScale
+                                        uri
                                     )
                                     isLoading = false
                                     if (success) {
@@ -535,71 +436,23 @@ fun WallpaperUI(
                         currentImageUri = null
                         currentEditorState = null
                         
+                        // Clear inkOS wallpaper when setting Android wallpaper
+                        val prefs = Prefs(context)
+                        prefs.inkosWallpaperPath = null
+                        
                         val flags = android.app.WallpaperManager.FLAG_SYSTEM or android.app.WallpaperManager.FLAG_LOCK
                         
                         if (action != null) {
                             action(flags, editorState, false)
-                        } else if (resourceId != null) {
+                        } else {
                             scope.launch {
                                 try {
                                     isLoading = true
-                                    val success = wallpaperUtility.setWallpaperFromResource(
+                                    val success = applyAndSetWallpaper(
+                                        flags,
+                                        editorState,
                                         resourceId,
-                                        flags,
-                                        flipHorizontal = editorState.flipHorizontal,
-                                        flipVertical = editorState.flipVertical,
-                                        brightness = editorState.brightness,
-                                        contrast = editorState.contrast,
-                                        isInverted = editorState.isInverted,
-                                        thresholdLevel = editorState.thresholdLevel,
-                                        ditherEnabled = editorState.ditherEnabled,
-                                        ditherAlgorithm = editorState.ditherAlgorithm,
-                                        halftoneIntensity = editorState.halftoneIntensity,
-                                        halftoneDotSize = editorState.halftoneDotSize,
-                                        halftoneShape = editorState.halftoneShape,
-                                        overlayEnabled = editorState.overlayEnabled,
-                                        overlaySide = editorState.overlaySide,
-                                        overlaySpread = editorState.overlaySpread,
-                                        overlayFalloff = editorState.overlayFalloff,
-                                        cropEnabled = editorState.cropEnabled,
-                                        cropX = editorState.cropX,
-                                        cropY = editorState.cropY,
-                                        cropScale = editorState.cropScale
-                                    )
-                                    isLoading = false
-                                    if (success) {
-                                        onWallpaperSet?.invoke() ?: onBackClick()
-                                    }
-                                } catch (_: Exception) {
-                                    isLoading = false
-                                }
-                            }
-                        } else if (uri != null) {
-                            scope.launch {
-                                try {
-                                    isLoading = true
-                                    val success = wallpaperUtility.setWallpaperFromUri(
-                                        uri,
-                                        flags,
-                                        flipHorizontal = editorState.flipHorizontal,
-                                        flipVertical = editorState.flipVertical,
-                                        brightness = editorState.brightness,
-                                        contrast = editorState.contrast,
-                                        isInverted = editorState.isInverted,
-                                        thresholdLevel = editorState.thresholdLevel,
-                                        ditherEnabled = editorState.ditherEnabled,
-                                        ditherAlgorithm = editorState.ditherAlgorithm,
-                                        halftoneIntensity = editorState.halftoneIntensity,
-                                        halftoneDotSize = editorState.halftoneDotSize,
-                                        halftoneShape = editorState.halftoneShape,
-                                        overlayEnabled = editorState.overlayEnabled,
-                                        overlaySide = editorState.overlaySide,
-                                        overlaySpread = editorState.overlaySpread,
-                                        overlayFalloff = editorState.overlayFalloff,
-                                        cropEnabled = editorState.cropEnabled,
-                                        cropX = editorState.cropX,
-                                        cropY = editorState.cropY,
-                                        cropScale = editorState.cropScale
+                                        uri
                                     )
                                     isLoading = false
                                     if (success) {
@@ -629,16 +482,21 @@ fun WallpaperUI(
                             try {
                                 isLoading = true
 
+                                val effectiveState = if (!editorState.bakedCroppedPath.isNullOrEmpty()) {
+                                    editorState.copy(cropEnabled = false)
+                                } else editorState
+
                                 val bitmap = withContext(Dispatchers.IO) {
-                                    if (uri != null) {
-                                        wallpaperUtility.loadBitmapFromUri(uri)
-                                    } else if (resourceId != null) {
-                                        wallpaperUtility.loadBitmapFromResource(resourceId)
-                                    } else null
+                                    when {
+                                        !editorState.bakedCroppedPath.isNullOrEmpty() -> wallpaperUtility.loadBitmapFromPath(editorState.bakedCroppedPath!!)
+                                        uri != null -> wallpaperUtility.loadBitmapFromUri(uri)
+                                        resourceId != null -> wallpaperUtility.loadBitmapFromResource(resourceId)
+                                        else -> null
+                                    }
                                 }
 
                                 if (bitmap != null) {
-                                    val processed = editorState.let { wallpaperUtility.applyEditorStateToBitmap(bitmap, it) }
+                                    val processed = wallpaperUtility.applyEditorStateToBitmap(bitmap, effectiveState)
                                     withContext(Dispatchers.IO) {
                                         val path = wallpaperUtility.saveBitmapToInternalStorage(processed, "inkos_wallpaper.png")
                                         prefs.inkosWallpaperPath = path
@@ -715,28 +573,11 @@ fun WallpaperUI(
                                 scope.launch {
                                     try {
                                         isLoading = true
-                                        val success = wallpaperUtility.setWallpaperFromResource(
-                                            resourceId,
-                                            flags,
-                                            flipHorizontal = editorState.flipHorizontal,
-                                            flipVertical = editorState.flipVertical,
-                                            brightness = editorState.brightness,
-                                            contrast = editorState.contrast,
-                                            isInverted = editorState.isInverted,
-                                            thresholdLevel = editorState.thresholdLevel,
-                                            ditherEnabled = editorState.ditherEnabled,
-                                            ditherAlgorithm = editorState.ditherAlgorithm,
-                                            halftoneIntensity = editorState.halftoneIntensity,
-                                            halftoneDotSize = editorState.halftoneDotSize,
-                                            halftoneShape = editorState.halftoneShape,
-                                            overlayEnabled = editorState.overlayEnabled,
-                                            overlaySide = editorState.overlaySide,
-                                            overlaySpread = editorState.overlaySpread,
-                                            overlayFalloff = editorState.overlayFalloff,
-                                            cropEnabled = editorState.cropEnabled,
-                                            cropX = editorState.cropX,
-                                            cropY = editorState.cropY,
-                                            cropScale = editorState.cropScale
+                                        val success = applyAndSetWallpaper(
+                                            flags = flags,
+                                            editorState = editorState,
+                                            resourceId = resourceId,
+                                            uri = null
                                         )
                                         isLoading = false
                                         if (success) {

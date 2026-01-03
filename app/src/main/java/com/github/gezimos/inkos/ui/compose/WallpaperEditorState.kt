@@ -22,5 +22,9 @@ data class WallpaperEditorState(
     val cropEnabled: Boolean = false,  // Whether crop mode is active
     val cropX: Float = 0.5f,  // Normalized X position (0-1) of crop center
     val cropY: Float = 0.5f,  // Normalized Y position (0-1) of crop center
-    val cropScale: Float = 0.8f  // Crop box scale (0.3-1.0, where 1.0 fills most of the image)
+    val cropScale: Float = 0.8f,  // Crop box scale (0.3-1.0, where 1.0 fills most of the image)
+    val previewWidthPx: Float = 0f,
+    val previewHeightPx: Float = 0f,
+    val bakedCroppedPath: String? = null,
+    val cropApplied: Boolean = false
 )

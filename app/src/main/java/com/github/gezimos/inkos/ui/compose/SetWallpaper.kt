@@ -137,49 +137,17 @@ fun SetWallpaper(
                         Column(
                             verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            if (hasInkosWallpaper.value) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    SetWallpaperOptionButton(
-                                        text = "inkOS",
-                                        onClick = {
-                                            onSetInkOSNoCrop()
-                                            hasInkosWallpaper.value = true
-                                        },
-                                        fontSize = titleFontSize,
-                                        shape = buttonShape,
-                                        isPrimary = false,
-                                        modifier = Modifier.weight(1f)
-                                    )
-
-                                    SetWallpaperOptionButton(
-                                        text = "✕",
-                                        onClick = {
-                                            hasInkosWallpaper.value = false
-                                            val prefs = Prefs(context)
-                                            prefs.inkosWallpaperPath = null
-                                        },
-                                        fontSize = titleFontSize,
-                                        shape = buttonShape,
-                                        isPrimary = false,
-                                        modifier = Modifier.width(60.dp)
-                                    )
-                                }
-                            } else {
-                                SetWallpaperOptionButton(
-                                    text = "inkOS",
-                                    onClick = {
-                                        onSetInkOSNoCrop()
-                                        hasInkosWallpaper.value = true
-                                    },
-                                    fontSize = titleFontSize,
-                                    shape = buttonShape,
-                                    isPrimary = false,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            }
+                            SetWallpaperOptionButton(
+                                text = "inkOS",
+                                onClick = {
+                                    onSetInkOSNoCrop()
+                                    hasInkosWallpaper.value = true
+                                },
+                                fontSize = titleFontSize,
+                                shape = buttonShape,
+                                isPrimary = false,
+                                modifier = Modifier.fillMaxWidth()
+                            )
 
                             Text(
                                 text = "Image overlay no crop",
@@ -309,7 +277,7 @@ fun SetWallpaper(
                     text = "inkOS wallpaper is a \"faux\" wallpaper, it's an image that appears over the actual android wallpaper layer.\n\n" +
                            "It's function it's meant to circumvent Android cropping and zooming in your wallpaper which might break the the 1:1 pixel scaling which can cause defect to your image especially if you're using an e-ink device.\n\n" +
                            "Make sure to use correct aspect ratio, or have the exact resolution as your display.\n\n" +
-                           "If you want to go back to using android wallpaper then click the X (clear button near the inkOS Wallpaper button)",
+                           "Setting an Android wallpaper will automatically clear the inkOS wallpaper.",
                     style = SettingsTheme.typography.body,
                     fontSize = buttonFontSize,
                     color = Theme.colors.text

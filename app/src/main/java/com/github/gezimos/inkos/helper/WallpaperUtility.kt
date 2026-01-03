@@ -137,7 +137,9 @@ class WallpaperUtility(private val context: Context) {
         cropEnabled: Boolean = false,
         cropX: Float = 0.5f,
         cropY: Float = 0.5f,
-        cropScale: Float = 0.8f
+        cropScale: Float = 0.8f,
+        previewWidthPx: Float? = null,
+        previewHeightPx: Float? = null
     ): Boolean = withContext(Dispatchers.IO) {
         var bitmap: Bitmap? = null
         try {
@@ -147,7 +149,7 @@ class WallpaperUtility(private val context: Context) {
                 bitmap = originalBitmap.copy(Bitmap.Config.ARGB_8888, true)
                 
                 // Apply transformations in order: Flip → Brightness → Contrast → Invert → Threshold → Dithering → Halftone → Overlay
-                var transformedBitmap = bitmap
+                var transformedBitmap = bitmap!!
                 
                 if (flipHorizontal) {
                     android.util.Log.d("WallpaperUtility", "Applying horizontal flip")
@@ -235,7 +237,16 @@ class WallpaperUtility(private val context: Context) {
                 // Apply crop (should be last transformation to get final wallpaper size)
                 if (cropEnabled) {
                     android.util.Log.d("WallpaperUtility", "Applying crop: x=$cropX, y=$cropY, scale=$cropScale")
-                    val cropped = cropBitmap(transformedBitmap, cropX, cropY, cropScale)
+                    val cropped = cropBitmap(
+                        transformedBitmap,
+                        cropX,
+                        cropY,
+                        cropScale,
+                        screenWidth,
+                        screenHeight,
+                        previewWidthPx,
+                        previewHeightPx
+                    )
                     if (cropped != transformedBitmap) {
                         if (transformedBitmap != bitmap) transformedBitmap?.recycle()
                     }
@@ -294,7 +305,9 @@ class WallpaperUtility(private val context: Context) {
         cropEnabled: Boolean = false,
         cropX: Float = 0.5f,
         cropY: Float = 0.5f,
-        cropScale: Float = 0.8f
+        cropScale: Float = 0.8f,
+        previewWidthPx: Float? = null,
+        previewHeightPx: Float? = null
     ): Boolean = withContext(Dispatchers.IO) {
         var bitmap: Bitmap? = null
         try {
@@ -434,7 +447,16 @@ class WallpaperUtility(private val context: Context) {
                 // Apply crop (should be last transformation to get final wallpaper size)
                 if (cropEnabled) {
                     android.util.Log.d("WallpaperUtility", "Applying crop: x=$cropX, y=$cropY, scale=$cropScale")
-                    val cropped = cropBitmap(transformedBitmap, cropX, cropY, cropScale)
+                    val cropped = cropBitmap(
+                        transformedBitmap,
+                        cropX,
+                        cropY,
+                        cropScale,
+                        screenWidth,
+                        screenHeight,
+                        previewWidthPx,
+                        previewHeightPx
+                    )
                     if (cropped != transformedBitmap) {
                         transformedBitmap.recycle()
                     }
@@ -539,6 +561,15 @@ class WallpaperUtility(private val context: Context) {
             return null
         }
     }
+
+    fun loadBitmapFromPath(path: String): Bitmap? {
+        return try {
+            BitmapFactory.decodeFile(path)
+        } catch (e: Exception) {
+            android.util.Log.e("WallpaperUtility", "Failed to load bitmap from path", e)
+            null
+        }
+    }
     
     /**
      * Apply editor state effects to a bitmap
@@ -548,7 +579,16 @@ class WallpaperUtility(private val context: Context) {
         
         // Apply crop first
         if (editorState.cropEnabled) {
-            val cropped = cropBitmap(b, editorState.cropX, editorState.cropY, editorState.cropScale)
+            val cropped = cropBitmap(
+                b,
+                editorState.cropX,
+                editorState.cropY,
+                editorState.cropScale,
+                screenWidth,
+                screenHeight,
+                editorState.previewWidthPx.takeIf { it > 0f },
+                editorState.previewHeightPx.takeIf { it > 0f }
+            )
             if (cropped != b) {
                 b.recycle()
                 b = cropped
@@ -737,60 +777,95 @@ class WallpaperUtility(private val context: Context) {
         cropY: Float,
         cropScale: Float = 0.8f,
         targetWidth: Int = screenWidth,
-        targetHeight: Int = screenHeight
+        targetHeight: Int = screenHeight,
+        previewWidthPx: Float? = null,
+        previewHeightPx: Float? = null
     ): Bitmap {
         return try {
-            android.util.Log.d("WallpaperUtility", "cropBitmap called: cropX=$cropX, cropY=$cropY, scale=$cropScale")
-            android.util.Log.d("WallpaperUtility", "Source bitmap: ${bitmap.width}x${bitmap.height}")
-            android.util.Log.d("WallpaperUtility", "Target size: ${targetWidth}x${targetHeight}")
-            
-            val sourceWidth = bitmap.width
-            val sourceHeight = bitmap.height
+            val sourceWidth = bitmap.width.toFloat()
+            val sourceHeight = bitmap.height.toFloat()
+            val sourceAspectRatio = sourceWidth / sourceHeight
             val targetAspectRatio = targetHeight.toFloat() / targetWidth.toFloat()
             val scale = cropScale.coerceIn(0.3f, 1.0f)
-            
-            // Calculate maximum possible crop region dimensions (maintaining target aspect ratio)
-            val maxCropWidth: Int
-            val maxCropHeight: Int
-            val sourceAspectRatio = sourceHeight.toFloat() / sourceWidth.toFloat()
-            
-            if (sourceAspectRatio > targetAspectRatio) {
-                // Source is taller than target, crop height
-                maxCropWidth = sourceWidth
-                maxCropHeight = (sourceWidth * targetAspectRatio).toInt()
+
+            // Calculate how the image would be displayed in the preview (ContentScale.Fit)
+            // Use provided preview dimensions if available, otherwise fall back to screen size
+            val previewWidth = previewWidthPx ?: screenWidth.toFloat()
+            val previewHeight = previewHeightPx ?: screenHeight.toFloat()
+            val previewAspectRatio = previewWidth / previewHeight
+
+            val imageDisplayWidth: Float
+            val imageDisplayHeight: Float
+            val offsetX: Float
+            val offsetY: Float
+
+            if (sourceAspectRatio > previewAspectRatio) {
+                // Source is wider than preview, fit to height
+                imageDisplayHeight = previewHeight
+                imageDisplayWidth = previewHeight * sourceAspectRatio
+                offsetX = (previewWidth - imageDisplayWidth) / 2f
+                offsetY = 0f
             } else {
-                // Source is wider than target, crop width
-                maxCropHeight = sourceHeight
-                maxCropWidth = (sourceHeight / targetAspectRatio).toInt()
+                // Source is taller than preview, fit to width
+                imageDisplayWidth = previewWidth
+                imageDisplayHeight = previewWidth / sourceAspectRatio
+                offsetX = 0f
+                offsetY = (previewHeight - imageDisplayHeight) / 2f
             }
-            
-            // Apply scale to crop dimensions
-            val cropWidth = (maxCropWidth * scale).toInt().coerceAtMost(sourceWidth)
-            val cropHeight = (maxCropHeight * scale).toInt().coerceAtMost(sourceHeight)
-            
-            android.util.Log.d("WallpaperUtility", "Crop dimensions: ${cropWidth}x${cropHeight}")
-            
-            // Calculate maximum allowed crop area (leaving space for the crop box to move)
-            val availableWidth = sourceWidth - cropWidth
-            val availableHeight = sourceHeight - cropHeight
-            
-            // Convert normalized position to absolute pixel position
-            val cropLeft = (availableWidth * cropX).toInt().coerceIn(0, availableWidth.coerceAtLeast(0))
-            val cropTop = (availableHeight * cropY).toInt().coerceIn(0, availableHeight.coerceAtLeast(0))
-            
-            android.util.Log.d("WallpaperUtility", "Crop position: left=$cropLeft, top=$cropTop")
-            
-            // Extract the crop region
+
+            // Calculate crop box size based on target aspect ratio
+            val cropBoxHeight = imageDisplayHeight * scale
+            val cropBoxWidth = cropBoxHeight / targetAspectRatio
+
+            // Ensure crop box fits within displayed image bounds
+            val finalCropBoxWidth = cropBoxWidth.coerceAtMost(imageDisplayWidth)
+            val finalCropBoxHeight = (finalCropBoxWidth * targetAspectRatio).coerceAtMost(imageDisplayHeight)
+
+            // Calculate available movement area in display coordinates (never negative)
+            val availableDisplayWidth = (imageDisplayWidth - finalCropBoxWidth).coerceAtLeast(0f)
+            val availableDisplayHeight = (imageDisplayHeight - finalCropBoxHeight).coerceAtLeast(0f)
+
+            // Convert normalized position to display coordinates with clamped inputs
+            val clampedX = cropX.coerceIn(0f, 1f)
+            val clampedY = cropY.coerceIn(0f, 1f)
+            val cropDisplayLeft = offsetX + (availableDisplayWidth * clampedX)
+            val cropDisplayTop = offsetY + (availableDisplayHeight * clampedY)
+
+            // Map display coordinates back to source bitmap coordinates.
+            // Remove the preview offset before scaling so centered/letterboxed images map correctly.
+            val scaleX = sourceWidth / imageDisplayWidth
+            val scaleY = sourceHeight / imageDisplayHeight
+
+            val cropDisplayLeftInImage = (cropDisplayLeft - offsetX).coerceIn(0f, imageDisplayWidth - finalCropBoxWidth)
+            val cropDisplayTopInImage = (cropDisplayTop - offsetY).coerceIn(0f, imageDisplayHeight - finalCropBoxHeight)
+
+            val cropSourceLeft = (cropDisplayLeftInImage * scaleX).coerceIn(0f, sourceWidth - 1f)
+            val cropSourceTop = (cropDisplayTopInImage * scaleY).coerceIn(0f, sourceHeight - 1f)
+            val cropSourceWidth = (finalCropBoxWidth * scaleX).coerceAtMost(sourceWidth - cropSourceLeft)
+            val cropSourceHeight = (finalCropBoxHeight * scaleY).coerceAtMost(sourceHeight - cropSourceTop)
+
+            // Avoid zero-sized crops on low-resolution images
+            val cropWidthInt = cropSourceWidth.toInt().coerceAtLeast(1).coerceAtMost((sourceWidth - cropSourceLeft).toInt())
+            val cropHeightInt = cropSourceHeight.toInt().coerceAtLeast(1).coerceAtMost((sourceHeight - cropSourceTop).toInt())
+
+            // Extract the crop region from source bitmap
             val croppedBitmap = Bitmap.createBitmap(
                 bitmap,
-                cropLeft,
-                cropTop,
-                cropWidth.coerceAtMost(sourceWidth - cropLeft),
-                cropHeight.coerceAtMost(sourceHeight - cropTop)
+                cropSourceLeft.toInt(),
+                cropSourceTop.toInt(),
+                cropWidthInt,
+                cropHeightInt
             )
-            
-            android.util.Log.d("WallpaperUtility", "Cropped bitmap: ${croppedBitmap.width}x${croppedBitmap.height}")
-            croppedBitmap
+
+            // Scale the cropped bitmap to fit target dimensions
+            val scaledBitmap = Bitmap.createScaledBitmap(croppedBitmap, targetWidth, targetHeight, true)
+
+            // Clean up
+            if (scaledBitmap != croppedBitmap) {
+                croppedBitmap.recycle()
+            }
+
+            scaledBitmap
         } catch (e: Exception) {
             android.util.Log.e("WallpaperUtility", "Failed to crop bitmap", e)
             e.printStackTrace()
@@ -798,12 +873,6 @@ class WallpaperUtility(private val context: Context) {
         }
     }
     
-    /**
-     * Apply threshold/posterization to convert grayscale to pure black/white
-     * @param bitmap Source bitmap
-     * @param thresholdLevel Threshold level (0-100), where 50 = middle gray
-     * @return Threshold bitmap (pure black/white)
-     */
     fun applyThreshold(bitmap: Bitmap, thresholdLevel: Int): Bitmap {
         if (thresholdLevel < 0 || thresholdLevel > 100) return bitmap
         
@@ -1028,7 +1097,7 @@ class WallpaperUtility(private val context: Context) {
         }
     }
     
-    private fun createFittedBitmap(sourceBitmap: Bitmap, targetWidth: Int, targetHeight: Int): Bitmap {
+    fun createFittedBitmap(sourceBitmap: Bitmap, targetWidth: Int, targetHeight: Int): Bitmap {
         val canvasBitmap = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(canvasBitmap)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -1078,7 +1147,7 @@ class WallpaperUtility(private val context: Context) {
                 
                 // Apply transformations in order: Flip → Brightness → Contrast → Invert → Threshold → Dithering → Halftone → Overlay
                 android.util.Log.d("WallpaperUtility", "setNoCropWallpaperFromResource: flipH=$flipHorizontal, flipV=$flipVertical, brightness=$brightness, contrast=$contrast, invert=$isInverted, threshold=$thresholdLevel, dither=$ditherEnabled, halftone=$halftoneIntensity dotSize=$halftoneDotSize, overlay=$overlayEnabled side=$overlaySide spread=$overlaySpread")
-                var transformedBitmap = bitmap
+                var transformedBitmap = bitmap!!
                 
                 if (flipHorizontal) {
                     android.util.Log.d("WallpaperUtility", "Applying horizontal flip")

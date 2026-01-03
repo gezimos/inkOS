@@ -45,6 +45,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,6 +56,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -68,6 +70,7 @@ import com.github.gezimos.inkos.style.SettingsTheme
 import com.github.gezimos.inkos.style.Theme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 import androidx.compose.ui.graphics.ColorMatrix as ComposeColorMatrix
 
@@ -132,6 +135,10 @@ fun WallpaperEditor(
     var ditherEnabled by remember { mutableStateOf(false) }
     var ditherAlgorithm by remember { mutableStateOf(WallpaperDither.DitherAlgorithm.FLOYD_STEINBERG) }
     var effectMode by remember { mutableStateOf("brightness-contrast") }
+
+    // Preview dimensions in pixels (used for correct crop mapping)
+    var previewWidthPx by remember { mutableStateOf(0f) }
+    var previewHeightPx by remember { mutableStateOf(0f) }
     
     // Bitmap states
     // sourceBitmap: original loaded image, never modified
@@ -139,12 +146,18 @@ fun WallpaperEditor(
     // brightness/contrast/flip are applied via Compose ColorFilter/graphicsLayer (instant)
     var sourceBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var processedBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
+    var originalBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var bakedCroppedPath by remember { mutableStateOf<String?>(null) }
+    var cropApplied by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(true) }
     var isProcessing by remember { mutableStateOf(false) }
+    var isSavingCrop by remember { mutableStateOf(false) }
     // Generation counter to track processing jobs and prevent stale updates
     var processingGeneration by remember { mutableStateOf(0) }
     // State for showing image selection buttons overlay
     var showImageSelectionButtons by remember { mutableStateOf(false) }
+
+    val scope = rememberCoroutineScope()
     
     // Handle system back/gesture by invoking the provided onBackClick
     BackHandler(enabled = true) {
@@ -207,7 +220,12 @@ fun WallpaperEditor(
             }
         }
         
-        sourceBitmap = loaded
+        // Keep an original copy for reset, and a working copy for edits
+        originalBitmap?.let { if (it != loaded && !it.isRecycled) it.recycle() }
+        originalBitmap = loaded?.copy(Bitmap.Config.ARGB_8888, true)
+        sourceBitmap?.let { if (it != originalBitmap && !it.isRecycled) it.recycle() }
+        sourceBitmap = originalBitmap?.copy(Bitmap.Config.ARGB_8888, true)
+        processedBitmap = sourceBitmap?.asImageBitmap()
         isLoading = false
     }
     
@@ -391,8 +409,63 @@ fun WallpaperEditor(
         cropEnabled = cropEnabled,
         cropX = cropX,
         cropY = cropY,
-        cropScale = cropScale
+        cropScale = cropScale,
+        previewWidthPx = previewWidthPx,
+        previewHeightPx = previewHeightPx,
+        bakedCroppedPath = bakedCroppedPath,
+        cropApplied = cropApplied
         )
+    }
+
+    fun resetCropState() {
+        val original = originalBitmap ?: return
+        val fresh = original.copy(Bitmap.Config.ARGB_8888, true)
+        sourceBitmap?.let { if (it != original && !it.isRecycled) it.recycle() }
+        sourceBitmap = fresh
+        processedBitmap = fresh.asImageBitmap()
+        cropEnabled = true
+        showCropOverlay = true
+        cropX = 0.5f
+        cropY = 0.5f
+        cropScale = 0.8f
+        bakedCroppedPath = null
+        cropApplied = false
+        isSavingCrop = false
+        effectMode = "crop"
+    }
+
+    fun saveCropAndBake() {
+        val src = sourceBitmap ?: return
+        val pw = previewWidthPx.takeIf { it > 0f } ?: wallpaperUtility.screenWidth.toFloat()
+        val ph = previewHeightPx.takeIf { it > 0f } ?: wallpaperUtility.screenHeight.toFloat()
+        if (isSavingCrop) return
+        scope.launch {
+            isSavingCrop = true
+            val cropped = withContext(Dispatchers.Default) {
+                wallpaperUtility.cropBitmap(
+                    src,
+                    cropX,
+                    cropY,
+                    cropScale,
+                    wallpaperUtility.screenWidth,
+                    wallpaperUtility.screenHeight,
+                    pw,
+                    ph
+                )
+            }
+            // Move back to main to update state
+            sourceBitmap?.let { if (it != cropped && !it.isRecycled) it.recycle() }
+            sourceBitmap = cropped.copy(Bitmap.Config.ARGB_8888, true)
+            processedBitmap = sourceBitmap?.asImageBitmap()
+            bakedCroppedPath = wallpaperUtility.saveBitmapToInternalStorage(cropped, "inkos_cropped.png")
+            cropApplied = true
+            // Disable further auto-crop until user re-enables
+            cropEnabled = false
+            showCropOverlay = false
+            isSavingCrop = false
+            // Return to brightness/contrast by default after save
+            effectMode = "brightness-contrast"
+        }
     }
     
     fun resetAll() {
@@ -416,6 +489,8 @@ fun WallpaperEditor(
         cropX = 0.5f
         cropY = 0.5f
         cropScale = 0.8f
+        bakedCroppedPath = null
+        cropApplied = false
         // After reset, switch to the brightness tool
         effectMode = "crop"
     }
@@ -497,6 +572,10 @@ fun WallpaperEditor(
                         ) {
                             val previewWidth = maxWidth.value
                             val previewHeight = maxHeight.value
+                            val density = LocalDensity.current
+                            // Record preview size in pixels for accurate crop mapping
+                            previewWidthPx = previewWidth * density.density
+                            previewHeightPx = previewHeight * density.density
                             
                             // Calculate actual image display size based on ContentScale.Fit
                             val imageAspectRatio = displayBitmap.width.toFloat() / displayBitmap.height.toFloat()
@@ -527,10 +606,16 @@ fun WallpaperEditor(
                             val maxX = minX + imageDisplayWidth - finalCropBoxWidth
                             val minY = (previewHeight - imageDisplayHeight) / 2f
                             val maxY = minY + imageDisplayHeight - finalCropBoxHeight
-                            
+
+                            // Guard against precision cases where max < min when the crop box equals the image size.
+                            val safeMinX = minX
+                            val safeMaxX = if (maxX < minX) minX else maxX
+                            val safeMinY = minY
+                            val safeMaxY = if (maxY < minY) minY else maxY
+
                             // Convert normalized position to absolute position
-                            val cropBoxX = (minX + (maxX - minX) * cropX).coerceIn(minX, maxX)
-                            val cropBoxY = (minY + (maxY - minY) * cropY).coerceIn(minY, maxY)
+                            val cropBoxX = (safeMinX + (safeMaxX - safeMinX) * cropX.coerceIn(0f, 1f)).coerceIn(safeMinX, safeMaxX)
+                            val cropBoxY = (safeMinY + (safeMaxY - safeMinY) * cropY.coerceIn(0f, 1f)).coerceIn(safeMinY, safeMaxY)
                             
                             // Dimmed overlay outside crop area (four rectangles)
                             // Top area
@@ -578,8 +663,9 @@ fun WallpaperEditor(
                                                 // Convert pixel drag to normalized coordinates
                                                 val rangeX = (maxX - minX).coerceAtLeast(1f)
                                                 val rangeY = (maxY - minY).coerceAtLeast(1f)
-                                                val deltaX = (pan.x / density) / rangeX
-                                                val deltaY = (pan.y / density) / rangeY
+                                                val densityFactor = density.density
+                                                val deltaX = (pan.x / densityFactor) / rangeX
+                                                val deltaY = (pan.y / densityFactor) / rangeY
                                                 cropX = (cropX + deltaX).coerceIn(0f, 1f)
                                                 cropY = (cropY + deltaY).coerceIn(0f, 1f)
                                                 // Lock in the crop once user interacts
@@ -758,6 +844,32 @@ fun WallpaperEditor(
                             }
                         }, Icons.Default.CropFree, "Crop", buttonShape, Modifier.weight(1f))
                     }
+
+                    if (effectMode == "crop") {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            TextButton(
+                                text = if (isSavingCrop) "Saving…" else "Save Crop",
+                                isSelected = true,
+                                onClick = { if (!isSavingCrop) saveCropAndBake() },
+                                fontSize = buttonFontSize,
+                                shape = buttonShape,
+                                modifier = Modifier.weight(1f)
+                            )
+                            TextButton(
+                                text = "Reset Crop",
+                                isSelected = false,
+                                onClick = { if (!isSavingCrop) resetCropState() },
+                                fontSize = buttonFontSize,
+                                shape = buttonShape,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
                     
                     // Flip/Rotate controls
                     if (effectMode == "flip") {
@@ -808,8 +920,8 @@ fun WallpaperEditor(
                         }
                     }
                     
-                    // Slider section
-                    if (effectMode != "flip" && effectMode != "dither") {
+                    // Slider section (skip entirely in crop mode)
+                    if (effectMode != "flip" && effectMode != "dither" && effectMode != "crop") {
                         if (effectMode == "brightness-contrast") {
                             // Brightness and Contrast sliders
                             Column(
