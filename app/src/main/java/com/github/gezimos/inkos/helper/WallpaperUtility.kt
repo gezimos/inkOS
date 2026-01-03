@@ -121,6 +121,7 @@ class WallpaperUtility(private val context: Context) {
         flags: Int = WallpaperManager.FLAG_SYSTEM,
         flipHorizontal: Boolean = false,
         flipVertical: Boolean = false,
+        rotation: Int = 0,
         brightness: Int = 0,
         contrast: Int = 0,
         isInverted: Boolean = false,
@@ -289,6 +290,7 @@ class WallpaperUtility(private val context: Context) {
         flags: Int = WallpaperManager.FLAG_SYSTEM,
         flipHorizontal: Boolean = false,
         flipVertical: Boolean = false,
+        rotation: Int = 0,
         brightness: Int = 0,
         contrast: Int = 0,
         isInverted: Boolean = false,
@@ -376,6 +378,14 @@ class WallpaperUtility(private val context: Context) {
                         transformedBitmap.recycle()
                     }
                     transformedBitmap = flipped
+                }
+                if (rotation != 0) {
+                    android.util.Log.d("WallpaperUtility", "Applying rotation: $rotation")
+                    val rotated = rotateBitmap(transformedBitmap, rotation)
+                    if (rotated != transformedBitmap) {
+                        transformedBitmap.recycle()
+                    }
+                    transformedBitmap = rotated
                 }
                 if (brightness != 0) {
                     android.util.Log.d("WallpaperUtility", "Applying brightness: $brightness")
@@ -573,11 +583,37 @@ class WallpaperUtility(private val context: Context) {
     
     /**
      * Apply editor state effects to a bitmap
+     * Transformation order: flip → rotate → crop → brightness/contrast → effects
      */
     fun applyEditorStateToBitmap(bitmap: Bitmap, editorState: com.github.gezimos.inkos.ui.compose.WallpaperEditorState): Bitmap {
         var b = bitmap.copy(Bitmap.Config.ARGB_8888, true) ?: return bitmap
         
-        // Apply crop first
+        // Apply flips first
+        if (editorState.flipHorizontal) {
+            val flipped = flipBitmapHorizontally(b)
+            if (flipped != b) {
+                b.recycle()
+                b = flipped
+            }
+        }
+        if (editorState.flipVertical) {
+            val flipped = flipBitmapVertically(b)
+            if (flipped != b) {
+                b.recycle()
+                b = flipped
+            }
+        }
+        
+        // Apply rotation
+        if (editorState.rotation != 0) {
+            val rotated = rotateBitmap(b, editorState.rotation)
+            if (rotated != b) {
+                b.recycle()
+                b = rotated
+            }
+        }
+        
+        // Apply crop after flip/rotate
         if (editorState.cropEnabled) {
             val cropped = cropBitmap(
                 b,
@@ -592,22 +628,6 @@ class WallpaperUtility(private val context: Context) {
             if (cropped != b) {
                 b.recycle()
                 b = cropped
-            }
-        }
-        
-        // Apply flips
-        if (editorState.flipHorizontal) {
-            val flipped = flipBitmapHorizontally(b)
-            if (flipped != b) {
-                b.recycle()
-                b = flipped
-            }
-        }
-        if (editorState.flipVertical) {
-            val flipped = flipBitmapVertically(b)
-            if (flipped != b) {
-                b.recycle()
-                b = flipped
             }
         }
         
@@ -1091,6 +1111,7 @@ class WallpaperUtility(private val context: Context) {
         flags: Int = WallpaperManager.FLAG_SYSTEM,
         flipHorizontal: Boolean = false,
         flipVertical: Boolean = false,
+        rotation: Int = 0,
         brightness: Int = 0,
         contrast: Int = 0,
         isInverted: Boolean = false,
@@ -1221,6 +1242,7 @@ class WallpaperUtility(private val context: Context) {
         flags: Int = WallpaperManager.FLAG_SYSTEM,
         flipHorizontal: Boolean = false,
         flipVertical: Boolean = false,
+        rotation: Int = 0,
         brightness: Int = 0,
         contrast: Int = 0,
         isInverted: Boolean = false,

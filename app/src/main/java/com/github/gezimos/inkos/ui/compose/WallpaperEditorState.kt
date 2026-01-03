@@ -6,6 +6,7 @@ import com.github.gezimos.inkos.helper.WallpaperDither
 data class WallpaperEditorState(
     val flipHorizontal: Boolean = false,
     val flipVertical: Boolean = false,
+    val rotation: Int = 0,  // 0, 90, 180, 270 degrees
     val brightness: Int = 0,
     val contrast: Int = 0,
     val isInverted: Boolean = false,

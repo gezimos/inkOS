@@ -393,6 +393,7 @@ fun WallpaperEditor(
         return WallpaperEditorState(
         flipHorizontal = flipHorizontal,
         flipVertical = flipVertical,
+        rotation = rotation,
         brightness = brightness,
         contrast = contrast,
         isInverted = isInverted,
@@ -417,6 +418,46 @@ fun WallpaperEditor(
         )
     }
 
+    fun bakeTransformationsToSource() {
+        val src = sourceBitmap ?: return
+        scope.launch {
+            val transformed = withContext(Dispatchers.Default) {
+                var bitmap = src.copy(Bitmap.Config.ARGB_8888, true) ?: return@withContext src
+                
+                // Apply flip/rotate transformations to the bitmap
+                if (flipHorizontal) {
+                    val flipped = wallpaperUtility.flipBitmapHorizontally(bitmap)
+                    if (flipped != bitmap && !bitmap.isRecycled) bitmap.recycle()
+                    bitmap = flipped
+                }
+                if (flipVertical) {
+                    val flipped = wallpaperUtility.flipBitmapVertically(bitmap)
+                    if (flipped != bitmap && !bitmap.isRecycled) bitmap.recycle()
+                    bitmap = flipped
+                }
+                if (rotation != 0) {
+                    val rotated = wallpaperUtility.rotateBitmap(bitmap, rotation)
+                    if (rotated != bitmap && !bitmap.isRecycled) bitmap.recycle()
+                    bitmap = rotated
+                }
+                
+                bitmap
+            }
+            
+            // Update sourceBitmap with the baked transformations
+            if (transformed != src) {
+                sourceBitmap?.let { if (it != transformed && !it.isRecycled) it.recycle() }
+                sourceBitmap = transformed
+                processedBitmap = transformed.asImageBitmap()
+                
+                // Reset flip/rotate states since they're now baked in
+                flipHorizontal = false
+                flipVertical = false
+                rotation = 0
+            }
+        }
+    }
+
     fun resetCropState() {
         val original = originalBitmap ?: return
         val fresh = original.copy(Bitmap.Config.ARGB_8888, true)
@@ -435,12 +476,50 @@ fun WallpaperEditor(
     }
 
     fun saveCropAndBake() {
-        val src = sourceBitmap ?: return
         val pw = previewWidthPx.takeIf { it > 0f } ?: wallpaperUtility.screenWidth.toFloat()
         val ph = previewHeightPx.takeIf { it > 0f } ?: wallpaperUtility.screenHeight.toFloat()
         if (isSavingCrop) return
         scope.launch {
             isSavingCrop = true
+            
+            // First, bake any flip/rotate transformations into sourceBitmap
+            if (flipHorizontal || flipVertical || rotation != 0) {
+                val src = sourceBitmap ?: return@launch
+                val transformed = withContext(Dispatchers.Default) {
+                    var bitmap = src.copy(Bitmap.Config.ARGB_8888, true) ?: return@withContext src
+                    
+                    if (flipHorizontal) {
+                        val flipped = wallpaperUtility.flipBitmapHorizontally(bitmap)
+                        if (flipped != bitmap && !bitmap.isRecycled) bitmap.recycle()
+                        bitmap = flipped
+                    }
+                    if (flipVertical) {
+                        val flipped = wallpaperUtility.flipBitmapVertically(bitmap)
+                        if (flipped != bitmap && !bitmap.isRecycled) bitmap.recycle()
+                        bitmap = flipped
+                    }
+                    if (rotation != 0) {
+                        val rotated = wallpaperUtility.rotateBitmap(bitmap, rotation)
+                        if (rotated != bitmap && !bitmap.isRecycled) bitmap.recycle()
+                        bitmap = rotated
+                    }
+                    
+                    bitmap
+                }
+                
+                if (transformed != src) {
+                    sourceBitmap?.let { if (it != transformed && !it.isRecycled) it.recycle() }
+                    sourceBitmap = transformed
+                }
+                
+                // Reset flip/rotate states since they're now baked in
+                flipHorizontal = false
+                flipVertical = false
+                rotation = 0
+            }
+            
+            // Now crop the transformed image
+            val src = sourceBitmap ?: return@launch
             val cropped = withContext(Dispatchers.Default) {
                 wallpaperUtility.cropBitmap(
                     src,
@@ -469,11 +548,22 @@ fun WallpaperEditor(
     }
     
     fun resetAll() {
+        // Restore original bitmap (no transformations)
+        val original = originalBitmap
+        if (original != null) {
+            val fresh = original.copy(Bitmap.Config.ARGB_8888, true)
+            sourceBitmap?.let { if (it != original && !it.isRecycled) it.recycle() }
+            sourceBitmap = fresh
+            processedBitmap = fresh.asImageBitmap()
+        }
+        
+        // Reset all editor states
         halftoneIntensity = 0
         halftoneDotSize = 50
         halftoneShape = WallpaperHalftone.HalftoneShape.DOTS
         flipHorizontal = false
         flipVertical = false
+        rotation = 0
         brightness = 0
         contrast = 0
         isInverted = false
