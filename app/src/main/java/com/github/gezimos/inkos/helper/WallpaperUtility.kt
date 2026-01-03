@@ -784,77 +784,45 @@ class WallpaperUtility(private val context: Context) {
         return try {
             val sourceWidth = bitmap.width.toFloat()
             val sourceHeight = bitmap.height.toFloat()
-            val sourceAspectRatio = sourceWidth / sourceHeight
             val targetAspectRatio = targetHeight.toFloat() / targetWidth.toFloat()
             val scale = cropScale.coerceIn(0.3f, 1.0f)
 
-            // Calculate how the image would be displayed in the preview (ContentScale.Fit)
-            // Use provided preview dimensions if available, otherwise fall back to screen size
-            val previewWidth = previewWidthPx ?: screenWidth.toFloat()
-            val previewHeight = previewHeightPx ?: screenHeight.toFloat()
-            val previewAspectRatio = previewWidth / previewHeight
+            // Maximum crop size that maintains the target aspect and fits in the source.
+            val maxWidthByHeight = sourceHeight / targetAspectRatio
+            val maxHeightByWidth = sourceWidth * targetAspectRatio
 
-            val imageDisplayWidth: Float
-            val imageDisplayHeight: Float
-            val offsetX: Float
-            val offsetY: Float
-
-            if (sourceAspectRatio > previewAspectRatio) {
-                // Source is wider than preview, fit to height
-                imageDisplayHeight = previewHeight
-                imageDisplayWidth = previewHeight * sourceAspectRatio
-                offsetX = (previewWidth - imageDisplayWidth) / 2f
-                offsetY = 0f
+            val baseCropWidth: Float
+            val baseCropHeight: Float
+            if (maxWidthByHeight <= sourceWidth) {
+                baseCropWidth = maxWidthByHeight
+                baseCropHeight = sourceHeight
             } else {
-                // Source is taller than preview, fit to width
-                imageDisplayWidth = previewWidth
-                imageDisplayHeight = previewWidth / sourceAspectRatio
-                offsetX = 0f
-                offsetY = (previewHeight - imageDisplayHeight) / 2f
+                baseCropWidth = sourceWidth
+                baseCropHeight = maxHeightByWidth
             }
 
-            // Calculate crop box size based on target aspect ratio
-            val cropBoxHeight = imageDisplayHeight * scale
-            val cropBoxWidth = cropBoxHeight / targetAspectRatio
+            val cropWidth = (baseCropWidth * scale).coerceAtLeast(1f)
+            val cropHeight = (cropWidth * targetAspectRatio).coerceAtLeast(1f)
 
-            // Ensure crop box fits within displayed image bounds
-            val finalCropBoxWidth = cropBoxWidth.coerceAtMost(imageDisplayWidth)
-            val finalCropBoxHeight = (finalCropBoxWidth * targetAspectRatio).coerceAtMost(imageDisplayHeight)
+            val availableX = (sourceWidth - cropWidth).coerceAtLeast(0f)
+            val availableY = (sourceHeight - cropHeight).coerceAtLeast(0f)
 
-            // Calculate available movement area in display coordinates (never negative)
-            val availableDisplayWidth = (imageDisplayWidth - finalCropBoxWidth).coerceAtLeast(0f)
-            val availableDisplayHeight = (imageDisplayHeight - finalCropBoxHeight).coerceAtLeast(0f)
-
-            // Convert normalized position to display coordinates with clamped inputs
             val clampedX = cropX.coerceIn(0f, 1f)
             val clampedY = cropY.coerceIn(0f, 1f)
-            val cropDisplayLeft = offsetX + (availableDisplayWidth * clampedX)
-            val cropDisplayTop = offsetY + (availableDisplayHeight * clampedY)
 
-            // Map display coordinates back to source bitmap coordinates.
-            // Remove the preview offset before scaling so centered/letterboxed images map correctly.
-            val scaleX = sourceWidth / imageDisplayWidth
-            val scaleY = sourceHeight / imageDisplayHeight
+            val cropLeft = (availableX * clampedX)
+            val cropTop = (availableY * clampedY)
 
-            val cropDisplayLeftInImage = (cropDisplayLeft - offsetX).coerceIn(0f, imageDisplayWidth - finalCropBoxWidth)
-            val cropDisplayTopInImage = (cropDisplayTop - offsetY).coerceIn(0f, imageDisplayHeight - finalCropBoxHeight)
-
-            val cropSourceLeft = (cropDisplayLeftInImage * scaleX).coerceIn(0f, sourceWidth - 1f)
-            val cropSourceTop = (cropDisplayTopInImage * scaleY).coerceIn(0f, sourceHeight - 1f)
-            val cropSourceWidth = (finalCropBoxWidth * scaleX).coerceAtMost(sourceWidth - cropSourceLeft)
-            val cropSourceHeight = (finalCropBoxHeight * scaleY).coerceAtMost(sourceHeight - cropSourceTop)
-
-            // Avoid zero-sized crops on low-resolution images
-            val cropWidthInt = cropSourceWidth.toInt().coerceAtLeast(1).coerceAtMost((sourceWidth - cropSourceLeft).toInt())
-            val cropHeightInt = cropSourceHeight.toInt().coerceAtLeast(1).coerceAtMost((sourceHeight - cropSourceTop).toInt())
+            val cropWidthInt = cropWidth.toInt().coerceAtLeast(1)
+            val cropHeightInt = cropHeight.toInt().coerceAtLeast(1)
 
             // Extract the crop region from source bitmap
             val croppedBitmap = Bitmap.createBitmap(
                 bitmap,
-                cropSourceLeft.toInt(),
-                cropSourceTop.toInt(),
-                cropWidthInt,
-                cropHeightInt
+                cropLeft.toInt().coerceIn(0, (sourceWidth - 1).toInt()),
+                cropTop.toInt().coerceIn(0, (sourceHeight - 1).toInt()),
+                cropWidthInt.coerceAtMost((sourceWidth - cropLeft).toInt()),
+                cropHeightInt.coerceAtMost((sourceHeight - cropTop).toInt())
             )
 
             // Scale the cropped bitmap to fit target dimensions

@@ -130,7 +130,6 @@ fun HomeUI(
             .fillMaxSize()
     ) {
         // Layering: Android system wallpaper (bottom) -> inkOS wallpaper (middle) -> background color with opacity (top) -> UI elements
-        val wallpaperUtility = remember { WallpaperUtility(context) }
         val inkosBitmap: Bitmap? = remember(prefs.inkosWallpaperPath) {
             prefs.inkosWallpaperPath?.let {
                 val file = java.io.File(it)
