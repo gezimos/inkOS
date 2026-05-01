@@ -103,6 +103,11 @@ private const val TEXT_ISLANDS = "TEXT_ISLANDS"
 private const val TEXT_ISLANDS_INVERTED = "TEXT_ISLANDS_INVERTED"
 private const val TEXT_ISLANDS_SHAPE = "TEXT_ISLANDS_SHAPE"
 private const val SHOW_ICONS = "SHOW_ICONS"
+private const val WALLPAPER_ROTATION_ENABLED = "WALLPAPER_ROTATION_ENABLED"
+private const val WALLPAPER_ROTATION_INTERVAL = "WALLPAPER_ROTATION_INTERVAL"
+private const val WALLPAPER_ROTATION_PRESETS = "WALLPAPER_ROTATION_PRESETS"
+private const val WALLPAPER_ROTATION_INDEX = "WALLPAPER_ROTATION_INDEX"
+private const val WALLPAPER_ROTATION_URIS = "WALLPAPER_ROTATION_URIS"
 
 class Prefs(val context: Context) {
     private val BRIGHTNESS_LEVEL = "BRIGHTNESS_LEVEL"
@@ -1329,6 +1334,31 @@ class Prefs(val context: Context) {
     var showIcons: Boolean
         get() = prefs.getBoolean(SHOW_ICONS, false)
         set(value) = prefs.edit { putBoolean(SHOW_ICONS, value) }
+
+    // Wallpaper rotation: cycle through selected presets on a timer
+    var wallpaperRotationEnabled: Boolean
+        get() = prefs.getBoolean(WALLPAPER_ROTATION_ENABLED, false)
+        set(value) = prefs.edit { putBoolean(WALLPAPER_ROTATION_ENABLED, value) }
+
+    // Rotation interval in minutes (default 60)
+    var wallpaperRotationInterval: Int
+        get() = prefs.getInt(WALLPAPER_ROTATION_INTERVAL, 60)
+        set(value) = prefs.edit { putInt(WALLPAPER_ROTATION_INTERVAL, value) }
+
+    // Comma-separated list of preset indices selected for rotation
+    var wallpaperRotationPresets: String
+        get() = prefs.getString(WALLPAPER_ROTATION_PRESETS, "") ?: ""
+        set(value) = prefs.edit { putString(WALLPAPER_ROTATION_PRESETS, value) }
+
+    // Current index within the rotation list
+    var wallpaperRotationIndex: Int
+        get() = prefs.getInt(WALLPAPER_ROTATION_INDEX, 0)
+        set(value) = prefs.edit { putInt(WALLPAPER_ROTATION_INDEX, value) }
+
+    // Newline-separated list of user-picked image URIs for rotation
+    var wallpaperRotationUris: String
+        get() = prefs.getString(WALLPAPER_ROTATION_URIS, "") ?: ""
+        set(value) = prefs.edit { putString(WALLPAPER_ROTATION_URIS, value) }
 
     var homeAppCharLimit: Int
         get() = prefs.getInt("home_app_char_limit", 20) // default to 20
