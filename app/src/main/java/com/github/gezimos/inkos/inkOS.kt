@@ -6,6 +6,7 @@ import android.graphics.Typeface
 import android.util.Log
 import com.github.gezimos.common.CrashHandler
 import com.github.gezimos.inkos.data.Prefs
+import com.github.gezimos.inkos.helper.WallpaperRotationWorker
 
 class inkOS : Application() {
     private lateinit var prefs: Prefs
@@ -20,6 +21,14 @@ class inkOS : Application() {
         prefs = Prefs(applicationContext)
 
         setCustomFont(applicationContext)
+
+        // Re-schedule wallpaper rotation if enabled (survives reboots)
+        if (prefs.wallpaperRotationEnabled) {
+            val items = WallpaperRotationWorker.buildRotationItems(prefs)
+            if (items.size >= 2) {
+                WallpaperRotationWorker.schedule(applicationContext, prefs.wallpaperRotationInterval)
+            }
+        }
 
         // Log app launch
         CrashHandler.logUserAction("App Launched")

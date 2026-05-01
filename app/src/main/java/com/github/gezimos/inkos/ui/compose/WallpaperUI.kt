@@ -36,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -46,6 +47,7 @@ import com.github.gezimos.inkos.R
 import com.github.gezimos.inkos.data.Prefs
 import com.github.gezimos.inkos.helper.ShapeHelper
 import com.github.gezimos.inkos.helper.WallpaperUtility
+import com.github.gezimos.inkos.helper.WallpaperRotationWorker
 import com.github.gezimos.inkos.style.SettingsTheme
 import com.github.gezimos.inkos.style.Theme
 import kotlinx.coroutines.launch
@@ -151,7 +153,7 @@ fun WallpaperUI(
                 } else null
             )
 
-            // Tabs
+            // Tabs - two rows to avoid squishing
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -179,6 +181,15 @@ fun WallpaperUI(
                     fontSize = titleFontSize,
                     modifier = Modifier.weight(1f)
                 )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 TabButton(
                     text = "External",
                     isSelected = false,
@@ -188,22 +199,35 @@ fun WallpaperUI(
                     fontSize = titleFontSize,
                     modifier = Modifier.weight(1f)
                 )
+                TabButton(
+                    text = "Rotate",
+                    isSelected = selectedTab == 2,
+                    onClick = { selectedTab = 2 },
+                    fontSize = titleFontSize,
+                    modifier = Modifier.weight(1f)
+                )
             }
 
             // Content
             Box(modifier = Modifier.weight(1f)) {
                 if (!showSetWallpaperScreen) {
-                    PresetsTab(
-                        presets = WallpaperUtility.PRESET_WALLPAPERS,
-                        onPresetClick = { preset ->
-                            currentImageResourceId = preset.resourceId
-                            currentImageUri = null
-                            showSetWallpaperScreen = true
-                        },
-                        fontSize = titleFontSize,
-                        currentPage = currentPresetPage,
-                        onPageChanged = { currentPresetPage = it }
-                    )
+                    when (selectedTab) {
+                        1 -> PresetsTab(
+                            presets = WallpaperUtility.PRESET_WALLPAPERS,
+                            onPresetClick = { preset ->
+                                currentImageResourceId = preset.resourceId
+                                currentImageUri = null
+                                showSetWallpaperScreen = true
+                            },
+                            fontSize = titleFontSize,
+                            currentPage = currentPresetPage,
+                            onPageChanged = { currentPresetPage = it }
+                        )
+                        2 -> WallpaperRotationTab(
+                            fontSize = titleFontSize,
+                            buttonFontSize = buttonFontSize
+                        )
+                    }
                 }
             }
 
@@ -599,6 +623,244 @@ fun WallpaperUI(
                 }
             }
         }
+
+@Composable
+fun WallpaperRotationTab(
+    fontSize: androidx.compose.ui.unit.TextUnit,
+    buttonFontSize: androidx.compose.ui.unit.TextUnit
+) {
+    val context = LocalContext.current
+    val prefs = remember { Prefs(context) }
+    val textIslandsShape = prefs.textIslandsShape
+    val containerShape = remember(textIslandsShape) {
+        ShapeHelper.getRoundedCornerShape(textIslandsShape = textIslandsShape, pillRadius = 12.dp)
+    }
+
+    var rotationEnabled by remember { mutableStateOf(prefs.wallpaperRotationEnabled) }
+    var intervalMinutes by remember { mutableStateOf(prefs.wallpaperRotationInterval) }
+    val presets = WallpaperUtility.PRESET_WALLPAPERS
+    val savedIndices = remember {
+        prefs.wallpaperRotationPresets
+            .split(",")
+            .mapNotNull { it.trim().toIntOrNull() }
+            .filter { it in presets.indices }
+            .toSet()
+    }
+    var selectedIndices by remember { mutableStateOf(savedIndices) }
+    var userUris by remember {
+        mutableStateOf(
+            prefs.wallpaperRotationUris
+                .split("\n")
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+        )
+    }
+
+    val intervalOptions = listOf(1, 5, 15, 30, 60, 120, 360, 720, 1440)
+    val intervalLabels = listOf("1 min", "5 min", "15 min", "30 min", "1 hour", "2 hours", "6 hours", "12 hours", "24 hours")
+
+    fun totalSelected() = selectedIndices.size + userUris.size
+
+    fun saveAndSchedule() {
+        prefs.wallpaperRotationPresets = selectedIndices.sorted().joinToString(",")
+        prefs.wallpaperRotationUris = userUris.joinToString("\n")
+        prefs.wallpaperRotationEnabled = rotationEnabled
+        prefs.wallpaperRotationInterval = intervalMinutes
+        if (rotationEnabled && totalSelected() >= 2) {
+            WallpaperRotationWorker.schedule(context, intervalMinutes)
+        } else {
+            WallpaperRotationWorker.cancel(context)
+        }
+    }
+
+    // Image picker for adding user photos
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val uri = result.data?.data
+        if (uri != null) {
+            // Take persistent permission so the worker can access it later
+            try {
+                context.contentResolver.takePersistableUriPermission(
+                    uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            } catch (_: Exception) {}
+            val uriStr = uri.toString()
+            if (uriStr !in userUris) {
+                userUris = userUris + uriStr
+                saveAndSchedule()
+            }
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Enable toggle
+        SettingsComposable.SettingsSwitch(
+            text = "Enable Rotation",
+            defaultState = rotationEnabled,
+            fontSize = fontSize,
+            onCheckedChange = {
+                rotationEnabled = it
+                saveAndSchedule()
+            }
+        )
+
+        // Interval selector
+        if (rotationEnabled) {
+            val currentLabel = intervalLabels.getOrElse(
+                intervalOptions.indexOf(intervalMinutes)
+            ) { "${intervalMinutes} min" }
+            SettingsComposable.SettingsSelect(
+                title = "Interval",
+                option = currentLabel,
+                fontSize = fontSize,
+                onClick = {
+                    val nextIdx = (intervalOptions.indexOf(intervalMinutes) + 1) % intervalOptions.size
+                    intervalMinutes = intervalOptions[nextIdx]
+                    saveAndSchedule()
+                }
+            )
+
+            // Add photos button + count
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Wallpapers (${totalSelected()} chosen)",
+                    style = SettingsTheme.typography.body,
+                    fontSize = buttonFontSize,
+                    color = Theme.colors.text
+                )
+                Text(
+                    text = "+ Add Photo",
+                    style = SettingsTheme.typography.body,
+                    fontSize = buttonFontSize,
+                    color = Theme.colors.text,
+                    modifier = Modifier
+                        .clip(containerShape)
+                        .border(2.dp, Theme.colors.text, containerShape)
+                        .clickable {
+                            val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                                type = "image/*"
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+                            }
+                            imagePickerLauncher.launch(intent)
+                        }
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                )
+            }
+
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(3),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                // User-picked images first
+                items(userUris.size) { index ->
+                    val uriStr = userUris[index]
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(containerShape)
+                            .border(3.dp, Theme.colors.text, containerShape)
+                            .clickable {
+                                // Tap to remove
+                                userUris = userUris.toMutableList().also { it.removeAt(index) }
+                                saveAndSchedule()
+                            }
+                            .padding(4.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        val bitmap = remember(uriStr) {
+                            try {
+                                val stream = context.contentResolver.openInputStream(android.net.Uri.parse(uriStr))
+                                val opts = android.graphics.BitmapFactory.Options().apply { inSampleSize = 4 }
+                                android.graphics.BitmapFactory.decodeStream(stream, null, opts).also { stream?.close() }
+                            } catch (_: Exception) { null }
+                        }
+                        if (bitmap != null) {
+                            Image(
+                                bitmap = bitmap.asImageBitmap(),
+                                contentDescription = "User photo",
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .aspectRatio(1f)
+                                    .clip(containerShape),
+                                contentScale = ContentScale.Crop
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .aspectRatio(1f)
+                                    .background(Theme.colors.text.copy(alpha = 0.1f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("?", color = Theme.colors.text, fontSize = fontSize)
+                            }
+                        }
+                        Text(
+                            text = "✓ Tap to remove",
+                            style = SettingsTheme.typography.body,
+                            fontSize = buttonFontSize,
+                            color = Theme.colors.text,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1
+                        )
+                    }
+                }
+
+                // Preset wallpapers
+                items(presets.size) { index ->
+                    val preset = presets[index]
+                    val isSelected = index in selectedIndices
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(containerShape)
+                            .then(
+                                if (isSelected) Modifier.border(3.dp, Theme.colors.text, containerShape)
+                                else Modifier.border(1.dp, Theme.colors.text.copy(alpha = 0.3f), containerShape)
+                            )
+                            .clickable {
+                                selectedIndices = if (isSelected) selectedIndices - index
+                                else selectedIndices + index
+                                saveAndSchedule()
+                            }
+                            .padding(4.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Image(
+                            painter = painterResource(id = preset.resourceId),
+                            contentDescription = preset.name,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(1f)
+                                .clip(containerShape),
+                            contentScale = ContentScale.Crop
+                        )
+                        Text(
+                            text = if (isSelected) "✓ ${preset.name}" else preset.name,
+                            style = SettingsTheme.typography.body,
+                            fontSize = buttonFontSize,
+                            color = Theme.colors.text,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
 
 @Composable
 fun TabButton(
