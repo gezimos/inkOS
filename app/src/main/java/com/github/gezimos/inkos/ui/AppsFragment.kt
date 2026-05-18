@@ -646,7 +646,6 @@ class AppsFragment : Fragment() {
                                     longSwipeRatio = prefs.longSwipeThresholdRatio,
                                     onVerticalPageMove = { delta ->
                                         try {
-                                            if (totalPages <= 1) return@gestureHelper
                                             if (delta > 0) {
                                                 val newPage = (state.currentPage + delta).coerceAtMost(totalPages - 1)
                                                 if (newPage != state.currentPage) {
