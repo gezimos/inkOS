@@ -2,7 +2,6 @@ package com.github.gezimos.inkos.ui
 
 import android.content.Intent
 import android.os.Bundle
-import android.os.Process
 import android.os.Vibrator
 import android.view.LayoutInflater
 import android.view.View
@@ -15,10 +14,12 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import com.github.gezimos.inkos.ui.compose.inkOsSafeDrawingPadding
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -47,42 +48,65 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
+import com.github.gezimos.common.hideKeyboard
 import com.github.gezimos.common.isSystemApp
 import com.github.gezimos.common.showShortToast
+import com.github.gezimos.inkos.BuildConfig
 import com.github.gezimos.inkos.MainViewModel
 import com.github.gezimos.inkos.R
 import com.github.gezimos.inkos.data.AppListItem
 import com.github.gezimos.inkos.data.Constants
 import com.github.gezimos.inkos.data.Prefs
+import com.github.gezimos.inkos.helper.EditModeHelper
 import com.github.gezimos.inkos.helper.getHexForOpacity
 import com.github.gezimos.inkos.helper.openAppInfo
 import com.github.gezimos.inkos.style.SettingsTheme
 import com.github.gezimos.inkos.style.Theme
+import com.github.gezimos.inkos.style.rememberScreenScale
+import com.github.gezimos.inkos.style.scaled
 import com.github.gezimos.inkos.ui.compose.AZSidebar
 import com.github.gezimos.inkos.ui.compose.AppsDrawerLayout
+import com.github.gezimos.inkos.ui.compose.EditModeOverlay
 import com.github.gezimos.inkos.ui.compose.NavHelper
-import com.github.gezimos.inkos.ui.compose.SearchHelper
+import com.github.gezimos.inkos.helper.SearchHelper
 import com.github.gezimos.inkos.ui.compose.gestureHelper
+import com.github.gezimos.inkos.ui.dialogs.ComposeDialogManager
+import androidx.core.net.toUri
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
-
-/**
- * Fragment that handles all logic for the Apps Drawer
- */
 class AppsFragment : Fragment() {
 
     private lateinit var prefs: Prefs
     private lateinit var viewModel: MainViewModel
     private lateinit var flag: Constants.AppDrawerFlag
+    private val dialogManager: ComposeDialogManager by lazy {
+        ComposeDialogManager(requireContext(), requireActivity())
+    }
     private var appPosition: Int = 0
+    private var currentSearchQuery: String = ""
     private var showSearchArg: Boolean = false
+    private var searchMode: Int = -1 // -1=normal, 0=search (forces search bar + keyboard), 1=contacts (pre-loads all contacts)
 
     private var pendingUninstallPackage: String? = null
     private val uninstallLauncher =
         registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) {
-            pendingUninstallPackage?.let { pkg ->
+            pendingUninstallPackage?.let {
                 viewModel.refreshAppListAfterUninstall(includeHiddenApps = false)
                 pendingUninstallPackage = null
+            }
+        }
+
+    val folderPickerLauncher =
+        registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocumentTree()) { uri ->
+            uri?.let {
+                requireContext().contentResolver.takePersistableUriPermission(
+                    it, Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
             }
         }
 
@@ -96,18 +120,13 @@ class AppsFragment : Fragment() {
         flag = Constants.AppDrawerFlag.valueOf(flagString)
         appPosition = arguments?.getInt("n", 0) ?: 0
         showSearchArg = arguments?.getBoolean("showSearch", false) ?: false
+        searchMode = arguments?.getInt("searchMode", -1) ?: -1
 
-        val includeHidden = flag == Constants.AppDrawerFlag.SetHomeApp || flag == Constants.AppDrawerFlag.HiddenApps
-        
-        // Only reload if we need hidden apps (SetHomeApp or HiddenApps flag)
-        // For normal LaunchApp flag, the ViewModel already preloads the list in init
-        // This avoids expensive reload on every fragment open, making it instant like SimpleTrayFragment
+        val includeHidden = flag == Constants.AppDrawerFlag.SetHomeApp || flag == Constants.AppDrawerFlag.HiddenApps || flag == Constants.AppDrawerFlag.EditFavorites || flag == Constants.AppDrawerFlag.EditHiddenApps
+
         if (includeHidden || flag == Constants.AppDrawerFlag.HiddenApps) {
-            // Need to load with hidden apps, so reload
             viewModel.getAppList(includeHiddenApps = includeHidden, flag = flag)
         }
-        // Otherwise, use the cached list from ViewModel preload - no reload needed!
-        // The ViewModel.init already calls getAppList(includeHiddenApps = false) for instant opening
     }
 
     override fun onCreateView(
@@ -115,7 +134,20 @@ class AppsFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        return ComposeView(requireContext()).apply {
+        val fragment = this
+        val ctx = requireContext()
+
+        val backgroundColor = getHexForOpacity(ctx)
+        val root = android.widget.FrameLayout(ctx).apply {
+            setBackgroundColor(backgroundColor)
+            clipToPadding = false
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        }
+
+        val composeView = ComposeView(ctx).apply {
             setViewCompositionStrategy(androidx.compose.ui.platform.ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
                 val context = LocalContext.current
@@ -124,69 +156,88 @@ class AppsFragment : Fragment() {
                     try { context.getSystemService(Vibrator::class.java) } catch (_: Exception) { null }
                 }
                 
-                // Use consolidated State from ViewModel instead of individual observeAsState calls
+                // Consolidated ViewModel state
                 val appsDrawer by viewModel.appsDrawerUiState.collectAsState()
                 
-                // Safety check: if list is empty and we're not loading hidden apps, trigger a load
-                // This handles edge cases where ViewModel init hasn't completed yet
                 LaunchedEffect(Unit) {
-                    val includeHidden = flag == Constants.AppDrawerFlag.SetHomeApp || flag == Constants.AppDrawerFlag.HiddenApps
-                    if (!includeHidden && appsDrawer.appList.isEmpty()) {
+                    if (appsDrawer.appList.isEmpty()) {
                         viewModel.getAppList(includeHiddenApps = false, flag = flag)
                     }
+                    if ((flag == Constants.AppDrawerFlag.HiddenApps || flag == Constants.AppDrawerFlag.EditHiddenApps) && appsDrawer.hiddenApps.isEmpty()) {
+                        viewModel.getHiddenApps()
+                    }
                 }
-                
+
                 val baseAppList = when (flag) {
                     Constants.AppDrawerFlag.HiddenApps -> appsDrawer.hiddenApps
+                    Constants.AppDrawerFlag.EditHiddenApps -> appsDrawer.appList + appsDrawer.hiddenApps
                     else -> appsDrawer.appList
                 }
                 val appsForDrawer = remember(baseAppList, flag) {
                     baseAppList
                 }
                 
-                val appList = remember(baseAppList, flag) {
-                    if (flag == Constants.AppDrawerFlag.HiddenApps) {
-                        val appsRepo = com.github.gezimos.inkos.data.repository.AppsRepository.getInstance(requireContext().applicationContext as android.app.Application)
-                        val hiddenSystemShortcuts = appsRepo.getFilteredSystemShortcuts(
-                            includeHidden = false,
-                            onlyHidden = true
-                        )
-                        baseAppList.toMutableList().apply { addAll(hiddenSystemShortcuts) }
-                    } else {
-                        baseAppList
-                    }
-                }
-                
-                // Create state once and update apps when list changes
-                // Deprecated: `initialSearch` nav-arg removed to avoid duplicate input.
                 val state = remember {
                     AppsDrawerState(
                         flag = flag,
                         position = appPosition,
-                        apps = appsForDrawer,
-                        searchQuery = androidx.compose.ui.text.input.TextFieldValue("")
-                    )
+                        apps = appsForDrawer
+                    ).also {
+                        if (searchMode >= 0) {
+                            it.searchEnabled = true
+                        }
+                    }
                 }
                 
-                // Update search enabled state based on preference
-                // Disable search when in SetHomeApp flag mode
+                LaunchedEffect(flag) {
+                    if (flag == Constants.AppDrawerFlag.EditFavorites) {
+                        state.selectedFavorites.clear()
+                        val homeAppsCount = prefs.homeAppsNum
+                        for (i in 0 until homeAppsCount) {
+                            val homeApp = prefs.getHomeAppModel(i)
+                            if (homeApp.activityPackage.isNotEmpty()) {
+                                state.selectedFavorites.add(homeApp)
+                            }
+                        }
+                    }
+                }
+
+                // Initialize hidden-apps selection once the full app list is available
+                var hiddenInitialized by remember { mutableStateOf(false) }
+                LaunchedEffect(flag, appsForDrawer) {
+                    if (flag == Constants.AppDrawerFlag.EditHiddenApps && !hiddenInitialized && appsForDrawer.isNotEmpty()) {
+                        val hiddenSet = prefs.hiddenApps
+                        state.selectedHidden.clear()
+                        appsForDrawer.forEach { app ->
+                            val key = if (app.shortcutId != null) {
+                                "${app.activityPackage}|${app.shortcutId}|${app.user}"
+                            } else {
+                                "${app.activityPackage}|${app.user}"
+                            }
+                            val matched = hiddenSet.contains(key) ||
+                                hiddenSet.contains(app.activityPackage) ||
+                                hiddenSet.contains("${app.activityPackage}|${app.user}")
+                            if (matched) state.selectedHidden.add(app)
+                        }
+                        hiddenInitialized = true
+                    }
+                }
+                
+                // Disable search for SetHomeApp/EditFavorites
                 LaunchedEffect(appsDrawer.appDrawerSearchEnabled, flag) {
-                    state.searchEnabled = appsDrawer.appDrawerSearchEnabled && flag != Constants.AppDrawerFlag.SetHomeApp
+                    state.searchEnabled = (appsDrawer.appDrawerSearchEnabled || searchMode >= 0) && flag != Constants.AppDrawerFlag.SetHomeApp && flag != Constants.AppDrawerFlag.EditFavorites && flag != Constants.AppDrawerFlag.EditHiddenApps
                 }
                 
-                // Update MainActivity's suppressKeyForwarding based on rename overlay or context menu state
-                LaunchedEffect(state.showRenameOverlay, state.showContextMenu) {
+                LaunchedEffect(state.showRenameOverlay) {
                     val act = context as? com.github.gezimos.inkos.MainActivity
-                    act?.suppressKeyForwarding = state.showRenameOverlay || state.showContextMenu
+                    act?.suppressKeyForwarding = state.showRenameOverlay
                 }
                 
-                // Update apps list when it changes from ViewModel
                 LaunchedEffect(appsForDrawer) {
                     state.apps = appsForDrawer
                 }
                 
-                // Collect typed-character and backspace events from MainActivity/ViewModel
-                LaunchedEffect(viewModel) {
+                LaunchedEffect(Unit) {
                     try {
                         viewModel.typedCharEvents.collect { ch ->
                             if (state.searchEnabled) {
@@ -196,7 +247,7 @@ class AppsFragment : Fragment() {
                     } catch (_: Exception) {}
                 }
 
-                LaunchedEffect(viewModel) {
+                LaunchedEffect(Unit) {
                     try {
                         viewModel.backspaceEvents.collect {
                             if (state.searchEnabled && state.searchQuery.text.isNotEmpty()) {
@@ -207,75 +258,55 @@ class AppsFragment : Fragment() {
                 }
                 
                 var containerSize by remember { mutableStateOf(IntSize.Zero) }
-                
-                // Check cache first - use it if available for instant rendering
-                // Check cache directly (not in remember) so it's fresh on every composition
+
+                // Use persisted cache for instant rendering
                 val cachedAppsPerPage = viewModel.getCachedAppsPerPage()
-                var isCalculated by remember { 
-                    mutableStateOf(cachedAppsPerPage != null) 
+                var isCalculated by remember {
+                    mutableStateOf(cachedAppsPerPage != null)
                 }
-                
-                // Initialize state with cached value immediately if available
-                // This runs during composition, so it's synchronous
-                // If we have cache, use it immediately and mark as calculated - don't wait for containerSize
+
                 if (cachedAppsPerPage != null) {
                     if (state.appsPerPage != cachedAppsPerPage) {
                         state.appsPerPage = cachedAppsPerPage
                     }
-                    // Force isCalculated to true when cache exists - don't let calculation override it
                     if (!isCalculated) {
                         isCalculated = true
                     }
                 }
-                
-                // Only do expensive calculations if we don't have a cache
-                // This prevents janky swiping during calculation
+
+                val iconTextMeasurer = rememberTextMeasurer()
+                val iconTypefaceNullable = remember(appsDrawer.appsFont, appsDrawer.customFontPath) {
+                    try { appsDrawer.appsFont.getFont(context, appsDrawer.customFontPath) } catch (_: Exception) { null }
+                }
+                val iconFontFamily = remember(iconTypefaceNullable) {
+                    if (iconTypefaceNullable != null) FontFamily(iconTypefaceNullable) else FontFamily.Default
+                }
+                val drawerScreenScale = rememberScreenScale()
+                val iconSizePx = remember(appsDrawer.appDrawerSize, iconFontFamily, iconTextMeasurer, drawerScreenScale) {
+                    try {
+                        iconTextMeasurer.measure(
+                            text = AnnotatedString("Ag"),
+                            style = TextStyle(fontSize = appsDrawer.appDrawerSize.sp.scaled(drawerScreenScale), fontFamily = iconFontFamily)
+                        ).size.height.coerceAtLeast(1)
+                    } catch (_: Exception) {
+                        with(density) { appsDrawer.appDrawerSize.dp.scaled(drawerScreenScale).toPx().toInt() }.coerceAtLeast(1)
+                    }
+                }
+
                 if (cachedAppsPerPage == null) {
-                    // Robust appsPerPage calculation:
-                    // - Measure actual text height with the active font + size
-                    // - Include the vertical padding used by each row (gap)
-                    // - Subtract fixed header rows (search) so bottom items never clip
-                    val textMeasurer = rememberTextMeasurer()
-                    val appTypefaceNullable = remember(appsDrawer.appsFont, appsDrawer.customFontPath) {
-                        try { appsDrawer.appsFont.getFont(context, appsDrawer.customFontPath) } catch (_: Exception) { null }
-                    }
-                    val appFontFamily = remember(appTypefaceNullable) {
-                        if (appTypefaceNullable != null) FontFamily(appTypefaceNullable) else FontFamily.Default
-                    }
                     val gapPx = remember(appsDrawer.appDrawerGap, density) {
                         try { with(density) { appsDrawer.appDrawerGap.dp.roundToPx() } } catch (_: Exception) { 0 }
                     }.coerceAtLeast(0)
-                    val rowTextHeightPx = remember(appsDrawer.appDrawerSize, appFontFamily, textMeasurer) {
-                        try {
-                            textMeasurer
-                                .measure(
-                                    text = AnnotatedString("Ag"),
-                                    style = TextStyle(
-                                        fontSize = appsDrawer.appDrawerSize.sp,
-                                        fontFamily = appFontFamily
-                                    )
-                                )
-                                .size
-                                .height
-                        } catch (_: Exception) {
-                            1
-                        }
-                    }.coerceAtLeast(1)
-                    // Row height = text height + top padding + bottom padding (each AppItem has vertical padding)
-                    // Use 0.95 multiplier to account for text measurement including line-height that may not be fully used
-                    // This allows fitting more items, and SpaceBetween will distribute any leftover space evenly
+                    val rowTextHeightPx = iconSizePx
                     val rowHeightPx = remember(rowTextHeightPx, gapPx) {
                         ((rowTextHeightPx * 0.95f) + (gapPx * 2)).toInt().coerceAtLeast(1)
                     }
-                    // Search field and title also use the same gap for vertical padding, so they're roughly the same height
                     val headerRows = remember(appsDrawer.appDrawerSearchEnabled, state.searchEnabled, state.isHiddenAppsMode, flag) {
                         var rows = 0
-                        // Account for title row in SetHomeApp and HiddenApps modes
-                        if (flag == Constants.AppDrawerFlag.SetHomeApp || flag == Constants.AppDrawerFlag.HiddenApps) {
+                        if (flag == Constants.AppDrawerFlag.SetHomeApp || flag == Constants.AppDrawerFlag.HiddenApps || flag == Constants.AppDrawerFlag.EditFavorites || flag == Constants.AppDrawerFlag.EditHiddenApps) {
                             rows++
                         }
-                        // Account for search field if enabled and not hidden apps mode
-                        if (!state.isHiddenAppsMode && appsDrawer.appDrawerSearchEnabled && state.searchEnabled) {
+                        if (!state.isHiddenAppsMode && state.searchEnabled) {
                             rows++
                         }
                         rows
@@ -284,10 +315,7 @@ class AppsFragment : Fragment() {
                         val h = containerSize.height
                         if (h <= 0) 1
                         else {
-                            // Subtract header row height (search field) from available space
                             val headerHeight = headerRows * rowHeightPx
-                            // Subtract one extra row as safety margin to prevent bottom clipping
-                            // This ensures the last item always fits, and SpaceBetween will distribute any leftover space
                             val available = (h - headerHeight - rowHeightPx).coerceAtLeast(rowHeightPx)
                             (available / rowHeightPx).coerceAtLeast(1)
                         }
@@ -295,115 +323,304 @@ class AppsFragment : Fragment() {
                     LaunchedEffect(appsPerPageCalculated, containerSize.height) {
                         if (containerSize.height > 0) {
                             state.appsPerPage = appsPerPageCalculated
-                            // Cache the result for next time
                             viewModel.cacheAppsPerPage(appsPerPageCalculated)
                             isCalculated = true
                         } else {
-                            // Container not measured yet - keep isCalculated false
                             isCalculated = false
                         }
                     }
                 }
                 
-                // Cache sorted apps to avoid multiple sorts per recomposition (performance optimization)
+                val usageStatsMap by viewModel.appUsageStats.collectAsState()
+
                 val sortedApps by remember {
-                    derivedStateOf { state.apps.sorted() }
-                }
-                
-                // Use derivedStateOf for calculated values to optimize recomposition
-                val filteredApps by remember {
                     derivedStateOf {
-                        if (state.isHiddenAppsMode) {
-                            sortedApps
-                        } else if (state.azFilterLetter != null) {
-                            val prefix = state.azFilterLetter!!.toString()
-                            sortedApps.filter { app ->
-                                try {
-                                    SearchHelper.startsWith(app.label, prefix)
-                                } catch (_: Exception) { false }
+                        if (state.isEditFavoritesMode) {
+                            val favSet = state.selectedFavorites.map { it.activityPackage to it.activityClass }.toSet()
+                            val remaining = state.apps.filter { app ->
+                                (app.activityPackage to app.activityClass) !in favSet
+                            }.sorted()
+                            state.selectedFavorites.toList() + remaining
+                        } else if (state.isEditHiddenMode) {
+                            val (checked, unchecked) = state.apps.partition { app ->
+                                state.selectedHidden.any { it.activityPackage == app.activityPackage && it.activityClass == app.activityClass }
                             }
-                        } else if (state.searchQuery.text.isBlank()) {
-                            sortedApps
+                            checked.sorted() + unchecked.sorted()
                         } else {
-                            sortedApps
-                                .mapNotNull { app ->
-                                    val score = SearchHelper.scoreApp(app, state.searchQuery.text, 100)
-                                    if (score > 0) app to score else null
+                            when (appsDrawer.appDrawerSortOrder) {
+                                1 -> { // Most Used
+                                    if (usageStatsMap.isEmpty()) state.apps.sorted()
+                                    else {
+                                        val isInkOS = { app: AppListItem -> app.activityPackage == BuildConfig.APPLICATION_ID }
+                                        val (withStats, noStats) = state.apps.partition { !isInkOS(it) && usageStatsMap.containsKey(it.activityPackage) }
+                                        withStats.sortedByDescending { usageStatsMap[it.activityPackage]!!.second } + noStats.sorted()
+                                    }
                                 }
-                                .sortedByDescending { (_, score) -> score }
-                                .map { (app, _) -> app }
+                                2 -> { // Last Used
+                                    if (usageStatsMap.isEmpty()) state.apps.sorted()
+                                    else {
+                                        val isInkOS = { app: AppListItem -> app.activityPackage == BuildConfig.APPLICATION_ID }
+                                        val (withStats, noStats) = state.apps.partition { !isInkOS(it) && usageStatsMap.containsKey(it.activityPackage) }
+                                        withStats.sortedByDescending { usageStatsMap[it.activityPackage]!!.first } + noStats.sorted()
+                                    }
+                                }
+                                else -> state.apps.sorted() // Alphabetical
+                            }
                         }
                     }
                 }
                 
-                // derivedStateOf for total pages to prevent redundant calculations
+
+                var searchVersion by remember { mutableIntStateOf(0) }
+                LaunchedEffect(state.searchQuery.text) { searchVersion++; currentSearchQuery = state.searchQuery.text }
+                val musicCache = remember(appsDrawer.appDrawerSearchMusicEnabled) { android.util.LruCache<String, List<AppListItem>>(16) }
+                val fileCache = remember(appsDrawer.appDrawerSearchFilesEnabled) { android.util.LruCache<String, List<AppListItem>>(16) }
+                var allContacts by remember { mutableStateOf<List<AppListItem>>(emptyList()) }
+                LaunchedEffect(appsDrawer.appDrawerSearchContactsEnabled, appsDrawer.appDrawerSearchContactAccounts) {
+                    if (appsDrawer.appDrawerSearchContactsEnabled) {
+                        allContacts = withContext(Dispatchers.IO) {
+                            if (com.github.gezimos.inkos.helper.ContactsHelper.hasContactsPermission(requireContext())) {
+                                com.github.gezimos.inkos.helper.ContactsHelper.searchContacts(requireContext(), "", listAll = true, allowedAccounts = appsDrawer.appDrawerSearchContactAccounts)
+                                    .map { com.github.gezimos.inkos.helper.ContactsHelper.convertToAppListItem(it) }
+                            } else emptyList()
+                        }
+                    } else {
+                        allContacts = emptyList()
+                    }
+                }
+
+                var musicSearchResults by remember { mutableStateOf<List<AppListItem>>(emptyList()) }
+                var fileSearchResults by remember { mutableStateOf<List<AppListItem>>(emptyList()) }
+                var asyncSearchDone by remember { mutableStateOf(true) }
+                val settingsSearchResults by remember {
+                    derivedStateOf {
+                        val q = state.searchQuery.text
+                        if (q.isBlank()) emptyList()
+                        else com.github.gezimos.inkos.helper.SettingsSearchHelper.search(q)
+                    }
+                }
+                LaunchedEffect(state.searchQuery.text) {
+                    val query = state.searchQuery.text
+                    val version = searchVersion
+
+                    val wantMusic = query.isNotBlank() && appsDrawer.appDrawerSearchMusicEnabled
+                    val wantFiles = query.isNotBlank() && appsDrawer.appDrawerSearchFilesEnabled
+
+                    if (!wantMusic && !wantFiles) {
+                        if (musicSearchResults.isNotEmpty()) musicSearchResults = emptyList()
+                        if (fileSearchResults.isNotEmpty()) fileSearchResults = emptyList()
+                        asyncSearchDone = true
+                        return@LaunchedEffect
+                    }
+                    asyncSearchDone = false
+
+                    val cachedMusic = if (wantMusic) musicCache.get(query) else emptyList()
+                    val cachedFiles = if (wantFiles) fileCache.get(query) else emptyList()
+                    if (cachedMusic != null && cachedFiles != null) {
+                        musicSearchResults = cachedMusic
+                        fileSearchResults = cachedFiles
+                        asyncSearchDone = true
+                        return@LaunchedEffect
+                    }
+
+                    delay(if (wantFiles && cachedFiles == null) 200L else 100L)
+                    if (version != searchVersion) return@LaunchedEffect
+
+                    val musicDeferred: Deferred<List<AppListItem>>? = if (wantMusic && cachedMusic == null) {
+                        async(Dispatchers.IO) {
+                            if (com.github.gezimos.inkos.helper.MusicSearchHelper.hasAudioPermission(requireContext())) {
+                                com.github.gezimos.inkos.helper.MusicSearchHelper.search(requireContext(), query)
+                            } else emptyList()
+                        }
+                    } else null
+
+                    val filesDeferred: Deferred<List<AppListItem>>? = if (wantFiles && cachedFiles == null) {
+                        async(Dispatchers.IO) {
+                            withTimeoutOrNull(2000) {
+                                if (com.github.gezimos.inkos.helper.FileSearchHelper.hasFolderAccess(requireContext())) {
+                                    com.github.gezimos.inkos.helper.FileSearchHelper.search(requireContext(), query)
+                                } else emptyList()
+                            } ?: emptyList()
+                        }
+                    } else null
+
+                    val music = cachedMusic ?: musicDeferred?.await() ?: emptyList()
+                    val files = cachedFiles ?: filesDeferred?.await() ?: emptyList()
+
+                    if (version != searchVersion) return@LaunchedEffect
+
+                    if (cachedMusic == null) musicCache.put(query, music)
+                    if (cachedFiles == null) fileCache.put(query, files)
+
+                    musicSearchResults = music
+                    fileSearchResults = files
+                    asyncSearchDone = true
+                }
+
+                val filteredApps by remember {
+                    derivedStateOf {
+                        val query = state.searchQuery.text
+                        val isSearchActive = query.isNotBlank() && !state.isHiddenAppsMode && state.azFilterLetter == null
+
+                        if (state.privateSpaceFilter) {
+                            appsDrawer.privateSpaceApps.sorted()
+                        } else if (state.isHiddenAppsMode) {
+                            sortedApps
+                        } else if (state.azFilterLetter != null) {
+                            val filterChar = state.azFilterLetter!!
+                            sortedApps.filter { app ->
+                                app.normalizedFirstChar == filterChar
+                            }
+                        } else if (!isSearchActive) {
+                            sortedApps
+                        } else {
+                            buildList {
+                                val normalizedQuery = SearchHelper.normalizeString(query)
+                                val ctx = requireContext()
+                                val scored = ArrayList<Pair<AppListItem, Int>>()
+
+                                fun scoreApp(app: AppListItem): Int {
+                                    val aliasScore = SearchHelper.scorePreNormalized(app.normalizedLabel, normalizedQuery, 100, app.label)
+                                    val origScore = app.normalizedOriginalLabel?.let {
+                                        SearchHelper.scorePreNormalized(it, normalizedQuery, 100, app.activityLabel)
+                                    } ?: 0
+                                    return maxOf(aliasScore, origScore)
+                                }
+
+                                for (app in sortedApps) {
+                                    var score = scoreApp(app)
+                                    if (score > 0) {
+                                        score += SearchHelper.getFrequencyBoost(ctx, normalizedQuery, app.activityPackage)
+                                        scored.add(app to score)
+                                    }
+                                }
+                                if (appsDrawer.appDrawerSearchHiddenAppsEnabled) {
+                                    for (app in appsDrawer.hiddenApps) {
+                                        var score = scoreApp(app)
+                                        if (score > 0) {
+                                            score += SearchHelper.getFrequencyBoost(ctx, normalizedQuery, app.activityPackage)
+                                            scored.add(app to score)
+                                        }
+                                    }
+                                }
+
+                                val contactScored = ArrayList<Pair<AppListItem, Int>>()
+                                for (app in allContacts) {
+                                    val score = SearchHelper.scorePreNormalized(app.normalizedLabel, normalizedQuery, 75, app.label)
+                                    if (score > 0) contactScored.add(app to score)
+                                }
+                                contactScored.sortByDescending { it.second }
+                                for (i in 0 until contactScored.size.coerceAtMost(10)) {
+                                    scored.add(contactScored[i])
+                                }
+
+                                for ((index, app) in settingsSearchResults.withIndex()) {
+                                    scored.add(app to (45 - index))
+                                }
+
+                                for (app in musicSearchResults) {
+                                    val score = SearchHelper.scoreStrict(app.normalizedLabel, normalizedQuery, 40)
+                                    if (score > 0) scored.add(app to score)
+                                }
+
+                                for (app in fileSearchResults) {
+                                    val score = SearchHelper.scoreStrict(app.normalizedLabel, normalizedQuery, 40)
+                                    if (score > 0) scored.add(app to score)
+                                }
+
+                                scored.sortByDescending { it.second }
+                                for ((app, _) in scored) add(app)
+
+                                if (appsDrawer.appDrawerSearchWebEnabled) {
+                                    add(SearchHelper.createWebSearchItem(query))
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                val appsWithSeparators by remember {
+                    derivedStateOf {
+                        val showSeparators = (flag == Constants.AppDrawerFlag.SetHomeApp || flag == Constants.AppDrawerFlag.EditFavorites)
+                            && state.azFilterLetter == null
+                            && state.searchQuery.text.isBlank()
+                            && !state.privateSpaceFilter
+                        if (showSeparators) {
+                            val u = android.os.Process.myUserHandle()
+                            val separators = listOf(
+                                AppListItem(activityLabel = " ", activityPackage = Constants.SEPARATOR_EMPTY, activityClass = "", user = u, customLabel = context.getString(R.string.separator_empty)),
+                                AppListItem(activityLabel = "\u2014", activityPackage = Constants.SEPARATOR_EM_DASH, activityClass = "", user = u, customLabel = context.getString(R.string.separator_em_dash)),
+                                AppListItem(activityLabel = "\u00B7 \u00B7 \u00B7", activityPackage = Constants.SEPARATOR_DOTS, activityClass = "", user = u, customLabel = context.getString(R.string.separator_dots))
+                            )
+                            val selectedPkgs = state.selectedFavorites.map { it.activityPackage }.toSet()
+                            filteredApps + separators.filter { it.activityPackage !in selectedPkgs }
+                        } else filteredApps
+                    }
+                }
+
+                var profileSwitchedThisGesture by remember { mutableStateOf(false) }
                 val totalPages by remember {
                     derivedStateOf {
                         if (state.appsPerPage > 0) {
-                            ((filteredApps.size + state.appsPerPage - 1) / state.appsPerPage).coerceAtLeast(1)
+                            ((appsWithSeparators.size + state.appsPerPage - 1) / state.appsPerPage).coerceAtLeast(1)
                         } else {
                             1
                         }
                     }
                 }
 
-                // Safe setter for currentPage that always clamps into valid range.
-                val setCurrentPageSafe: (Int) -> Unit = { newPage ->
-                    val maxPage = (totalPages - 1).coerceAtLeast(0)
-                    val clamped = newPage.coerceIn(0, maxPage)
-                    if (state.currentPage != clamped) state.currentPage = clamped
+                var maxFavoritesState by remember { mutableStateOf(prefs.homeAppsNum) }
+                LaunchedEffect(flag) {
+                    if (flag == Constants.AppDrawerFlag.EditFavorites) maxFavoritesState = prefs.homeAppsNum
                 }
 
-                // Reset page when search changes and clear A→Z filter when user starts typing
+                // Clamp page into valid range
+                val setCurrentPageSafe: (Int) -> Unit = remember {
+                    { newPage: Int ->
+                        val maxPage = (totalPages - 1).coerceAtLeast(0)
+                        val clamped = newPage.coerceIn(0, maxPage)
+                        if (state.currentPage != clamped) state.currentPage = clamped
+                    }
+                }
+
                 LaunchedEffect(state.searchQuery.text) {
                     setCurrentPageSafe(0)
                     state.selectedItemIndex = 0
                     if (state.searchQuery.text.isNotBlank()) {
-                        // User started a text search — exit A→Z filtering so search works normally
                         state.azFilterLetter = null
                     }
                 }
                 
 
-                val clampedNow = state.currentPage.coerceIn(0, (totalPages - 1).coerceAtLeast(0))
-                if (state.currentPage != clampedNow) {
-                    state.currentPage = clampedNow
-                }
-
-                // Adjust current page if needed whenever the filtered list or page size changes.
-                // This clamps `state.currentPage` immediately so rapid swipes can't leave it out-of-range
-                LaunchedEffect(filteredApps.size, state.appsPerPage) {
-                    if (state.currentPage >= totalPages) {
-                        setCurrentPageSafe((totalPages - 1).coerceAtLeast(0))
+                LaunchedEffect(state.currentPage, totalPages) {
+                    val maxPage = (totalPages - 1).coerceAtLeast(0)
+                    val clamped = state.currentPage.coerceIn(0, maxPage)
+                    if (state.currentPage != clamped) {
+                        state.currentPage = clamped
                     }
                 }
                 
-                // Get display apps for current page (use a clamped page to avoid transient empty pages)
-                // Compute pages locally from `filteredApps` and `state.appsPerPage` to avoid depending
-                // on `totalPages` and causing stale memoization when navigated with an initial search.
-                val displayApps = remember(filteredApps, state.currentPage, state.appsPerPage) {
+                val displayApps = remember(appsWithSeparators, state.currentPage, state.appsPerPage) {
                     val safePage = state.currentPage.coerceIn(0, (totalPages - 1).coerceAtLeast(0))
                     val startIndex = safePage * state.appsPerPage
-                    val endIndex = (startIndex + state.appsPerPage).coerceAtMost(filteredApps.size)
-                    if (startIndex < filteredApps.size) {
-                        filteredApps.subList(startIndex, endIndex)
+                    val endIndex = (startIndex + state.appsPerPage).coerceAtMost(appsWithSeparators.size)
+                    if (startIndex < appsWithSeparators.size) {
+                        appsWithSeparators.subList(startIndex, endIndex)
                     } else {
                         emptyList()
                     }
                 }
                 
-                // Ensure selection is within bounds
                 LaunchedEffect(displayApps.size) {
                     if (state.selectedItemIndex >= displayApps.size) {
                         state.selectedItemIndex = (displayApps.size - 1).coerceAtLeast(0)
                     }
                 }
                 
-                // Pad display apps with null placeholders to fill the page
-                // This ensures SpaceBetween always has the same number of items, creating consistent spacing
                 val paddedDisplayApps = remember(displayApps, state.appsPerPage) {
                     val missing = (state.appsPerPage - displayApps.size).coerceAtLeast(0)
-                    if (missing == 0) displayApps else displayApps + List(missing) { null }
+                    if (missing == 0) displayApps
+                    else displayApps + List(missing) { null }
                 }
                 
                 fun vibratePage() {
@@ -411,7 +628,6 @@ class AppsFragment : Fragment() {
                 }
 
                 fun vibrateFeedback() {
-                    // Use a stronger haptic for long-press/context-menu feedback
                     com.github.gezimos.inkos.helper.utils.VibrationHelper.trigger(com.github.gezimos.inkos.helper.utils.VibrationHelper.Effect.LONG_PRESS)
                 }
                 
@@ -431,16 +647,20 @@ class AppsFragment : Fragment() {
                     }
                 }
                 
-                // Auto-launch logic
-                LaunchedEffect(state.searchQuery.text, displayApps.size) {
-                    if (appsDrawer.appDrawerAutoLaunch && state.searchQuery.text.isNotBlank() && filteredApps.size == 1) {
-                        delay(300)
-                        handleAppClick(filteredApps[0])
+                // aren't missed and the wrong app isn't launched.
+                LaunchedEffect(state.searchQuery.text, displayApps.size, asyncSearchDone) {
+                    if (appsDrawer.appDrawerAutoLaunch && state.searchQuery.text.isNotBlank() && asyncSearchDone) {
+                        val launchableApps = filteredApps.filter { app ->
+                            app.activityPackage != Constants.INTERNAL_WEB_SEARCH
+                        }
+                        if (launchableApps.size == 1) {
+                            delay(150)
+                            handleAppClick(launchableApps[0])
+                        }
                     }
                 }
                 
-                // Handle volume key page requests from ViewModel
-                LaunchedEffect(viewModel) {
+                LaunchedEffect(Unit) {
                     try {
                         viewModel.appDrawerPageRequests.collect { delta ->
                             try {
@@ -458,31 +678,33 @@ class AppsFragment : Fragment() {
                 val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
                 val keyPressTracker = remember { com.github.gezimos.inkos.ui.compose.KeyPressTracker() }
 
-                // Auto-show keyboard when preference enabled and search is present/enabled
+                LaunchedEffect(state.searchQuery.text) {
+                    if (state.searchQuery.text.isNotBlank() && state.searchEnabled) {
+                        delay(300)
+                        try { searchFocusRequester.requestFocus() } catch (_: Exception) {}
+                    }
+                }
+
                 LaunchedEffect(appsDrawer.appDrawerAutoShowKeyboard, appsDrawer.appDrawerSearchEnabled, state.searchEnabled) {
                     try {
-                        if (appsDrawer.appDrawerAutoShowKeyboard && appsDrawer.appDrawerSearchEnabled && state.searchEnabled) {
-                            // Small delay to ensure the search field is composed
-                            delay(120)
+                        if ((appsDrawer.appDrawerAutoShowKeyboard || searchMode >= 0) && state.searchEnabled) {
+                            // the window where space-as-home-button can fire.
+                            delay(if (searchMode >= 0) 10L else 50L)
                             try { searchFocusRequester.requestFocus() } catch (_: Exception) {}
                             try {
-                                // Prefer Compose keyboard controller when available
                                 try {
                                     keyboardController?.show()
                                 } catch (_: Exception) {}
 
-                                // No additional fallback: prefer Compose keyboard controller only
                             } catch (_: Exception) {}
                         }
                     } catch (_: Exception) {}
                 }
                 
-                // Reset key tracker when context menu or rename overlay state changes to prevent stuck state
-                LaunchedEffect(state.showRenameOverlay, state.showContextMenu) {
+                LaunchedEffect(state.showRenameOverlay) {
                     keyPressTracker.reset()
                 }
                 
-                // Handle search focus changes - clear app selection and A-Z filter focus when search is focused
                 LaunchedEffect(state.searchFocused) {
                     if (state.searchFocused) {
                         state.isDpadMode = false
@@ -502,32 +724,55 @@ class AppsFragment : Fragment() {
                         modifier = Modifier
                             .fillMaxSize()
                             .background(Color(backgroundColor))
+                            .inkOsSafeDrawingPadding()
                     ) {
-                        // Visual size used for the A–Z sidebar width (owned by AppsUI)
-                        val pageDotSize = com.github.gezimos.inkos.ui.compose.azSidebarWidth
+                        val screenScale = rememberScreenScale()
+                        val pageDotSize = com.github.gezimos.inkos.ui.compose.azSidebarWidth.scaled(screenScale)
 
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .padding(32.dp)
+                                .padding(32.dp.scaled(screenScale))
                                 .onSizeChanged { containerSize = it }
                                 .focusRequester(columnFocusRequester)
                                 .focusable()
                                 .onPreviewKeyEvent { keyEvent ->
-                                    // Skip all key handling when rename overlay or context menu is visible
-                                    // to allow their internal key handling to work
-                                    if (state.showRenameOverlay || state.showContextMenu) {
+                                    if (state.showRenameOverlay) {
                                         return@onPreviewKeyEvent false
                                     }
-                                    
-                                    // Fragment-level key handling (DPAD/page/search)
+
+                                    if (keyEvent.type == KeyEventType.KeyDown && (keyEvent.key == Key.Back || keyEvent.key == Key.Escape)) {
+                                        if (state.azFilterLetter != null) {
+                                            state.azFilterLetter = null
+                                            state.azFilterSelectedIndex = 0
+                                            state.azFilterFocused = false
+                                            setCurrentPageSafe(0)
+                                            return@onPreviewKeyEvent true
+                                        }
+                                        if (state.searchEnabled && state.searchQuery.text.isNotEmpty()) {
+                                            state.searchQuery = androidx.compose.ui.text.input.TextFieldValue("")
+                                            setCurrentPageSafe(0)
+                                            return@onPreviewKeyEvent true
+                                        }
+                                        if (state.searchFocused) {
+                                            state.searchFocused = false
+                                            state.isDpadMode = true
+                                            state.selectedItemIndex = 0
+                                            columnFocusRequester.requestFocus()
+                                            return@onPreviewKeyEvent true
+                                        }
+                                    }
+
                                     try {
                                         val handled = NavHelper.handleAppsKeyEvent(
                                             keyEvent = keyEvent,
                                             keyPressTracker = keyPressTracker,
                                             isDpadModeSetter = { v -> state.isDpadMode = v },
                                             selectedIndexGetter = { state.selectedItemIndex },
-                                            selectedIndexSetter = { v -> state.selectedItemIndex = v },
+                                            selectedIndexSetter = { v ->
+                                                state.selectedItemIndex = v
+                                                state.dragHandleFocused = false
+                                            },
                                             currentPage = state.currentPage,
                                             totalPages = totalPages,
                                             displayAppsSize = displayApps.size,
@@ -557,20 +802,48 @@ class AppsFragment : Fragment() {
                                                             findNavController().popBackStack()
                                                         }
                                                         else -> {
-                                                            state.contextMenuApp = selectedApp
-                                                            state.showContextMenu = true
+                                                            dialogManager.showAppContextMenu(
+                                                                app = selectedApp,
+                                                                flag = flag,
+                                                                isLocked = viewModel.isAppLocked(selectedApp),
+                                                                onDelete = { handleAppDelete(it) },
+                                                                onRename = { pkg, newName ->
+                                                                    if (newName.isEmpty()) {
+                                                                        val parts = pkg.split("|", limit = 2)
+                                                                        val app = displayApps.find { it.activityPackage == parts[0] && (parts.size < 2 || it.shortcutId == parts[1]) }
+                                                                        if (app != null) {
+                                                                            state.renameApp = app
+                                                                            state.showRenameOverlay = true
+                                                                        }
+                                                                    } else {
+                                                                        val appToRename = state.renameApp
+                                                                        if (appToRename != null) handleRenameApp(appToRename, newName)
+                                                                        state.showRenameOverlay = false
+                                                                        state.renameApp = null
+                                                                    }
+                                                                },
+                                                                onHideShow = { f, app ->
+                                                                    handleHideShowApp(f, app)
+                                                                    if (f == Constants.AppDrawerFlag.HiddenApps && viewModel.getPrefs().hiddenApps.isEmpty()) {
+                                                                        findNavController().popBackStack()
+                                                                    }
+                                                                },
+                                                                onLock = { app -> handleLockApp(app) {} },
+                                                                onInfo = { app ->
+                                                                    handleInfoApp(app)
+                                                                    findNavController().popBackStack(R.id.mainFragment, false)
+                                                                }
+                                                            )
                                                         }
                                                     }
                                                 }
                                             },
                                             onNavigateBack = { findNavController().popBackStack() },
-                                            // New parameters for A-Z filter and search
-                                            showAzFilter = appsDrawer.appDrawerAzFilter && !state.showContextMenu && !state.showRenameOverlay && !state.isHiddenAppsMode,
+                                            showAzFilter = appsDrawer.appDrawerAzFilter && !state.showRenameOverlay && !state.isHiddenAppsMode && !state.isEditFavoritesMode && !state.isEditHiddenMode,
                                             azFilterFocused = state.azFilterFocused,
                                             onAzFilterFocusChange = { focused ->
                                                 state.azFilterFocused = focused
                                                 if (focused) {
-                                                    // Reset to first item when entering filter
                                                     state.azFilterSelectedIndex = 0
                                                 }
                                             },
@@ -580,27 +853,142 @@ class AppsFragment : Fragment() {
                                             },
                                             azFilterSize = appsDrawer.azLetters.size,
                                             onAzFilterActivate = {
-                                                // Apply the currently selected filter letter and move back to app list
                                                 val letter = appsDrawer.azLetters.getOrNull(state.azFilterSelectedIndex)?.toString()
                                                 if (letter != null) {
                                                     try { com.github.gezimos.inkos.helper.utils.VibrationHelper.trigger(com.github.gezimos.inkos.helper.utils.VibrationHelper.Effect.SOFT) } catch (_: Exception) {}
                                                     val newFilter = if (letter == "★") null else letter.firstOrNull()?.uppercaseChar()
                                                     state.azFilterLetter = newFilter
                                                     setCurrentPageSafe(0)
-                                                    // Keep focus in A-Z filter after activation until user explicitly moves
                                                 }
                                             },
-                                            showSearch = appsDrawer.appDrawerSearchEnabled && state.searchEnabled && !state.isHiddenAppsMode,
+                                            showSearch = state.searchEnabled && !state.isHiddenAppsMode,
                                             onSearchFocus = {
                                                 state.searchFocused = true
-                                                // Request keyboard focus on search field
-                                                searchFocusRequester.requestFocus()
-                                            }
+                                                try {
+                                                    searchFocusRequester.requestFocus()
+                                                    keyboardController?.show()
+                                                } catch (_: Exception) {}
+                                            },
+                                            // Selection-mode DPAD support (Edit Favorites / Edit Hidden Apps)
+                                            isEditFavoritesMode = state.isEditFavoritesMode || state.isEditHiddenMode,
+                                            allowDragReorder = state.isEditFavoritesMode,
+                                            titleFocusable = flag == Constants.AppDrawerFlag.HiddenApps,
+                                            hasDoneButton = state.isEditFavoritesMode || state.isEditHiddenMode,
+                                            doneFocused = state.doneFocused,
+                                            onDoneFocusChange = { focused ->
+                                                state.doneFocused = focused
+                                                if (focused) state.titleFocused = false
+                                            },
+                                            onDoneActivate = {
+                                                when {
+                                                    state.isEditHiddenMode -> {
+                                                        viewModel.saveEditHiddenApps(state.selectedHidden.toList())
+                                                        findNavController().popBackStack()
+                                                    }
+                                                    state.isEditFavoritesMode -> {
+                                                        viewModel.saveEditFavorites(state.selectedFavorites.toList())
+                                                        findNavController().popBackStack()
+                                                    }
+                                                }
+                                            },
+                                            titleFocused = state.titleFocused,
+                                            onTitleFocusChange = { focused ->
+                                                state.titleFocused = focused
+                                                if (focused) state.doneFocused = false
+                                            },
+                                            onTitleActivate = {
+                                                when (flag) {
+                                                    Constants.AppDrawerFlag.EditFavorites -> {
+                                                        EditModeHelper.showHomeAppsAndPagesOnly(requireContext(), this@AppsFragment, prefs) {
+                                                            maxFavoritesState = prefs.homeAppsNum
+                                                        }
+                                                    }
+                                                    Constants.AppDrawerFlag.HiddenApps -> {
+                                                        findNavController().navigate(
+                                                            R.id.appsFragment,
+                                                            androidx.core.os.bundleOf("flag" to Constants.AppDrawerFlag.EditHiddenApps.toString())
+                                                        )
+                                                    }
+                                                    else -> {}
+                                                }
+                                            },
+                                            onFavoriteToggle = if (state.isEditFavoritesMode || state.isEditHiddenMode) { { index ->
+                                                val app = displayApps.getOrNull(index)
+                                                if (app != null) {
+                                                    if (state.isEditHiddenMode) {
+                                                        val existingIndex = state.selectedHidden.indexOfFirst { it.activityPackage == app.activityPackage && it.activityClass == app.activityClass }
+                                                        if (existingIndex >= 0) state.selectedHidden.removeAt(existingIndex)
+                                                        else state.selectedHidden.add(app)
+                                                    } else {
+                                                        val existingIndex = state.selectedFavorites.indexOfFirst { it.activityPackage == app.activityPackage && it.activityClass == app.activityClass }
+                                                        if (existingIndex >= 0) {
+                                                            state.selectedFavorites.removeAt(existingIndex)
+                                                        } else if (state.selectedFavorites.size < prefs.homeAppsNum) {
+                                                            state.selectedFavorites.add(app)
+                                                        } else {
+                                                            Toast.makeText(requireContext(), getString(R.string.max_favorites_reached, prefs.homeAppsNum), Toast.LENGTH_SHORT).show()
+                                                        }
+                                                    }
+                                                }
+                                            } } else null,
+                                            // DPAD drag reorder
+                                            dragHandleFocused = state.dragHandleFocused,
+                                            onDragHandleFocusChange = { focused -> state.dragHandleFocused = focused },
+                                            dpadGrabbedIndex = state.dpadGrabbedIndex,
+                                            onDpadGrab = {
+                                                val app = displayApps.getOrNull(state.selectedItemIndex)
+                                                if (app != null) {
+                                                    val favIndex = state.selectedFavorites.indexOfFirst {
+                                                        it.activityPackage == app.activityPackage && it.activityClass == app.activityClass
+                                                    }
+                                                    if (favIndex >= 0) {
+                                                        state.dpadGrabbedIndex = favIndex
+                                                        state.draggingIndex = favIndex
+                                                    }
+                                                }
+                                            },
+                                            onDpadDrop = {
+                                                state.dpadGrabbedIndex = null
+                                                state.draggingIndex = null
+                                                state.dragOffsetY = 0f
+                                            },
+                                            onDpadMoveUp = {
+                                                val idx = state.dpadGrabbedIndex
+                                                if (idx != null && idx > 0) {
+                                                    val item = state.selectedFavorites.removeAt(idx)
+                                                    state.selectedFavorites.add(idx - 1, item)
+                                                    state.dpadGrabbedIndex = idx - 1
+                                                    state.draggingIndex = idx - 1
+                                                    state.dragOffsetY = 0f
+                                                    if (state.selectedItemIndex > 0) {
+                                                        state.selectedItemIndex = state.selectedItemIndex - 1
+                                                    }
+                                                }
+                                            },
+                                            onDpadMoveDown = {
+                                                val idx = state.dpadGrabbedIndex
+                                                if (idx != null && idx < state.selectedFavorites.size - 1) {
+                                                    val item = state.selectedFavorites.removeAt(idx)
+                                                    state.selectedFavorites.add(idx + 1, item)
+                                                    state.dpadGrabbedIndex = idx + 1
+                                                    state.draggingIndex = idx + 1
+                                                    state.dragOffsetY = 0f
+                                                    if (state.selectedItemIndex < displayApps.size - 1) {
+                                                        state.selectedItemIndex = state.selectedItemIndex + 1
+                                                    }
+                                                }
+                                            },
+                                            isItemChecked = if (state.isEditFavoritesMode || state.isEditHiddenMode) { { index ->
+                                                val app = displayApps.getOrNull(index)
+                                                val targetList = if (state.isEditHiddenMode) state.selectedHidden else state.selectedFavorites
+                                                app != null && targetList.any {
+                                                    it.activityPackage == app.activityPackage && it.activityClass == app.activityClass
+                                                }
+                                            } } else null
                                         )
                                         if (handled) return@onPreviewKeyEvent true
                                     } catch (_: Exception) {}
                                     
-                                    // Handle DOWN key when search field is focused to move back to app list
                                     if (keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.DirectionDown && state.searchFocused) {
                                         state.searchFocused = false
                                         state.isDpadMode = true
@@ -609,19 +997,11 @@ class AppsFragment : Fragment() {
                                         return@onPreviewKeyEvent true
                                     }
 
-                                    // Fallback: handle Enter (open first result) and search input/backspace
                                     if (keyEvent.type == KeyEventType.KeyDown) {
-                                        // If search is active, Enter or DPAD center should open the first filtered app
-                                        // But we need to track press duration, so only handle on KeyUp
                                         when (keyEvent.key) {
                                             Key.Backspace, Key.Delete -> {
                                                 if (state.searchEnabled && state.searchQuery.text.isNotEmpty()) {
-                                                    try { searchFocusRequester.requestFocus() } catch (_: Exception) {}
-                                                    val newText = state.searchQuery.text.dropLast(1).lowercase()
-                                                    state.searchQuery = state.searchQuery.copy(
-                                                        text = newText,
-                                                        selection = androidx.compose.ui.text.TextRange(newText.length)
-                                                    )
+                                                    state.searchQuery = SearchHelper.backspaceSearch(state.searchQuery)
                                                     return@onPreviewKeyEvent true
                                                 }
                                                 return@onPreviewKeyEvent false
@@ -630,7 +1010,6 @@ class AppsFragment : Fragment() {
                                                 if (state.searchEnabled) {
                                                     val char = SearchHelper.keyToChar(keyEvent.key)
                                                     if (char != null) {
-                                                        try { searchFocusRequester.requestFocus() } catch (_: Exception) {}
                                                         state.searchQuery = SearchHelper.appendCharToSearch(state.searchQuery, char)
                                                         return@onPreviewKeyEvent true
                                                     }
@@ -644,9 +1023,11 @@ class AppsFragment : Fragment() {
                                 .gestureHelper(
                                     shortSwipeRatio = prefs.shortSwipeThresholdRatio,
                                     longSwipeRatio = prefs.longSwipeThresholdRatio,
+                                    scrollPageMoveMultiplier = if (state.azFilterLetter != null) 1.5f else 3.0f,
+                                    onAnyTouch = { profileSwitchedThisGesture = false },
                                     onVerticalPageMove = { delta ->
                                         try {
-                                            if (totalPages <= 1) return@gestureHelper
+                                            if (state.draggingIndex != null) return@gestureHelper
                                             if (delta > 0) {
                                                 val newPage = (state.currentPage + delta).coerceAtMost(totalPages - 1)
                                                 if (newPage != state.currentPage) {
@@ -655,16 +1036,30 @@ class AppsFragment : Fragment() {
                                                 }
                                             } else if (delta < 0) {
                                                 val steps = -delta
-                                                if (state.currentPage == 0 && steps > 0) {
+                                                val newPage = (state.currentPage - steps).coerceAtLeast(0)
+                                                if (newPage != state.currentPage) {
+                                                    setCurrentPageSafe(newPage)
                                                     vibratePage()
-                                                    findNavController().popBackStack()
-                                                } else {
-                                                    val newPage = (state.currentPage - steps).coerceAtLeast(0)
-                                                    if (newPage != state.currentPage) {
-                                                        setCurrentPageSafe(newPage)
-                                                        vibratePage()
+                                                } else if (state.currentPage == 0 && !profileSwitchedThisGesture) {
+                                                    profileSwitchedThisGesture = true
+                                                    if (state.privateSpaceFilter) {
+                                                        state.privateSpaceFilter = false
+                                                    } else if (appsDrawer.hasPrivateSpace) {
+                                                        state.privateSpaceFilter = true
                                                     }
+                                                    state.azFilterLetter = null
+                                                    setCurrentPageSafe(0)
+                                                    try { com.github.gezimos.inkos.helper.utils.VibrationHelper.trigger(com.github.gezimos.inkos.helper.utils.VibrationHelper.Effect.CLICK) } catch (_: Exception) {}
                                                 }
+                                            }
+                                        } catch (_: Exception) {}
+                                    },
+                                    onLongSwipeDown = {
+                                        try {
+                                            if (state.draggingIndex != null) return@gestureHelper
+                                            if (state.currentPage == 0 && flag != Constants.AppDrawerFlag.EditFavorites && flag != Constants.AppDrawerFlag.EditHiddenApps) {
+                                                vibratePage()
+                                                findNavController().popBackStack()
                                             }
                                         } catch (_: Exception) {}
                                     }
@@ -675,7 +1070,6 @@ class AppsFragment : Fragment() {
                                 uiState = appsDrawer,
                                 displayApps = displayApps,
                                 paddedDisplayApps = paddedDisplayApps,
-                                totalPages = totalPages,
                                 isCalculated = isCalculated,
                                 searchFocusRequester = searchFocusRequester,
                                 onAppClick = { app ->
@@ -684,69 +1078,79 @@ class AppsFragment : Fragment() {
                                     handleAppClick(app)
                                 },
                                 onAppLongClick = { app ->
-                                    state.selectedItemIndex = displayApps.indexOf(app)
-                                    state.isDpadMode = false
-                                    vibrateFeedback()
-                                    when (flag) {
-                                        Constants.AppDrawerFlag.SetHomeApp,
-                                        Constants.AppDrawerFlag.SetSwipeLeft,
-                                        Constants.AppDrawerFlag.SetSwipeRight,
-                                        Constants.AppDrawerFlag.SetSwipeUp,
-                                        Constants.AppDrawerFlag.SetSwipeDown,
-                                        Constants.AppDrawerFlag.SetClickClock,
-                                        Constants.AppDrawerFlag.SetClickDate,
-                                        Constants.AppDrawerFlag.SetQuoteWidget,
-                                        Constants.AppDrawerFlag.SetDoubleTap -> {
-                                            viewModel.selectAppForFlag(app, flag, appPosition)
-                                            findNavController().popBackStack()
-                                        }
-                                        else -> {
-                                            state.contextMenuApp = app
-                                            state.showContextMenu = true
-                                            state.showRenameOverlay = false
+                                    if (EditModeHelper.isEditMode()) {
+                                        EditModeHelper.showAppDrawerSettings(context, fragment, prefs, { }, folderPickerLauncher)
+                                    } else {
+                                        state.selectedItemIndex = displayApps.indexOf(app)
+                                        state.isDpadMode = false
+                                        vibrateFeedback()
+                                        when (flag) {
+                                            Constants.AppDrawerFlag.SetHomeApp,
+                                            Constants.AppDrawerFlag.SetSwipeLeft,
+                                            Constants.AppDrawerFlag.SetSwipeRight,
+                                            Constants.AppDrawerFlag.SetSwipeUp,
+                                            Constants.AppDrawerFlag.SetSwipeDown,
+                                            Constants.AppDrawerFlag.SetClickClock,
+                                            Constants.AppDrawerFlag.SetClickDate,
+                                            Constants.AppDrawerFlag.SetQuoteWidget,
+                                            Constants.AppDrawerFlag.SetDoubleTap -> {
+                                                viewModel.selectAppForFlag(app, flag, appPosition)
+                                                findNavController().popBackStack()
+                                            }
+                                            else -> {
+                                                dialogManager.showAppContextMenu(
+                                                    app = app,
+                                                    flag = flag,
+                                                    isLocked = viewModel.isAppLocked(app),
+                                                    onDelete = { handleAppDelete(it) },
+                                                    onRename = { pkg, newName ->
+                                                        if (newName.isEmpty()) {
+                                                            val rParts = pkg.split("|", limit = 2)
+                                                            val a = displayApps.find { it.activityPackage == rParts[0] && (rParts.size < 2 || it.shortcutId == rParts[1]) }
+                                                            if (a != null) {
+                                                                state.renameApp = a
+                                                                state.showRenameOverlay = true
+                                                            }
+                                                        } else {
+                                                            val appToRename = state.renameApp
+                                                            if (appToRename != null) handleRenameApp(appToRename, newName)
+                                                            state.showRenameOverlay = false
+                                                            state.renameApp = null
+                                                        }
+                                                    },
+                                                    onHideShow = { f, a ->
+                                                        handleHideShowApp(f, a)
+                                                        if (f == Constants.AppDrawerFlag.HiddenApps && viewModel.getPrefs().hiddenApps.isEmpty()) {
+                                                            findNavController().popBackStack()
+                                                        }
+                                                    },
+                                                    onLock = { a -> handleLockApp(a) {} },
+                                                    onInfo = { a ->
+                                                        handleInfoApp(a)
+                                                        findNavController().popBackStack(R.id.mainFragment, false)
+                                                    }
+                                                )
+                                            }
                                         }
                                     }
-                                },
-                                onDelete = { app ->
-                                    handleAppDelete(app)
-                                    state.showContextMenu = false
-                                    state.contextMenuApp = null
                                 },
                                 onRename = { pkg, newName ->
                                     try { com.github.gezimos.inkos.helper.utils.VibrationHelper.trigger(com.github.gezimos.inkos.helper.utils.VibrationHelper.Effect.CLICK) } catch (_: Exception) {}
                                     if (newName.isEmpty()) {
-                                        val app = displayApps.find { it.activityPackage == pkg }
+                                        val parts = pkg.split("|", limit = 2)
+                                        val app = displayApps.find { it.activityPackage == parts[0] && (parts.size < 2 || it.shortcutId == parts[1]) }
                                         if (app != null) {
                                             state.renameApp = app
                                             state.showRenameOverlay = true
-                                            state.showContextMenu = false
-                                            state.contextMenuApp = null
                                         }
                                     } else {
-                                        handleRenameApp(pkg, newName)
+                                        val appToRename = state.renameApp
+                                        if (appToRename != null) handleRenameApp(appToRename, newName)
                                         state.showRenameOverlay = false
                                         state.renameApp = null
                                     }
                                 },
-                                onHideShow = { f, app ->
-                                    handleHideShowApp(f, app)
-                                    state.showContextMenu = false
-                                    state.contextMenuApp = null
-                                },
-                                onLock = { app ->
-                                    handleLockApp(app) {
-                                        state.showContextMenu = false
-                                        state.contextMenuApp = null
-                                    }
-                                },
-                                onInfo = { app -> 
-                                    handleInfoApp(app)
-                                    state.showContextMenu = false
-                                    state.contextMenuApp = null
-                                    findNavController().popBackStack(R.id.mainFragment, false)
-                                },
                                 onSearchQueryChange = { newQuery ->
-                                    // Normalize to lowercase
                                     val lower = newQuery.text.lowercase()
                                     val sel = newQuery.selection
                                     val newSel = androidx.compose.ui.text.TextRange(
@@ -767,19 +1171,84 @@ class AppsFragment : Fragment() {
                                     state.showRenameOverlay = false
                                     state.contextMenuApp = null
                                     state.renameApp = null
-                                }
+                                },
+                                // Selection mode parameters (Edit Favorites / Edit Hidden Apps)
+                                onFavoriteToggle = when (flag) {
+                                    Constants.AppDrawerFlag.EditFavorites -> { app ->
+                                        val existingIndex = state.selectedFavorites.indexOfFirst { it.activityPackage == app.activityPackage && it.activityClass == app.activityClass }
+                                        if (existingIndex >= 0) {
+                                            state.selectedFavorites.removeAt(existingIndex)
+                                        } else if (state.selectedFavorites.size < prefs.homeAppsNum) {
+                                            state.selectedFavorites.add(app)
+                                        } else {
+                                            Toast.makeText(requireContext(), getString(R.string.max_favorites_reached, prefs.homeAppsNum), Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                    Constants.AppDrawerFlag.EditHiddenApps -> { app ->
+                                        val existingIndex = state.selectedHidden.indexOfFirst { it.activityPackage == app.activityPackage && it.activityClass == app.activityClass }
+                                        if (existingIndex >= 0) {
+                                            state.selectedHidden.removeAt(existingIndex)
+                                        } else {
+                                            state.selectedHidden.add(app)
+                                        }
+                                    }
+                                    else -> null
+                                },
+                                onDone = when (flag) {
+                                    Constants.AppDrawerFlag.EditFavorites -> {
+                                        {
+                                            viewModel.saveEditFavorites(state.selectedFavorites.toList())
+                                            findNavController().popBackStack()
+                                        }
+                                    }
+                                    Constants.AppDrawerFlag.EditHiddenApps -> {
+                                        {
+                                            viewModel.saveEditHiddenApps(state.selectedHidden.toList())
+                                            findNavController().popBackStack()
+                                        }
+                                    }
+                                    else -> null
+                                },
+                                selectedFavoritesCount = when (flag) {
+                                    Constants.AppDrawerFlag.EditFavorites -> state.selectedFavorites.size
+                                    Constants.AppDrawerFlag.EditHiddenApps -> state.selectedHidden.size
+                                    else -> 0
+                                },
+                                maxFavorites = if (flag == Constants.AppDrawerFlag.EditFavorites) maxFavoritesState else 0,
+                                isFavoriteChecked = when (flag) {
+                                    Constants.AppDrawerFlag.EditFavorites -> { app ->
+                                        state.selectedFavorites.any { it.activityPackage == app.activityPackage && it.activityClass == app.activityClass }
+                                    }
+                                    Constants.AppDrawerFlag.EditHiddenApps -> { app ->
+                                        state.selectedHidden.any { it.activityPackage == app.activityPackage && it.activityClass == app.activityClass }
+                                    }
+                                    else -> null
+                                },
+                                onTitleClick = when (flag) {
+                                    Constants.AppDrawerFlag.EditFavorites -> {
+                                        {
+                                            EditModeHelper.showHomeAppsAndPagesOnly(context, fragment, prefs) {
+                                                maxFavoritesState = prefs.homeAppsNum
+                                            }
+                                        }
+                                    }
+                                    Constants.AppDrawerFlag.HiddenApps -> {
+                                        {
+                                            findNavController().navigate(
+                                                R.id.appsFragment,
+                                                androidx.core.os.bundleOf("flag" to Constants.AppDrawerFlag.EditHiddenApps.toString())
+                                            )
+                                        }
+                                    }
+                                    else -> null
+                                },
+                                homePagesNum = prefs.homePagesNum
                             )
-                            // Use precomputed AZ letters from ViewModel so we only show
-                            // letters that have apps (avoids the "no apps available" column)
+
                             val azLetters = appsDrawer.azLetters
 
-                            // A-Z sidebar for quick filtering (Niagara-like)
-                            // Only show AZ sidebar when the preference is enabled and no overlay is active.
-                            // Hide during context menu or rename to prevent interference and stale updates.
-                            // Wait for isCalculated so it appears at the same time as the apps list.
-                            if (isCalculated && appsDrawer.appDrawerAzFilter && !state.showContextMenu && !state.showRenameOverlay && !state.isHiddenAppsMode) {
-                                Theme.colors.text
-                                    AZSidebar(
+                            if (isCalculated && appsDrawer.appDrawerAzFilter && !state.showRenameOverlay && !state.isHiddenAppsMode && !state.isEditFavoritesMode && !state.isEditHiddenMode) {
+                                AZSidebar(
                                     modifier = Modifier
                                         .align(if (appsDrawer.appDrawerAlignment == 2) Alignment.CenterStart else Alignment.CenterEnd),
                                     edgeWidth = pageDotSize,
@@ -790,6 +1259,7 @@ class AppsFragment : Fragment() {
                                     onLetterSelected = { letter ->
                                         try { com.github.gezimos.inkos.helper.utils.VibrationHelper.trigger(com.github.gezimos.inkos.helper.utils.VibrationHelper.Effect.AZ_FILTER) } catch (_: Exception) {}
                                         try {
+                                            state.privateSpaceFilter = false
                                             val newFilter = if (letter == "★") null else letter.firstOrNull()?.uppercaseChar()
                                             if (newFilter != state.azFilterLetter) {
                                                 state.azFilterLetter = newFilter
@@ -805,17 +1275,14 @@ class AppsFragment : Fragment() {
                                             if (newFilter != state.azFilterLetter) {
                                                 state.azFilterLetter = newFilter
                                             }
-                                            // If user explicitly released on the star, ensure we go to page 0.
                                             if (finalLetter == "★") {
                                                 setCurrentPageSafe(0)
                                             }
                                         } catch (_: Exception) {}
                                     },
-                                    // DPAD navigation parameters
                                     dpadSelectedIndex = if (state.azFilterFocused) state.azFilterSelectedIndex else null,
                                     onDpadIndexChange = { index ->
                                         state.azFilterSelectedIndex = index
-                                        // Apply the filter for the selected letter
                                         val letter = azLetters.getOrNull(index)?.toString()
                                         if (letter != null) {
                                             try { com.github.gezimos.inkos.helper.utils.VibrationHelper.trigger(com.github.gezimos.inkos.helper.utils.VibrationHelper.Effect.SOFT) } catch (_: Exception) {}
@@ -826,17 +1293,88 @@ class AppsFragment : Fragment() {
                                             }
                                         }
                                     },
-                                    textIslandsShape = appsDrawer.textIslandsShape
+                                    textIslandsShape = appsDrawer.textIslandsShape,
+                                    fontFamily = iconFontFamily,
+                                    showPrivateSpace = appsDrawer.hasPrivateSpace,
+                                    isPrivateSpaceActive = state.privateSpaceFilter,
+                                    onPrivateSpaceTap = {
+                                        try { com.github.gezimos.inkos.helper.utils.VibrationHelper.trigger(com.github.gezimos.inkos.helper.utils.VibrationHelper.Effect.CLICK) } catch (_: Exception) {}
+                                        state.privateSpaceFilter = !state.privateSpaceFilter
+                                        state.azFilterLetter = null
+                                        setCurrentPageSafe(0)
+                                    },
+                                    onPrivateSpaceLongPress = {
+                                        try { com.github.gezimos.inkos.helper.utils.VibrationHelper.trigger(com.github.gezimos.inkos.helper.utils.VibrationHelper.Effect.SELECT) } catch (_: Exception) {}
+                                        try {
+                                            com.github.gezimos.inkos.helper.utils.ProfileManager(requireContext())
+                                                .togglePrivateSpaceLock(showToast = true, launchSettings = false)
+                                        } catch (_: Exception) {}
+                                        state.privateSpaceFilter = false
+                                        state.azFilterLetter = null
+                                        setCurrentPageSafe(0)
+                                    }
                                 )
                             }
+                        }
+                        if (EditModeHelper.isEditMode()) {
+                            EditModeOverlay()
                         }
                     }
                 }
             }
         }
+
+        root.addView(composeView)
+        return root
     }
 
     private fun handleAppClick(app: AppListItem) {
+        if (flag == Constants.AppDrawerFlag.EditFavorites || flag == Constants.AppDrawerFlag.EditHiddenApps) return
+
+        // Record launch for frequency boosting
+        if (currentSearchQuery.isNotBlank()) {
+            SearchHelper.recordLaunch(requireContext(), currentSearchQuery, app.activityPackage)
+        }
+        
+        if (EditModeHelper.isEditMode()) {
+            EditModeHelper.showAppDrawerSettings(requireContext(), this, prefs, { }, folderPickerLauncher)
+            return
+        }
+        if (app.activityPackage.startsWith(Constants.INTERNAL_CONTACT_PREFIX)) {
+            val contactId = app.activityPackage.removePrefix(Constants.INTERNAL_CONTACT_PREFIX)
+            val lookupKey = com.github.gezimos.inkos.helper.ContactsHelper.getLookupKey(requireContext(), contactId) ?: contactId
+            com.github.gezimos.inkos.helper.ContactsHelper.launchContactQuickActions(
+                requireContext(),
+                contactId,
+                lookupKey
+            )
+            return
+        }
+
+        if (app.activityPackage == Constants.INTERNAL_WEB_SEARCH) {
+            // Query is stored in activityClass
+            val query = app.activityClass
+            SearchHelper.launchWebSearch(requireContext(), query)
+            return
+        }
+
+        if (app.activityPackage == Constants.INTERNAL_SETTINGS) {
+            // Action string is stored in activityClass
+            com.github.gezimos.inkos.helper.SettingsSearchHelper.launch(requireContext(), app.activityClass)
+            return
+        }
+
+        if (app.activityPackage == Constants.INTERNAL_MUSIC) {
+            // Content URI is stored in activityClass
+            com.github.gezimos.inkos.helper.MusicSearchHelper.launch(requireContext(), app.activityClass)
+            return
+        }
+
+        if (app.activityPackage == Constants.INTERNAL_FILES) {
+            com.github.gezimos.inkos.helper.FileSearchHelper.launch(requireContext(), app.activityClass)
+            return
+        }
+
         // For flag-based actions, select and navigate back
         when (flag) {
             Constants.AppDrawerFlag.SetHomeApp,
@@ -855,49 +1393,70 @@ class AppsFragment : Fragment() {
             else -> { /* Launch app */ }
         }
         
-        // Handle synthetic apps and system shortcuts
         val appsRepo = com.github.gezimos.inkos.data.repository.AppsRepository.getInstance(requireContext().applicationContext as android.app.Application)
-        if (appsRepo.launchSyntheticOrSystemApp(
-                requireContext(),
-                app.activityPackage,
-                this
-            )
-        ) {
-            return
-        }
-        
-        // Check if app is locked
-        if (viewModel.isAppLocked(app.activityPackage)) {
+        if (viewModel.isAppLocked(app)) {
             promptBiometric(
-                onSuccess = { viewModel.launchApp(app) },
+                onSuccess = {
+                    if (appsRepo.launchSyntheticOrSystemApp(requireContext(), app.activityPackage, this, app.shortcutId)) return@promptBiometric
+                    viewModel.launchApp(app)
+                },
                 title = "Authenticate to open ${app.label}"
             )
         } else {
+            if (appsRepo.launchSyntheticOrSystemApp(requireContext(), app.activityPackage, this, app.shortcutId)) return
             viewModel.launchApp(app)
         }
     }
 
-    private fun handleAppLongClick(app: AppListItem) {
-        // Long click handled by UI state
-    }
-
     private fun handleAppDelete(app: AppListItem) {
+        val appsRepo = com.github.gezimos.inkos.data.repository.AppsRepository.getInstance(requireContext().applicationContext as android.app.Application)
+        if (appsRepo.isPinnedShortcut(app)) {
+            val unpinned = appsRepo.unpinShortcut(app)
+            if (unpinned) {
+                showShortToast(getString(R.string.toast_shortcut_unpinned))
+                viewModel.refreshAppListAfterUninstall(includeHiddenApps = false)
+            } else {
+                showShortToast(getString(R.string.toast_unpin_failed))
+            }
+            return
+        }
+
+        if (app.shortcutId != null) {
+            val key = "${app.activityPackage}|${app.shortcutId}|${app.user}"
+            val allShortcuts = try {
+                com.github.gezimos.inkos.helper.getAllAppShortcuts(requireContext())
+            } catch (_: Exception) { emptyList() }
+            val effectiveSelected = if (!prefs.hasSelectedAppShortcutsBeenSet()) {
+                com.github.gezimos.inkos.helper.computeDefaultShortcutSelection(allShortcuts, BuildConfig.APPLICATION_ID).toMutableSet()
+            } else {
+                prefs.selectedAppShortcuts.toMutableSet()
+            }
+            effectiveSelected.remove(key)
+            viewModel.setSelectedAppShortcuts(effectiveSelected)
+            viewModel.refreshAppListAfterUninstall(includeHiddenApps = false)
+            showShortToast(getString(R.string.toast_shortcut_removed))
+            return
+        }
+
         if (requireContext().isSystemApp(app.activityPackage)) {
             showShortToast(getString(R.string.can_not_delete_system_apps))
         } else {
             val intent = Intent(Intent.ACTION_DELETE).apply {
-                data = android.net.Uri.parse("package:${app.activityPackage}")
+                data = "package:${app.activityPackage}".toUri()
+                if (app.user != android.os.Process.myUserHandle()) {
+                    putExtra(Intent.EXTRA_USER, app.user)
+                }
             }
             pendingUninstallPackage = app.activityPackage
             uninstallLauncher.launch(intent)
         }
     }
 
-    private fun handleRenameApp(pkg: String, newName: String) {
+    private fun handleRenameApp(app: AppListItem, newName: String) {
         if (newName == "RESET_TO_ORIGINAL") {
-            viewModel.renameApp(pkg, "", flag)
+            viewModel.renameApp(app.activityPackage, "", flag, app.shortcutId)
         } else {
-            viewModel.renameApp(pkg, newName, flag)
+            viewModel.renameApp(app.activityPackage, newName, flag, app.shortcutId)
         }
     }
 
@@ -911,10 +1470,10 @@ class AppsFragment : Fragment() {
     private fun handleLockApp(app: AppListItem, onSuccess: () -> Unit) {
         promptBiometric(
             onSuccess = {
-                viewModel.toggleAppLock(app.activityPackage)
+                viewModel.toggleAppLock(app)
                 onSuccess()
             },
-            title = if (prefs.lockedApps.contains(app.activityPackage)) "Authenticate to unlock" else "Authenticate to lock"
+            title = if (viewModel.isAppLocked(app)) "Authenticate to unlock" else "Authenticate to lock"
         )
     }
 
@@ -924,9 +1483,12 @@ class AppsFragment : Fragment() {
 
     private fun promptBiometric(onSuccess: () -> Unit, title: String = "Authenticate") {
         val biometricManager = BiometricManager.from(requireContext())
-        val canAuth = biometricManager.canAuthenticate()
+        val canAuth = biometricManager.canAuthenticate(
+            BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                BiometricManager.Authenticators.DEVICE_CREDENTIAL
+        )
         if (canAuth != BiometricManager.BIOMETRIC_SUCCESS) {
-            Toast.makeText(requireContext(), "Biometric authentication not available", Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), getString(R.string.toast_biometric_unavailable), Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -952,6 +1514,20 @@ class AppsFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
+        if (flag == Constants.AppDrawerFlag.SetHomeApp ||
+            flag == Constants.AppDrawerFlag.SetSwipeLeft ||
+            flag == Constants.AppDrawerFlag.SetSwipeRight ||
+            flag == Constants.AppDrawerFlag.SetSwipeUp ||
+            flag == Constants.AppDrawerFlag.SetSwipeDown ||
+            flag == Constants.AppDrawerFlag.SetClickClock ||
+            flag == Constants.AppDrawerFlag.SetClickDate ||
+            flag == Constants.AppDrawerFlag.SetQuoteWidget ||
+            flag == Constants.AppDrawerFlag.SetDoubleTap ||
+            flag == Constants.AppDrawerFlag.EditFavorites ||
+            flag == Constants.AppDrawerFlag.EditHiddenApps
+        ) {
+            EditModeHelper.exitEditMode()
+        }
         val act = activity as? com.github.gezimos.inkos.MainActivity ?: return
         act.pageNavigationHandler = object : com.github.gezimos.inkos.MainActivity.PageNavigationHandler {
             override val handleDpadAsPage: Boolean = false
@@ -971,11 +1547,11 @@ class AppsFragment : Fragment() {
     }
 
     override fun onPause() {
+        try { hideKeyboard() } catch (_: Exception) {}
         super.onPause()
         val act = activity as? com.github.gezimos.inkos.MainActivity ?: return
         if (act.pageNavigationHandler != null) act.pageNavigationHandler = null
         try {
-            // Clear any buffered typed characters so reopening the drawer doesn't reuse old input
             viewModel.clearTypedCharReplay()
         } catch (_: Exception) {}
         act.suppressKeyForwarding = false

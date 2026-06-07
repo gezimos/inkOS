@@ -15,8 +15,8 @@ android {
         applicationId = "app.inkos"
         minSdk = 26
         targetSdk = 36
-        versionCode = 101004
-        versionName = "0.4"
+        versionCode = 101012
+        versionName = "0.5"
     }
 
     dependenciesInfo {
@@ -24,6 +24,18 @@ android {
         includeInApk = false
         // Disables dependency metadata when building Android App Bundles (for Google Play)
         includeInBundle = false
+    }
+
+    signingConfigs {
+        create("release") {
+            val keystorePath = System.getenv("KEYSTORE_FILE")
+            if (keystorePath != null) {
+                storeFile = file(keystorePath)
+                storePassword = System.getenv("KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("KEY_ALIAS")
+                keyPassword = System.getenv("KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
@@ -42,11 +54,16 @@ android {
         getByName("release") {
             isMinifyEnabled = true
             isShrinkResources = true
+            ndk.debugSymbolLevel = "FULL"
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
             resValue("string", "app_name", "inkOS")
+            val releaseSigning = signingConfigs.findByName("release")
+            if (releaseSigning?.storeFile != null) {
+                signingConfig = releaseSigning
+            }
         }
     }
 
@@ -75,10 +92,6 @@ android {
         compose = true
         viewBinding = true
         buildConfig = true
-    }
-
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.6.0"
     }
 
     compileOptions {
@@ -112,7 +125,6 @@ dependencies {
     implementation(libs.palette.ktx)
 
     // Android Lifecycle
-    implementation(libs.lifecycle.extensions)
     implementation(libs.lifecycle.viewmodel.ktx)
 
     // Navigation
@@ -128,39 +140,36 @@ dependencies {
     implementation(libs.activity.compose)
 
     // Jetpack Compose
-    implementation(libs.compose.material) // Compose Material Design
+    implementation(libs.compose.material3) // Compose Material 3 Design
     implementation(libs.compose.android) // Android
     implementation(libs.compose.animation) // Animations
     implementation(libs.compose.ui) // Core UI library
-    implementation("androidx.compose.foundation:foundation:1.6.0") // Foundation library (stickyHeader)
-    implementation(libs.compose.ui.tooling) // UI tooling for previews
-    implementation("androidx.compose.foundation:foundation:1.6.0") // For VerticalPager
-    implementation("com.google.accompanist:accompanist-pager:0.34.0")
-    implementation("com.google.accompanist:accompanist-pager-indicators:0.34.0")
-    implementation("androidx.compose.runtime:runtime-livedata:1.6.0") // <-- Add this line for observeAsState with LiveData
-    implementation("androidx.compose.material:material-icons-extended:1.6.0") // Material Icons Extended
+    implementation(libs.compose.foundation) // Foundation library (stickyHeader, VerticalPager)
+    debugImplementation(libs.compose.ui.tooling) // UI tooling for previews (debug only)
+    implementation(libs.material.icons.extended) // Material Icons Extended
 
     // Image loading libraries
-    implementation("com.github.bumptech.glide:glide:4.16.0") // Glide for View-based fragments
-    // implementation("io.coil-kt:coil-compose:2.5.0") // Coil removed: now using native image loading
+    implementation(libs.glide) // Glide for View-based fragments
 
     // Text similarity and JSON handling
     implementation(libs.commons.text)
     implementation(libs.gson)
 
+    // Glance (AppWidgets)
+    implementation(libs.glance.appwidget)
+
     // Biometric support
-    implementation(libs.biometric.ktx)
-    implementation(libs.foundation)
+    implementation(libs.biometric)
 
     // AndroidX Test - Espresso
     androidTestImplementation(libs.espresso.core)
     androidTestImplementation(libs.espresso.contrib)
-    implementation(libs.espresso.idling.resource) // Idling resources for Espresso tests
+    androidTestImplementation(libs.espresso.idling.resource) // Idling resources for Espresso tests
 
     // Test rules and other testing dependencies
     androidTestImplementation(libs.test.runner)
     androidTestImplementation(libs.test.rules)
-    implementation(libs.test.core.ktx) // Test core utilities
+    androidTestImplementation(libs.test.core.ktx) // Test core utilities
 
     // Jetpack Compose Testing
     androidTestImplementation(libs.ui.test.junit4) // For createComposeRule

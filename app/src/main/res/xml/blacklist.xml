@@ -1,14 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Apps that should never appear in the app drawer or home screen. -->
 <blacklist>
-    <!-- Example: Package names of apps to be blacklisted -->
-    <app packageName="app.inkos" />
-    <app packageName="com.opera.browser" />
-    <app packageName="com.google.android.apps.healthdata" />
-    <app packageName="com.google.android.healthconnect.controller" />
-    <app packageName="com.google.android.deskclock" />
-    <app packageName="com.google.android.permissioncontroller" />
-    <app packageName="com.google.android.apps.wellbeing" />
-    <app packageName="com.google.android.apps.nexuslauncher" />
-    <app packageName="com.android.intentresolver" />
-    <!-- Add more app entries as needed -->
+    <!-- OEM test/debug apps that are not user-facing -->
+    <app packageName="com.mediatek.gnss.nonframeworklbs" />
+    <app packageName="com.phdtaui.mainactivity" />
 </blacklist>

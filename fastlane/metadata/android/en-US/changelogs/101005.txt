@@ -1,0 +1,13 @@
+v0.5
+- Shortcuts: pinned, web, PWA with favicons, app shortcuts, long-press to view shortcuts
+- Icons: text, system, tinted, icon packs with shape options
+- Theme presets + custom themes with export/import
+- Independent light/dark colors, system theme mode
+- Edit Mode: tap any element to configure
+- Home: 9 clock styles, bottom widgets (events, shortcuts, Android widgets, usage, page dots)
+- Hub: new notification center with category tabs
+- Search: contacts, web, settings, music, files with frequency-based ranking
+- Gestures: configurable short/long swipe thresholds, new actions (search, hub, settings)
+- Recents: usage statistics with time/money/coffee units
+- Private Space (Android 15+) and Work Profile support
+- UI scale modes, new fonts, wallpaper patterns

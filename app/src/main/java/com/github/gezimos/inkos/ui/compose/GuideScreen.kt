@@ -1,538 +1,649 @@
 package com.github.gezimos.inkos.ui.compose
 
-import android.app.Activity
-import android.content.ContextWrapper
-import androidx.compose.foundation.Image
+import android.os.Bundle
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
+import com.github.gezimos.inkos.ui.compose.inkOsSafeDrawingPadding
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material.Icon
-import androidx.compose.material.Text
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.ArrowUpward
+import androidx.compose.material.icons.rounded.Bolt
+import androidx.compose.material.icons.rounded.ClearAll
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Contacts
+import androidx.compose.material.icons.rounded.Dialpad
 import androidx.compose.material.icons.rounded.Emergency
 import androidx.compose.material.icons.rounded.FilterList
+import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.FormatSize
+import androidx.compose.material.icons.rounded.Keyboard
+import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Lyrics
+import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.OpenInNew
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.SpeakerNotes
+import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material.icons.rounded.SwipeVertical
 import androidx.compose.material.icons.rounded.TouchApp
+import androidx.compose.material.icons.rounded.Apps
+import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.FormatQuote
+import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.fragment.app.Fragment
+import androidx.navigation.fragment.findNavController
 import com.github.gezimos.inkos.R
 import com.github.gezimos.inkos.data.Constants
 import com.github.gezimos.inkos.data.Prefs
 import com.github.gezimos.inkos.style.SettingsTheme
 import com.github.gezimos.inkos.style.Theme
+import com.github.gezimos.inkos.style.rememberScreenScale
+import com.github.gezimos.inkos.style.scaled
+
+class GuideFragment : Fragment() {
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        return ComposeView(requireContext()).apply {
+            setContent {
+                GuideScreen.Show(
+                    onBack = { findNavController().popBackStack() },
+                    onHome = { findNavController().popBackStack(R.id.mainFragment, false) }
+                )
+            }
+        }
+    }
+}
 
 object GuideScreen {
 
+    enum class GuideCategory(val totalPages: Int) {
+        Touch(4), DPadT9(2), Qwerty(1), Search(2)
+    }
+
     @Composable
     fun Show(
-        onFinish: () -> Unit = {}
+        onBack: () -> Unit = {},
+        onHome: () -> Unit = {}
     ) {
         val context = LocalContext.current
         val prefs = remember { Prefs(context) }
-        
-        // State for guide page
-        var page by remember { mutableIntStateOf(0) }
-        val totalPages = 4
+
+        val screenScaleRaw = com.github.gezimos.inkos.style.detectScaleMode(context).let { mode ->
+            if (prefs.uiScaleMode != 0) com.github.gezimos.inkos.style.UiScaleMode.fromId(prefs.uiScaleMode).scale
+            else mode.scale
+        }
         val settingsSize = (prefs.settingsSize - 3)
-        val titleFontSize = (settingsSize * 1.5).sp
-        val bodyFontSize = settingsSize.sp
+        val titleFontSize = (settingsSize * 1.5f * screenScaleRaw).sp
+        val bodyFontSize = (settingsSize * 1.2f * screenScaleRaw).sp
+        val bigTitleSize = (settingsSize * 3f * screenScaleRaw).sp
 
-        // Helper to resolve an Activity from a possibly-wrapped Context
-        fun resolveActivity(ctx: android.content.Context): Activity? {
-            var c: android.content.Context = ctx
-            while (c is ContextWrapper) {
-                if (c is Activity) return c
-                c = c.baseContext
-            }
-            return null
+        val systemDark = isSystemInDarkTheme()
+        val isDark = when (prefs.appTheme) {
+            Constants.Theme.Dark -> true
+            Constants.Theme.Light -> false
+            Constants.Theme.System -> systemDark
+        }
+        var category by remember { mutableStateOf<GuideCategory?>(null) }
+        var page by remember { mutableStateOf(0) }
+        val totalPages = category?.totalPages ?: 1
+
+        BackHandler(enabled = category != null) {
+            category = null
+            page = 0
         }
 
-        // Determine background color using the current theme
-        val isDark = prefs.appTheme == Constants.Theme.Dark
-        // Calculate top padding for status bar when enabled
-        val topPadding = if (prefs.showStatusBar) {
-            WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-        } else {
-            0.dp
-        }
-        // Calculate bottom padding for nav bar/gestures
-        val bottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-        
         SettingsTheme(isDark = isDark) {
-            Box(
+            val textColor = Theme.colors.text
+            val bgColor = Theme.colors.background
+            val screenScale = rememberScreenScale()
+
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight()
-                    .background(Theme.colors.background)
+                    .fillMaxSize()
+                    .background(bgColor)
+                    .inkOsSafeDrawingPadding()
             ) {
+                // Content area
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .fillMaxHeight()
+                        .weight(1f)
+                        .padding(horizontal = 32.dp.scaled(screenScale), vertical = 32.dp.scaled(screenScale))
                 ) {
-                    // Title at the top with status bar padding and 24dp padding
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = topPadding + 24.dp, start = 24.dp, end = 24.dp, bottom = 24.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.ic_foreground),
-                            contentDescription = null,
-                            colorFilter = ColorFilter.tint(SettingsTheme.typography.title.color),
-                            modifier = Modifier.size(titleFontSize.value.dp)
-                        )
-                        Text(
-                            text = when (page) {
-                                0 -> "Guide / Home"
-                                1 -> "Guide / Gestures"
-                                2 -> "Guide / Home Notifications"
-                                3 -> "Guide / Other Notificaitons"
-                                else -> ""
-                            },
-                            style = SettingsTheme.typography.title,
-                            fontSize = titleFontSize,
-                            fontWeight = FontWeight.Bold,
-                            color = SettingsTheme.typography.title.color
-                        )
-                    }
-                    
-                    // Content area with 24dp horizontal padding - centered vertically
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f)
-                            .padding(horizontal = 24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        when (page) {
-                            0 -> {
-                                // Page 1: Home
-                                HomePageContent(
-                                    titleFontSize = titleFontSize,
-                                    bodyFontSize = bodyFontSize
-                                )
-                            }
-                            1 -> {
-                                // Page 2: Gestures
-                                GesturesPageContent(
-                                    titleFontSize = titleFontSize,
-                                    bodyFontSize = bodyFontSize
-                                )
-                            }
-                            2 -> {
-                                // Page 3: Home Notifications
-                                HomeNotificationsPageContent(
-                                    titleFontSize = titleFontSize,
-                                    bodyFontSize = bodyFontSize
-                                )
-                            }
-                            3 -> {
-                                // Page 4: Other Notifications
-                                OtherNotificationsPageContent(
-                                    titleFontSize = titleFontSize,
-                                    bodyFontSize = bodyFontSize
-                                )
-                            }
-                        }
-                    }
-                    
-                    // Bottom navigation buttons
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = bottomPadding),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                    // Back button - use fixed width to prevent cutoff
-                    val backInteractionSource = remember { MutableInteractionSource() }
-                    val backIsFocused = backInteractionSource.collectIsFocusedAsState().value
-                    val focusColor = if (isDark) Color(0x33FFFFFF) else Color(0x22000000)
+                    // Big title — same for all pages
+                    Text(
+                        text = "GUIDE",
+                        style = SettingsTheme.typography.title,
+                        fontSize = bigTitleSize,
+                        fontWeight = FontWeight.Black,
+                        color = textColor,
+                        lineHeight = (bigTitleSize.value * 1.05f).sp
+                    )
+
+                    // Thick bar
+                    Spacer(modifier = Modifier.height(16.dp.scaled(screenScale)))
                     Box(
                         modifier = Modifier
-                            .widthIn(min = 120.dp)
-                            .heightIn(min = 56.dp)
-                            .then(if (backIsFocused) Modifier.background(focusColor) else Modifier)
-                            .clickable(
-                                enabled = page > 0,
-                                interactionSource = backInteractionSource,
-                                indication = null
-                            ) {
-                                if (page > 0) page--
-                            },
-                        contentAlignment = Alignment.CenterStart
-                    ) {
-                        if (page > 0) {
+                            .width(60.dp.scaled(screenScale))
+                            .height(5.dp)
+                            .background(textColor)
+                    )
+
+                    Spacer(modifier = Modifier.height(32.dp.scaled(screenScale)))
+
+                    // Page-specific content
+                    when (category) {
+                        null -> MenuContent(titleFontSize, bodyFontSize, screenScale, textColor) { picked ->
+                            category = picked
+                            page = 0
+                        }
+                        GuideCategory.Touch -> when (page) {
+                            0 -> HomePageContent(titleFontSize, bodyFontSize, screenScale, textColor)
+                            1 -> GesturesPageContent(titleFontSize, bodyFontSize, screenScale, textColor)
+                            2 -> HomeNotificationsPageContent(titleFontSize, bodyFontSize, screenScale, textColor)
+                            3 -> WidgetsPageContent(titleFontSize, bodyFontSize, screenScale, textColor)
+                        }
+                        GuideCategory.DPadT9 -> when (page) {
+                            0 -> DPadHomePageContent(titleFontSize, bodyFontSize, screenScale, textColor)
+                            1 -> DPadLettersPageContent(titleFontSize, bodyFontSize, screenScale, textColor)
+                        }
+                        GuideCategory.Qwerty -> QwertyPageContent(titleFontSize, bodyFontSize, screenScale, textColor)
+                        GuideCategory.Search -> when (page) {
+                            0 -> SearchPage1Content(titleFontSize, bodyFontSize, screenScale, textColor)
+                            1 -> SearchPage2Content(titleFontSize, bodyFontSize, screenScale, textColor)
+                        }
+                    }
+
+                    // Page subtitle at the bottom (APP VERSION style)
+                    Spacer(modifier = Modifier.weight(1f))
+                    Text(
+                        text = when (category) {
+                            null -> "PICK INPUT METHOD"
+                            GuideCategory.Touch -> when (page) {
+                                0 -> "HOME SCREEN INTERACTIONS"
+                                1 -> "HOME GESTURES"
+                                2 -> "HOME NOTIFICATIONS"
+                                3 -> "HOME WIDGETS"
+                                else -> ""
+                            }
+                            GuideCategory.DPadT9 -> when (page) {
+                                0 -> "HOME SCREEN"
+                                1 -> "LETTERS"
+                                else -> ""
+                            }
+                            GuideCategory.Qwerty -> "QWERTY"
+                            GuideCategory.Search -> "SEARCH"
+                        },
+                        style = SettingsTheme.typography.title,
+                        fontSize = (titleFontSize.value * 0.7f).sp,
+                        fontWeight = FontWeight.Bold,
+                        color = textColor,
+                        letterSpacing = 2.sp
+                    )
+                }
+
+                // Separator line above footer
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(1.5.dp.scaled(screenScale))
+                        .background(textColor)
+                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp.scaled(screenScale)),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (category == null) {
+                        // Menu footer: BACK | HOME
+                        val backMenuInteraction = remember { MutableInteractionSource() }
+                        val backMenuFocused = backMenuInteraction.collectIsFocusedAsState().value
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .background(if (backMenuFocused) textColor else bgColor)
+                                .clickable(
+                                    interactionSource = backMenuInteraction,
+                                    indication = null
+                                ) { onBack() },
+                            contentAlignment = Alignment.Center
+                        ) {
                             Text(
-                                text = "Back",
+                                text = "BACK",
                                 style = SettingsTheme.typography.title,
                                 fontSize = titleFontSize,
-                                modifier = Modifier.padding(start = 24.dp, end = 24.dp),
-                                maxLines = 1,
-                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                fontWeight = FontWeight.Bold,
+                                color = if (backMenuFocused) bgColor else textColor
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .width(1.5.dp.scaled(screenScale))
+                                .fillMaxHeight()
+                                .background(textColor)
+                        )
+
+                        Box(
+                            modifier = Modifier.width(54.dp.scaled(screenScale)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "1/1",
+                                style = SettingsTheme.typography.body,
+                                fontSize = (titleFontSize.value * 0.7f).sp,
+                                color = textColor
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .width(1.5.dp.scaled(screenScale))
+                                .fillMaxHeight()
+                                .background(textColor)
+                        )
+
+                        val homeInteraction = remember { MutableInteractionSource() }
+                        val homeFocused = homeInteraction.collectIsFocusedAsState().value
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .background(if (homeFocused) textColor else bgColor)
+                                .clickable(
+                                    interactionSource = homeInteraction,
+                                    indication = null
+                                ) { onHome() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "HOME",
+                                style = SettingsTheme.typography.title,
+                                fontSize = titleFontSize,
+                                fontWeight = FontWeight.Bold,
+                                color = if (homeFocused) bgColor else textColor
+                            )
+                        }
+                    } else {
+                        // BACK
+                        val backInteraction = remember { MutableInteractionSource() }
+                        val backFocused = backInteraction.collectIsFocusedAsState().value
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .background(if (backFocused) textColor else bgColor)
+                                .clickable(
+                                    interactionSource = backInteraction,
+                                    indication = null
+                                ) {
+                                    if (page > 0) page-- else {
+                                        category = null
+                                        page = 0
+                                    }
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "BACK",
+                                style = SettingsTheme.typography.title,
+                                fontSize = titleFontSize,
+                                fontWeight = FontWeight.Bold,
+                                color = if (backFocused) bgColor else textColor
+                            )
+                        }
+
+                        // Vertical separator
+                        Box(
+                            modifier = Modifier
+                                .width(1.5.dp.scaled(screenScale))
+                                .fillMaxHeight()
+                                .background(textColor)
+                        )
+
+                        // Page indicator
+                        Box(
+                            modifier = Modifier.width(54.dp.scaled(screenScale)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "${page + 1}/$totalPages",
+                                style = SettingsTheme.typography.body,
+                                fontSize = (titleFontSize.value * 0.7f).sp,
+                                color = textColor
+                            )
+                        }
+
+                        // Vertical separator
+                        Box(
+                            modifier = Modifier
+                                .width(1.5.dp.scaled(screenScale))
+                                .fillMaxHeight()
+                                .background(textColor)
+                        )
+
+                        // NEXT / DONE
+                        val nextInteraction = remember { MutableInteractionSource() }
+                        val nextFocused = nextInteraction.collectIsFocusedAsState().value
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .background(if (nextFocused) textColor else bgColor)
+                                .clickable(
+                                    interactionSource = nextInteraction,
+                                    indication = null
+                                ) {
+                                    if (page < totalPages - 1) {
+                                        page++
+                                    } else {
+                                        category = null
+                                        page = 0
+                                    }
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (page < totalPages - 1) "NEXT" else "DONE",
+                                style = SettingsTheme.typography.title,
+                                fontSize = titleFontSize,
+                                fontWeight = FontWeight.Bold,
+                                color = if (nextFocused) bgColor else textColor
                             )
                         }
                     }
-                    
-                    // Page indicator in the center
+                }
+
+                // Bottom border when nav bar is visible
+                if (WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() > 0.dp) {
                     Box(
                         modifier = Modifier
-                            .weight(1f)
-                            .heightIn(min = 56.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        // Custom page indicator that responds to theme changes
-                        val activeRes = R.drawable.ic_current_page
-                        val inactiveRes = R.drawable.ic_new_page
-                        val tintColor = Theme.colors.text
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            for (i in 0 until totalPages) {
-                                Image(
-                                    painter = painterResource(id = if (i == page) activeRes else inactiveRes),
-                                    contentDescription = null,
-                                    colorFilter = ColorFilter.tint(tintColor),
-                                    modifier = Modifier
-                                        .padding(horizontal = 2.dp)
-                                        .size(if (i == page) 12.dp else 10.dp)
-                                )
-                            }
-                        }
-                    }
-                    
-                    // Next/Finish button - use fixed width to prevent cutoff
-                    val nextInteractionSource = remember { MutableInteractionSource() }
-                    val nextIsFocused = nextInteractionSource.collectIsFocusedAsState().value
-                    Box(
-                        modifier = Modifier
-                            .widthIn(min = 120.dp)
-                            .heightIn(min = 56.dp)
-                            .then(if (nextIsFocused) Modifier.background(focusColor) else Modifier)
-                            .clickable(
-                                interactionSource = nextInteractionSource,
-                                indication = null
-                            ) {
-                                if (page < totalPages - 1) {
-                                    page++
-                                } else {
-                                    onFinish()
-                                }
-                            },
-                        contentAlignment = Alignment.CenterEnd
-                    ) {
-                        Text(
-                            text = if (page < totalPages - 1) "Next" else "Finish",
-                            style = SettingsTheme.typography.title,
-                            fontSize = titleFontSize,
-                            modifier = Modifier.padding(start = 24.dp, end = 24.dp),
-                            maxLines = 1,
-                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                        )
-                    }
-                    }
+                            .fillMaxWidth()
+                            .height(1.5.dp.scaled(screenScale))
+                            .background(textColor)
+                    )
                 }
             }
         }
     }
-    
+
     @Composable
-    private fun GesturesPageContent(
+    private fun GuideItem(
+        icon: androidx.compose.ui.graphics.vector.ImageVector,
+        title: String,
+        description: String,
         titleFontSize: androidx.compose.ui.unit.TextUnit,
-        bodyFontSize: androidx.compose.ui.unit.TextUnit
+        bodyFontSize: androidx.compose.ui.unit.TextUnit,
+        screenScale: Float,
+        textColor: androidx.compose.ui.graphics.Color
     ) {
-        Column(
+        Row(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+            horizontalArrangement = Arrangement.spacedBy(16.dp.scaled(screenScale)),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Gesture items
-            GestureItem(
-                icon = Icons.Rounded.ArrowUpward,
-                title = "Swipe up: App Drawer",
-                description = "Long Swipe up The list of all of your apps",
-                titleFontSize = titleFontSize,
-                bodyFontSize = bodyFontSize
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = textColor,
+                modifier = Modifier.size(28.dp.scaled(screenScale))
             )
-            
-            GestureItem(
-                icon = Icons.Rounded.ArrowDownward,
-                title = "Swipe Down: Simple Tray",
-                description = "Long Swipe Down to access simple Tray",
-                titleFontSize = titleFontSize,
-                bodyFontSize = bodyFontSize
-            )
-            
-            GestureItem(
-                icon = Icons.Rounded.ArrowBack,
-                title = "Swipe Left: Letters",
-                description = "Swipe Left to access Letters",
-                titleFontSize = titleFontSize,
-                bodyFontSize = bodyFontSize
-            )
-            
-            GestureItem(
-                icon = Icons.Rounded.ArrowForward,
-                title = "Swipe Right: Recents",
-                description = "Swipe Right to access Recents",
-                titleFontSize = titleFontSize,
-                bodyFontSize = bodyFontSize
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = title,
+                    style = SettingsTheme.typography.title,
+                    fontSize = titleFontSize,
+                    fontWeight = FontWeight.Bold,
+                    color = textColor
+                )
+                Text(
+                    text = description,
+                    style = SettingsTheme.typography.body,
+                    fontSize = bodyFontSize,
+                    color = textColor.copy(alpha = 0.7f)
+                )
+            }
         }
     }
-    
+
     @Composable
     private fun HomePageContent(
         titleFontSize: androidx.compose.ui.unit.TextUnit,
-        bodyFontSize: androidx.compose.ui.unit.TextUnit
+        bodyFontSize: androidx.compose.ui.unit.TextUnit,
+        screenScale: Float,
+        textColor: androidx.compose.ui.graphics.Color
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
-        ) {
-            // Home interaction items
-            HomeInteractionItem(
-                icon = Icons.Rounded.Settings,
-                title = "Longpress",
-                description = "in empty areas to open inkOS settings",
-                titleFontSize = titleFontSize,
-                bodyFontSize = bodyFontSize
-            )
-            
-            HomeInteractionItem(
-                icon = Icons.Rounded.TouchApp,
-                title = "Longpress",
-                description = "in \"select app\" to choose shortcuts",
-                titleFontSize = titleFontSize,
-                bodyFontSize = bodyFontSize
-            )
-            
-            HomeInteractionItem(
-                icon = Icons.Rounded.Widgets,
-                title = "Tap clock/date/quote",
-                description = "To access other shortcuts",
-                titleFontSize = titleFontSize,
-                bodyFontSize = bodyFontSize
-            )
-            
-            HomeInteractionItem(
-                icon = Icons.Rounded.SwipeVertical,
-                title = "Short swipes",
-                description = "To move between home pages",
-                titleFontSize = titleFontSize,
-                bodyFontSize = bodyFontSize
-            )
+        Column(verticalArrangement = Arrangement.spacedBy(20.dp.scaled(screenScale))) {
+            GuideItem(Icons.Rounded.Settings, "Pinch (zoom out)", "In empty areas to open Quick Menu", titleFontSize, bodyFontSize, screenScale, textColor)
+            GuideItem(Icons.Rounded.TouchApp, "Long press app", "To choose or replace shortcuts", titleFontSize, bodyFontSize, screenScale, textColor)
+            GuideItem(Icons.Rounded.Widgets, "Tap clock/date/quote", "To access other shortcuts", titleFontSize, bodyFontSize, screenScale, textColor)
+            GuideItem(Icons.Rounded.SwipeVertical, "Short swipes", "To move between home pages", titleFontSize, bodyFontSize, screenScale, textColor)
         }
     }
-    
+
+    @Composable
+    private fun GesturesPageContent(
+        titleFontSize: androidx.compose.ui.unit.TextUnit,
+        bodyFontSize: androidx.compose.ui.unit.TextUnit,
+        screenScale: Float,
+        textColor: androidx.compose.ui.graphics.Color
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(20.dp.scaled(screenScale))) {
+            GuideItem(Icons.Rounded.ArrowUpward, "Swipe Up", "App Drawer — the list of all your apps", titleFontSize, bodyFontSize, screenScale, textColor)
+            GuideItem(Icons.Rounded.ArrowDownward, "Swipe Down", "Simple Tray — Android-style notifications", titleFontSize, bodyFontSize, screenScale, textColor)
+            GuideItem(Icons.Rounded.ArrowBack, "Swipe Left", "Letters — cached long-form notifications", titleFontSize, bodyFontSize, screenScale, textColor)
+            GuideItem(Icons.Rounded.ArrowForward, "Swipe Right", "Recents — recently used apps", titleFontSize, bodyFontSize, screenScale, textColor)
+        }
+    }
+
     @Composable
     private fun HomeNotificationsPageContent(
         titleFontSize: androidx.compose.ui.unit.TextUnit,
-        bodyFontSize: androidx.compose.ui.unit.TextUnit
+        bodyFontSize: androidx.compose.ui.unit.TextUnit,
+        screenScale: Float,
+        textColor: androidx.compose.ui.graphics.Color
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
-        ) {
-            // Home notification items
-            HomeInteractionItem(
-                icon = Icons.Rounded.Emergency,
-                title = "Signal*",
-                description = "Simple Asterisk (dot)",
-                titleFontSize = titleFontSize,
-                bodyFontSize = bodyFontSize
-            )
-            
-            HomeInteractionItem(
-                icon = Icons.Rounded.SpeakerNotes,
-                title = "Signal",
-                description = "The notification appears under",
-                titleFontSize = titleFontSize,
-                bodyFontSize = bodyFontSize
-            )
-            
-            HomeInteractionItem(
-                icon = Icons.Rounded.Lyrics,
-                title = "Spotify",
-                description = "Dua Lipa - Houdini",
-                titleFontSize = titleFontSize,
-                bodyFontSize = bodyFontSize
-            )
-            
-            HomeInteractionItem(
-                icon = Icons.Rounded.FilterList,
-                title = "Allow List",
-                description = "Settings/Notifications/Home Allow List",
-                titleFontSize = titleFontSize,
-                bodyFontSize = bodyFontSize
-            )
+        Column(verticalArrangement = Arrangement.spacedBy(20.dp.scaled(screenScale))) {
+            GuideItem(Icons.Rounded.Emergency, "Signal*", "Asterisk or dot indicates a notification", titleFontSize, bodyFontSize, screenScale, textColor)
+            GuideItem(Icons.Rounded.SpeakerNotes, "Signal", "Notification text appears under the app name", titleFontSize, bodyFontSize, screenScale, textColor)
+            GuideItem(Icons.Rounded.Lyrics, "Spotify", "Now playing info shown under the app", titleFontSize, bodyFontSize, screenScale, textColor)
+            GuideItem(Icons.Rounded.FilterList, "Allow List", "Settings / Notifications / Home Allow List", titleFontSize, bodyFontSize, screenScale, textColor)
         }
     }
-    
+
     @Composable
-    private fun OtherNotificationsPageContent(
+    private fun WidgetsPageContent(
         titleFontSize: androidx.compose.ui.unit.TextUnit,
-        bodyFontSize: androidx.compose.ui.unit.TextUnit
+        bodyFontSize: androidx.compose.ui.unit.TextUnit,
+        screenScale: Float,
+        textColor: androidx.compose.ui.graphics.Color
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
-        ) {
-            // Other notification items
-            HomeInteractionItem(
-                icon = Icons.Rounded.FormatSize,
-                title = "Letters",
-                description = "Cached long form notifications",
-                titleFontSize = titleFontSize,
-                bodyFontSize = bodyFontSize
-            )
-            
-            HomeInteractionItem(
-                icon = Icons.Rounded.FilterList,
-                title = "Allowlist",
-                description = "Notifications/ Letters Allowlist",
-                titleFontSize = titleFontSize,
-                bodyFontSize = bodyFontSize
-            )
-            
-            HomeInteractionItem(
-                icon = Icons.Rounded.Notifications,
-                title = "Simple tray",
-                description = "Android type of notifications",
-                titleFontSize = titleFontSize,
-                bodyFontSize = bodyFontSize
-            )
-            
-            HomeInteractionItem(
-                icon = Icons.Rounded.FilterList,
-                title = "Allow List",
-                description = "Notifications/SimpleTray Allowlist",
-                titleFontSize = titleFontSize,
-                bodyFontSize = bodyFontSize
-            )
+        Column(verticalArrangement = Arrangement.spacedBy(20.dp.scaled(screenScale))) {
+            GuideItem(Icons.Rounded.FormatQuote, "Quote", "Display a custom text at the bottom of your home screen", titleFontSize, bodyFontSize, screenScale, textColor)
+            GuideItem(Icons.Rounded.CalendarMonth, "Events", "Show upcoming calendar events from your device", titleFontSize, bodyFontSize, screenScale, textColor)
+            GuideItem(Icons.Rounded.Widgets, "Android Widget", "Embed any Android widget on your home screen", titleFontSize, bodyFontSize, screenScale, textColor)
+            GuideItem(Icons.Rounded.Timer, "Total Usage", "Track your daily screen time at a glance", titleFontSize, bodyFontSize, screenScale, textColor)
         }
     }
-    
+
     @Composable
-    private fun GestureItem(
+    private fun MenuContent(
+        titleFontSize: androidx.compose.ui.unit.TextUnit,
+        bodyFontSize: androidx.compose.ui.unit.TextUnit,
+        screenScale: Float,
+        textColor: androidx.compose.ui.graphics.Color,
+        onPick: (GuideCategory) -> Unit
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(20.dp.scaled(screenScale))) {
+            MenuRow(Icons.Rounded.TouchApp, "Touch", "Tap-driven interactions", titleFontSize, bodyFontSize, screenScale, textColor) { onPick(GuideCategory.Touch) }
+            MenuRow(Icons.Rounded.Dialpad, "DPad / T9", "Hardware keys & dialpad", titleFontSize, bodyFontSize, screenScale, textColor) { onPick(GuideCategory.DPadT9) }
+            MenuRow(Icons.Rounded.Keyboard, "Qwerty", "Typing & nav mode", titleFontSize, bodyFontSize, screenScale, textColor) { onPick(GuideCategory.Qwerty) }
+            MenuRow(Icons.Rounded.Search, "Search", "Apps, contacts, files, web, and more", titleFontSize, bodyFontSize, screenScale, textColor) { onPick(GuideCategory.Search) }
+        }
+    }
+
+    @Composable
+    private fun MenuRow(
         icon: androidx.compose.ui.graphics.vector.ImageVector,
         title: String,
         description: String,
         titleFontSize: androidx.compose.ui.unit.TextUnit,
-        bodyFontSize: androidx.compose.ui.unit.TextUnit
+        bodyFontSize: androidx.compose.ui.unit.TextUnit,
+        screenScale: Float,
+        textColor: androidx.compose.ui.graphics.Color,
+        onClick: () -> Unit
     ) {
+        val interaction = remember { MutableInteractionSource() }
+        val focused = interaction.collectIsFocusedAsState().value
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(interactionSource = interaction, indication = null) { onClick() },
+            horizontalArrangement = Arrangement.spacedBy(16.dp.scaled(screenScale)),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = SettingsTheme.typography.title.color,
-                modifier = Modifier.size(32.dp)
+                tint = textColor,
+                modifier = Modifier.size(28.dp.scaled(screenScale))
             )
-            
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
                     text = title,
                     style = SettingsTheme.typography.title,
                     fontSize = titleFontSize,
                     fontWeight = FontWeight.Bold,
-                    color = SettingsTheme.typography.title.color
+                    color = textColor
                 )
                 Text(
                     text = description,
                     style = SettingsTheme.typography.body,
                     fontSize = bodyFontSize,
-                    color = SettingsTheme.typography.body.color
+                    color = textColor.copy(alpha = 0.7f)
                 )
             }
         }
     }
-    
+
     @Composable
-    private fun HomeInteractionItem(
-        icon: androidx.compose.ui.graphics.vector.ImageVector,
-        title: String,
-        description: String,
+    private fun DPadHomePageContent(
         titleFontSize: androidx.compose.ui.unit.TextUnit,
-        bodyFontSize: androidx.compose.ui.unit.TextUnit
+        bodyFontSize: androidx.compose.ui.unit.TextUnit,
+        screenScale: Float,
+        textColor: androidx.compose.ui.graphics.Color
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = SettingsTheme.typography.title.color,
-                modifier = Modifier.size(32.dp)
-            )
-            
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    text = title,
-                    style = SettingsTheme.typography.title,
-                    fontSize = titleFontSize,
-                    fontWeight = FontWeight.Bold,
-                    color = SettingsTheme.typography.title.color
-                )
-                Text(
-                    text = description,
-                    style = SettingsTheme.typography.body,
-                    fontSize = bodyFontSize,
-                    color = SettingsTheme.typography.body.color
-                )
-            }
+        Column(verticalArrangement = Arrangement.spacedBy(20.dp.scaled(screenScale))) {
+            GuideItem(Icons.Rounded.Apps, "Long-press 9", "Open Quick Menu", titleFontSize, bodyFontSize, screenScale, textColor)
+            GuideItem(Icons.Rounded.TouchApp, "Long-press DPad center", "To choose or replace shortcuts", titleFontSize, bodyFontSize, screenScale, textColor)
+            GuideItem(Icons.Rounded.SwipeVertical, "DPad up / down", "Move between apps and home pages", titleFontSize, bodyFontSize, screenScale, textColor)
+            GuideItem(Icons.Rounded.SwapHoriz, "DPad left / right", "Trigger configured swipe actions", titleFontSize, bodyFontSize, screenScale, textColor)
         }
     }
+
+    @Composable
+    private fun DPadLettersPageContent(
+        titleFontSize: androidx.compose.ui.unit.TextUnit,
+        bodyFontSize: androidx.compose.ui.unit.TextUnit,
+        screenScale: Float,
+        textColor: androidx.compose.ui.graphics.Color
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(20.dp.scaled(screenScale))) {
+            GuideItem(Icons.Rounded.OpenInNew, "DPad center / Enter / 3", "Open the focused notification", titleFontSize, bodyFontSize, screenScale, textColor)
+            GuideItem(Icons.Rounded.Close, "Backspace / Menu / 1", "Dismiss the focused notification", titleFontSize, bodyFontSize, screenScale, textColor)
+            GuideItem(Icons.Rounded.ClearAll, "Long-press (touch only)", "Dismiss all notifications", titleFontSize, bodyFontSize, screenScale, textColor)
+            GuideItem(Icons.Rounded.SwipeVertical, "DPad up / down", "Move between notifications", titleFontSize, bodyFontSize, screenScale, textColor)
+        }
+    }
+
+    @Composable
+    private fun QwertyPageContent(
+        titleFontSize: androidx.compose.ui.unit.TextUnit,
+        bodyFontSize: androidx.compose.ui.unit.TextUnit,
+        screenScale: Float,
+        textColor: androidx.compose.ui.graphics.Color
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(20.dp.scaled(screenScale))) {
+            GuideItem(Icons.Rounded.Search, "Search from home", "Just start typing from homescreen", titleFontSize, bodyFontSize, screenScale, textColor)
+            GuideItem(Icons.Rounded.Keyboard, "Navigate with DPad", "Using keyboards such as Pastiera navmode.", titleFontSize, bodyFontSize, screenScale, textColor)
+        }
+    }
+
+    @Composable
+    private fun SearchPage1Content(
+        titleFontSize: androidx.compose.ui.unit.TextUnit,
+        bodyFontSize: androidx.compose.ui.unit.TextUnit,
+        screenScale: Float,
+        textColor: androidx.compose.ui.graphics.Color
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(20.dp.scaled(screenScale))) {
+            GuideItem(Icons.Rounded.Apps, "Apps", "Find installed apps", titleFontSize, bodyFontSize, screenScale, textColor)
+            GuideItem(Icons.Rounded.Bolt, "Shortcuts", "Find app shortcuts", titleFontSize, bodyFontSize, screenScale, textColor)
+            GuideItem(Icons.Rounded.Contacts, "Contacts", "Find a contact to call or message", titleFontSize, bodyFontSize, screenScale, textColor)
+            GuideItem(Icons.Rounded.Folder, "Files", "Find files on your device", titleFontSize, bodyFontSize, screenScale, textColor)
+        }
+    }
+
+    @Composable
+    private fun SearchPage2Content(
+        titleFontSize: androidx.compose.ui.unit.TextUnit,
+        bodyFontSize: androidx.compose.ui.unit.TextUnit,
+        screenScale: Float,
+        textColor: androidx.compose.ui.graphics.Color
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(20.dp.scaled(screenScale))) {
+            GuideItem(Icons.Rounded.MusicNote, "Music", "Find music in your library", titleFontSize, bodyFontSize, screenScale, textColor)
+            GuideItem(Icons.Rounded.Language, "Web", "Search the web", titleFontSize, bodyFontSize, screenScale, textColor)
+            GuideItem(Icons.Rounded.Link, "URL", "Open a URL directly", titleFontSize, bodyFontSize, screenScale, textColor)
+        }
+    }
+
 }

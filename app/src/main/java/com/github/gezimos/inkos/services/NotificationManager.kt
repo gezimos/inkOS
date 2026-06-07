@@ -1,6 +1,7 @@
 package com.github.gezimos.inkos.services
 
 import android.content.Context
+import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -9,7 +10,6 @@ import com.google.gson.reflect.TypeToken
 import java.io.File
 
 class NotificationManager private constructor(private val context: Context) {
-    // (simplified) No per-package SMS cache; keep only active notification info map
 
     data class NotificationInfo(
         val count: Int,
@@ -29,7 +29,6 @@ class NotificationManager private constructor(private val context: Context) {
         val notificationKey: String? = null
     )
 
-    // Cache for summary detection to avoid repeated string processing
     private val summaryCache = mutableMapOf<String, Boolean>()
 
 
@@ -37,7 +36,6 @@ class NotificationManager private constructor(private val context: Context) {
     private val _notificationInfoState = MutableStateFlow<Map<String, NotificationInfo>>(emptyMap())
     val notificationInfoState: StateFlow<Map<String, NotificationInfo>> = _notificationInfoState.asStateFlow()
 
-    // Keep last posted snapshot to avoid spamming observers with identical maps
     private var lastPostedNotificationInfo: Map<String, NotificationInfo>? = null
 
     private val conversationNotifications =
@@ -51,6 +49,7 @@ class NotificationManager private constructor(private val context: Context) {
     private val NOTIF_SAVE_FILE = "inkos_notifications.json"
 
     companion object {
+        private const val TAG = "NotificationManager"
         @Volatile
         @Suppress("StaticFieldLeak") // Using applicationContext which is safe
         private var INSTANCE: NotificationManager? = null
@@ -68,17 +67,14 @@ class NotificationManager private constructor(private val context: Context) {
             notificationInfo[packageName] = info
         }
         // Removed debug log
-        // Only filter by badge allowlist and force LiveData update
         val prefs = com.github.gezimos.inkos.data.Prefs(context)
         val allowed = prefs.allowedBadgeNotificationApps
         val filtered = if (allowed.isEmpty()) {
-            // Create a completely new map to force LiveData update
             HashMap(notificationInfo)
         } else {
             // Create a new filtered map
             HashMap(notificationInfo.filter { (pkg, _) -> pkg in allowed })
         }
-        // Only post when the filtered map actually changed to avoid redundant updates
         if (lastPostedNotificationInfo != filtered) {
             lastPostedNotificationInfo = HashMap(filtered)
             _notificationInfoState.value = filtered
@@ -86,7 +82,6 @@ class NotificationManager private constructor(private val context: Context) {
     }
 
     fun clearMediaNotification(packageName: String) {
-        // Specifically clear media notifications - useful when media stops playing
         val currentInfo = notificationInfo[packageName]
         if (currentInfo?.category == android.app.Notification.CATEGORY_TRANSPORT) {
             updateBadgeNotification(packageName, null)
@@ -169,7 +164,6 @@ class NotificationManager private constructor(private val context: Context) {
         removeAfterOpen: Boolean = true
     ): Boolean {
         return try {
-            // Try to open the specific conversation using deep link
             val opened = NotificationService.sendConversationIntent(
                 context, packageName, notificationKey
             )
@@ -180,7 +174,6 @@ class NotificationManager private constructor(private val context: Context) {
                     context.startActivity(launchIntent)
                 }
             }
-            // Remove notification from local list after opening if requested
             if (removeAfterOpen && conversationId != null) {
                 removeConversationNotification(packageName, conversationId)
             }
@@ -196,7 +189,8 @@ class NotificationManager private constructor(private val context: Context) {
             val mapToSave = conversationNotifications.mapValues { it.value.values.toList() }
             val json = Gson().toJson(mapToSave)
             file.writeText(json)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to save conversation notifications", e)
         }
     }
 
@@ -213,7 +207,8 @@ class NotificationManager private constructor(private val context: Context) {
                     list.associateBy { it.conversationId }.toMutableMap()
             }
             _conversationNotificationsState.value = getConversationNotifications()
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to restore conversation notifications", e)
         }
     }
 
@@ -236,7 +231,6 @@ class NotificationManager private constructor(private val context: Context) {
             return text?.trim()?.replace("\n", " ")?.replace("\r", " ")?.replace(Regex("\\s+"), " ")
         }
 
-        // Extract group/conversation title first (needed to filter it out from other fields)
         val groupRaw = extras?.getCharSequence("android.conversationTitle")?.toString()
             ?: extras?.getString("android.conversationTitle")
         val group = if (showGroup) {
@@ -244,13 +238,11 @@ class NotificationManager private constructor(private val context: Context) {
         } else null
         
         // Extract sender/title - try multiple fields
-        // For WhatsApp, android.title might be "Sender: GroupName" or just "GroupName"
         val titleRaw = extras?.getCharSequence("android.title")?.toString()
             ?: extras?.getString("android.title")
         
         val sender: String? = if (showSender) {
             val senderText = if (!titleRaw.isNullOrBlank() && titleRaw.contains(": ")) {
-                // If title contains ": ", split it - first part is sender, second part might be group
                 titleRaw.split(": ", limit = 2).firstOrNull()?.trim()
             } else {
                 titleRaw
@@ -258,7 +250,6 @@ class NotificationManager private constructor(private val context: Context) {
                 ?: extras?.getString("android.subText")
             
             val normalizedSender = normalizeText(senderText)
-            // CRITICAL: If sender is the same as group name, it's likely wrong - use null instead
             if (!normalizedSender.isNullOrBlank() && 
                 !groupRaw.isNullOrBlank() && 
                 normalizedSender.trim().equals(groupRaw.trim(), ignoreCase = true)) {
@@ -268,8 +259,6 @@ class NotificationManager private constructor(private val context: Context) {
             }
         } else null
         
-        // Extract message/text - try multiple fields in priority order
-        // CRITICAL: Make sure we get the actual message text, NEVER use group name as message
         val text = if (showMessage) {
             val rawText = when {
                 extras?.getCharSequence("android.bigText") != null -> 
@@ -290,14 +279,12 @@ class NotificationManager private constructor(private val context: Context) {
                 extras?.getCharSequence("android.infoText") != null -> 
                     extras.getCharSequence("android.infoText")?.toString()
                 
-                // Ticker text (deprecated but still used by some apps)
                 sbn.notification.tickerText != null -> 
                     sbn.notification.tickerText?.toString()
                 
                 else -> null
             }
             val normalizedText = normalizeText(rawText)?.take(30)
-            // CRITICAL: If text is the same as group name, it's wrong - return null
             if (!normalizedText.isNullOrBlank() && 
                 !groupRaw.isNullOrBlank() && 
                 normalizedText.trim().equals(groupRaw.trim(), ignoreCase = true)) {
@@ -321,7 +308,6 @@ class NotificationManager private constructor(private val context: Context) {
         packageName: String,
         category: String? = null
     ): Pair<String?, String?> {
-        // Only include group in title if it's not null (preference is already checked in extractNotificationContent)
         var notifTitle = buildString {
             if (!sender.isNullOrBlank()) append(sender)
             if (!group.isNullOrBlank()) {
@@ -330,10 +316,8 @@ class NotificationManager private constructor(private val context: Context) {
             }
         }.ifBlank { null }
         
-        // CRITICAL: notifText should ALWAYS be the actual message text, never the group name
         var notifText = text
         
-        // Only use fallback if both title and text are completely missing
         if ((notifTitle == null || notifTitle.isBlank()) && (notifText == null || notifText.isBlank())) {
             val pm = context.packageManager
             val appLabel = try {
@@ -343,7 +327,6 @@ class NotificationManager private constructor(private val context: Context) {
             }
             notifTitle = appLabel
             
-            // Provide category-specific fallback text instead of generic "Notification received"
             notifText = when (category) {
                 android.app.Notification.CATEGORY_MESSAGE -> "New message"
                 android.app.Notification.CATEGORY_EMAIL -> "New email"
@@ -375,10 +358,8 @@ class NotificationManager private constructor(private val context: Context) {
         // Get all notifications for this package
         val samePackage = activeNotifications.filter { it.packageName == sbn.packageName }
         
-        // Filter out summary notifications to avoid showing "X messages from Y contacts"
         val nonSummaryNotifications = samePackage.filter { !isNotificationSummary(it) }
         
-        // Choose the most recent non-summary notification, fallback to any notification if needed
         val notificationToShow = when {
             nonSummaryNotifications.isNotEmpty() -> nonSummaryNotifications.maxByOrNull { it.postTime }
             samePackage.isNotEmpty() -> samePackage.maxByOrNull { it.postTime }
@@ -412,15 +393,12 @@ class NotificationManager private constructor(private val context: Context) {
         // Find active notifications for this package only
         val samePackage = activeNotifications.filter { it.packageName == packageName }
 
-        // If no active notifications remain for this package, return null
         if (samePackage.isEmpty()) {
             return null
         }
 
-        // Filter out summary notifications to avoid showing "X messages from Y contacts"
         val nonSummaryNotifications = samePackage.filter { !isNotificationSummary(it) }
         
-        // Choose the most recent non-summary notification, fallback to any notification if needed
         val notificationToShow = when {
             nonSummaryNotifications.isNotEmpty() -> nonSummaryNotifications.maxByOrNull { it.postTime }
             samePackage.isNotEmpty() -> samePackage.maxByOrNull { it.postTime }
@@ -447,20 +425,16 @@ class NotificationManager private constructor(private val context: Context) {
      * Uses caching to improve performance.
      */
     internal fun isNotificationSummary(sbn: android.service.notification.StatusBarNotification): Boolean {
-        // Create cache key from notification key and post time to handle updates
         val cacheKey = "${sbn.key}_${sbn.postTime}"
         
         // Check cache first for performance
         summaryCache[cacheKey]?.let { return it }
         
-        // Check if notification is marked as group summary (Android standard way)
-        // Modern apps should always set this flag for summary notifications
         if (sbn.notification.flags and android.app.Notification.FLAG_GROUP_SUMMARY != 0) {
             summaryCache[cacheKey] = true
             return true
         }
         
-        // Clean up cache periodically to prevent memory leaks (keep last 100 entries)
         if (summaryCache.size > 100) {
             val keysToRemove = summaryCache.keys.take(summaryCache.size - 50)
             keysToRemove.forEach { summaryCache.remove(it) }

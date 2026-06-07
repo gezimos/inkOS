@@ -14,3 +14,6 @@ app/debug
 diff.*
 directions
 .DS_Store
+architecture
+*.keystore
+*.jks

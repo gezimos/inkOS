@@ -1,4 +1,5 @@
 <div style="text-align: center;">
+	<img src="docs/img/inkos.svg" alt="inkOS logo" height="48">
 	<h2>inkOS - Text based & E-ink friendly Android Launcher </h2>
     <table>
         <tr>
@@ -17,9 +18,7 @@
 
 </div>
 
-Click on any image to enlarge it. To know more, read [documentation](DOCUMENTATION.md).
-
-If you want to see the launcher visually before you try you can [watch my video on YouTube](https://www.youtube.com/watch?v=dAmHJ5aFLWA)
+[Documentation](DOCUMENTATION.md) | [Video demo](https://www.youtube.com/watch?v=dAmHJ5aFLWA)
 
 # Tested on Android 10 to 16.
 
@@ -40,91 +39,115 @@ You can download the apk directly on the Release section on the rightside of git
 
 # Forked with extra features
 
-<details><summary>List of features (click to expand)</summary>
+### Features
 
-- No ads, trackers, or unnecessary permissions (no internet permission).
-- Reorder apps on the home screen by drag & drop.
-- Rename, hide, lock, or uninstall apps from the app drawer.
-- Customize font size and style for:
-    - Home screen apps
-    - Clock
-    - Battery widget
-    - Notifications
-    - Settings
-- Set a universal font or individually customize each text section.
-- Fine-tune padding (spacing) between home screen apps.
-- Set how many apps appear on the home screen and how many pages exist.
-- Page indicators (dots) show your current page on the right side.
-- Optionally show clock and battery widgets on the home screen.
-- Gesture support:
-    - Swiping left/right
-    - Clicking the clock
-    - Double-tap
-    - Volume key page navigation
-    - (Actions: open app, open notifications, restart launcher, disable gesture, more)
-- Full notification control:
-    - Show message previews under app names
-    - Show media playing info (title, music note icon)
-    - Use app allowlist for chat/media apps
-    - Optional full-screen notification reader window
-- E-ink mode auto-refresh to clean up ghosting (for e-ink devices).
-- Theme mode (light/dark), with color options for AMOLED (not recommended for e-ink).
-- Show or hide the status bar (carrier, clock, battery, etc.).
-- Lock settings or individual apps with PIN/fingerprint.
-- Long-press apps for quick access to system info or force-stop.
-- Backup and restore your setup across devices (excludes custom fonts).
-- Clean “Reset All” option to return to default.
+**Home Screen**
+- Multi-page home screen support.
+- 9 clock styles: Default, Flip, Boxed, Round, Split, Horizontal, Box Outline, Analog, Stacked.
+- Dual clocks with configurable timezone offset.
+- Per-element alignment: clock, date, apps, and quote each align independently (left/center/right).
+- 7 bottom widget types: Quote, Calendar Events, Android Widget, Shortcuts, Total Usage, Page Dots, or Disabled.
+- Audio widget: appears on playback, persists when paused, dismissible.
+- Embed any native Android widget with adjustable height and margins.
+- Separators (empty space, em dash, dots) for visual grouping.
+- Edit Mode: tap any element to open its settings live on screen.
 
-</details>
+**App Drawer**
+- A-Z sidebar for quick alphabetical navigation.
+- Sort by A-Z, most used, or last used.
+- Multi-source search: apps, contacts, web, device settings, music, and files.
+- Auto-launch single search results. Auto-show keyboard option.
+- Long-press menu: uninstall, rename, hide, lock, app info.
+- Hide apps already on the home screen from the drawer.
+- App shortcuts and pinned shortcuts from third-party apps.
+
+**Fonts & Typography**
+- Per-element font: clock, date, apps, quote, notifications, settings each get their own font family and size.
+- Universal font mode: set one font for everything, then customize individual elements.
+- Custom .ttf/.otf files from device storage.
+- App name modes: normal, lowercase, UPPERCASE.
+
+**Themes & Look**
+- 15 one-tap theme presets. Custom text and background colors for light and dark mode.
+- Light, Dark, and System theme modes with independent light/dark color settings.
+- Wallpaper support with background opacity slider.
+- 4 icon modes: Text letters, System adaptive, System tinted (monochrome), Icon Packs.
+- Icon shapes: pill, rounded, square.
+- Text islands: pill-shaped backgrounds behind text elements, with color inversion.
+- Theme export/import (JSON).
+
+**Gestures**
+- 4 swipe directions + double tap + clock/date/quote tap, each assignable to 15+ actions.
+- Actions: open app, drawer, notifications, recents, simple tray, hub, settings, e-ink refresh, brightness toggle, lock screen, quick settings, power dialog, restart, exit inkOS, toggle private space, toggle work profile.
+- Configurable short/long swipe sensitivity thresholds.
+- Edge swipe back gesture.
+- Volume keys for page navigation (essential for E-ink/keypad devices).
+
+**Notifications**
+- Notification badges (*) next to app names with pending notifications.
+- Label notifications: actual message content below app names.
+- Media playing indicator with track name display.
+- Letters: full-screen notification reader with vertical paging and keyboard/DPAD shortcuts.
+- Simple Tray: paginated notification tray with per-page density and bottom navigation.
+- Hub: device status dashboard (battery, WiFi, Bluetooth, storage, brightness, DND).
+- Three independent per-app allowlists (home badges, letters, simple tray).
+- Chat options: toggle sender name, group name, message preview independently.
+
+**Recents**
+- Recent apps and usage statistics with time/money/coffee display modes.
+- Filter by today, this week, this month, or all time.
+
+**E-Ink & Hardware**
+- Auto screen refresh after exiting apps (configurable delay, home-only option).
+- 4 E-ink display modes: Disabled, Contrast, Clear, Reading (Mudita Kompakt).
+- T9, D-pad, and QWERTY keyboard navigation support.
+- UI scale modes: Auto, Tiny, Small, Medium, Normal, Big, Large, Extra Large.
+
+**Advanced**
+- Backup/restore all settings. Theme-only export/import.
+- Show/hide status bar and navigation bar independently.
+- Haptic feedback toggle.
 
 ## Permissions
 
-inkOS uses the following permissions:
+> [!NOTE]
+> inkOS does not request internet access and does not collect or transmit any data.
 
-- `android.permission.EXPAND_STATUS_BAR`
-    - Allows the launcher to expand or collapse the status bar (for gestures and quick access).
-- `android.permission.QUERY_ALL_PACKAGES`
-    - Allows the launcher to list all installed apps, so you can see and manage them.
-- `android.permission.REQUEST_DELETE_PACKAGES`
-    - Allows the launcher to request the uninstallation of apps (user confirmation required).
-- `android.permission.USE_BIOMETRIC`
-    - Enables PIN or fingerprint lock for apps or settings.
-- `android.permission.SYSTEM_ALERT_WINDOW`
-    - Required for overlay features, such as showing notifications or dialogs over other apps.
-- `android.permission.FOREGROUND_SERVICE`
-    - Allows the launcher to run foreground services for persistent features (e.g., notification listener).
-- `android.permission.VIBRATE`
-    - Enables vibration feedback for certain actions.
-- `android.permission.WRITE_SETTINGS`
-    - Allows the launcher to modify system settings (for features like brightness control in Simple Tray).
-- `android.permission.ACCESS_WIFI_STATE`
-    - Allows the launcher to access WiFi state (for WiFi status in Simple Tray).
-- `android.permission.CHANGE_WIFI_STATE`
-    - Allows the launcher to change WiFi state (for WiFi toggle in Simple Tray).
-- `android.permission.BLUETOOTH`
-    - Allows access to Bluetooth features (for device compatibility and widgets).
-- `android.permission.BLUETOOTH_ADMIN`
-    - Allows administration of Bluetooth features.
-- `android.permission.BLUETOOTH_CONNECT`
-    - Allows the launcher to connect to Bluetooth devices (for widgets and device integration).
-- `android.permission.CAMERA`
-    - Allows access to the camera (for flashlight feature in Simple Tray).
-- `android.permission.READ_PHONE_STATE`
-    - Allows the launcher to read phone state (for cellular signal display in Simple Tray).
-- `android.permission.MODIFY_AUDIO_SETTINGS`
-    - Allows the launcher to modify audio settings (for volume control in Simple Tray).
-- `android.permission.PACKAGE_USAGE_STATS`
-    - Allows the launcher to access usage statistics (for recent apps in Recents screen).
-- `android.permission.READ_MEDIA_IMAGES`
-    - Allows the launcher to read media images (for wallpaper selection).
-- `android.permission.READ_EXTERNAL_STORAGE`
-    - Allows the launcher to read external storage (for image access on older Android versions).
-- `android.permission.SET_WALLPAPER`
-    - Allows the launcher to set wallpapers.
+| Permission | Why |
+|---|---|
+| `QUERY_ALL_PACKAGES` | List all installed apps |
+| `REQUEST_DELETE_PACKAGES` | Uninstall apps (requires user confirmation) |
+| `EXPAND_STATUS_BAR` | Expand/collapse status bar via gestures |
+| `VIBRATE` | Haptic feedback |
+| `SET_WALLPAPER` | Set wallpapers |
+| `USE_BIOMETRIC` | PIN/fingerprint lock for apps and settings |
+| `WRITE_SETTINGS` | Brightness control (Simple Tray) |
+| `CAMERA` | Flashlight toggle (Simple Tray) |
+| `READ_PHONE_STATE` | Cellular signal display (Simple Tray) |
+| `MODIFY_AUDIO_SETTINGS` | Volume control (Simple Tray) |
+| `ACCESS_WIFI_STATE` | WiFi status (Simple Tray) |
+| `CHANGE_WIFI_STATE` | WiFi toggle (Simple Tray) |
+| `BLUETOOTH` | Bluetooth status (Hub, API 30 and below) |
+| `BLUETOOTH_ADMIN` | Bluetooth admin (Hub, API 30 and below) |
+| `BLUETOOTH_CONNECT` | Bluetooth device info (Hub) |
+| `PACKAGE_USAGE_STATS` | Recent/most-used apps (Recents screen) |
+| `READ_CONTACTS` | Contact search in app drawer |
+| `READ_CALENDAR` | Calendar events widget |
+| `READ_MEDIA_IMAGES` | Wallpaper selection |
+| `READ_MEDIA_AUDIO` | Music search in app drawer |
+| `READ_EXTERNAL_STORAGE` | Media access (Android 12 and below) |
+| `BIND_APPWIDGET` | Embed Android widgets on home screen |
+| `INSTALL_SHORTCUT` | Legacy shortcut pinning |
+| `ACCESS_HIDDEN_PROFILES` | Android 15+ Private Space |
 
-**Note:** Only needed for Mudita Kompakt to reconnect to headphones due to missing Bluetooth history for some permissions.
+## Built With
 
-> **Note:** inkOS does not request internet access and does not collect or transmit any data.
+| Component | Details |
+|---|---|
+| **Language** | Kotlin 2.1.20 |
+| **UI** | Jetpack Compose 1.10.4, Material3 1.4.0 |
+| **Build** | AGP 8.10.1 |
+| **Target SDK** | API 26 - 36 (Android 8.0 - 16) |
 
 ## License
 
@@ -132,15 +155,13 @@ inkOS is open source under the GPLv3 license, giving you the freedom to use, stu
 distribute it. The Copyleft provision ensures these freedoms remain intact, so inkOS will always be
 fully open source and customizable by anyone.
 
-- inkOS does not have network access.
-- inkOS does not collect or transmit any data in any way whatsoever.
-
 ## Credits
 
-- [mLauncher](https://github.com/DroidWorksStudio/mLauncher)
-- [Olauncher](https://github.com/tanujnotes/Olauncher)
-- [OlauncherCF](https://github.com/OlauncherCF/OlauncherCF)
+Originally forked from [mLauncher](https://github.com/DroidWorksStudio/mLauncher), itself a fork of [Olauncher](https://github.com/tanujnotes/Olauncher). At this point inkOS is pretty much its own thing.
 
-## Donation
+## Support the project
 
-[<img src="others/bmc-button.png" alt="Buy me a coffee" height="60">](https://buymeacoffee.com/gezimos)
+<table><tr>
+<td><a href="https://buymeacoffee.com/gezimos"><img src="others/bmc-button.png" alt="Buy me a coffee" height="40" style="max-width:200px;"></a></td>
+<td valign="middle">inkOS is free, open source, and ad-free forever. If it's made your phone better, consider supporting development.</td>
+</tr></table>

@@ -7,12 +7,6 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.navigation.NavController
 import com.github.gezimos.inkos.data.Prefs
 import com.github.gezimos.inkos.helper.utils.VibrationHelper as VH
-
-/**
- * Helper that detects horizontal edge swipes and triggers NavController.popBackStack().
- * The caller should provide an allowProvider lambda which returns true when edge-swipe
- * behavior is currently allowed (e.g. fragment opt-out + prefs).
- */
 class BackGesture(
     private val activityRoot: View,
     private val navController: NavController,

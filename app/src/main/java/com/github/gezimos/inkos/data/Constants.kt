@@ -20,18 +20,11 @@ object Constants {
     const val MIN_EINK_REFRESH_DELAY = 25
     const val MAX_EINK_REFRESH_DELAY = 1500
 
-    const val REQUEST_SET_DEFAULT_HOME = 777
-
-    const val TRIPLE_TAP_DELAY_MS = 300
-    // Increase default long-press delay to be a bit longer for our custom behavior
-    const val LONG_PRESS_DELAY_MS = 700
-
     const val MIN_HOME_APPS = 0
     const val MAX_HOME_APPS = 30
 
     const val MIN_HOME_PAGES = 1
 
-    // These are for the App Text Size (home screen app labels)
     const val MIN_APP_SIZE = 10
     const val MAX_APP_SIZE = 60
     // Add for settings text size
@@ -41,13 +34,6 @@ object Constants {
     // Add for notification text size
     const val MIN_LABEL_NOTIFICATION_TEXT_SIZE = 10
     const val MAX_LABEL_NOTIFICATION_TEXT_SIZE = 40
-
-    const val BACKUP_WRITE = 1
-    const val BACKUP_READ = 2
-
-    const val THEME_BACKUP_WRITE = 11
-    const val THEME_BACKUP_READ = 12
-
 
     const val MIN_TEXT_PADDING = 0
     const val MAX_TEXT_PADDING = 80
@@ -59,7 +45,6 @@ object Constants {
     const val MIN_CLOCK_SIZE = 12
     const val MAX_CLOCK_SIZE = 100
 
-    // Update MAX_HOME_PAGES dynamically based on MAX_HOME_APPS
     const val DEFAULT_MAX_HOME_PAGES = 10
     var MAX_HOME_PAGES = DEFAULT_MAX_HOME_PAGES
 
@@ -70,26 +55,49 @@ object Constants {
     const val MIN_LONG_SWIPE_RATIO = 1.1f
     const val MAX_LONG_SWIPE_RATIO = 5.0f
 
-    // Default widget margins
-    const val DEFAULT_TOP_WIDGET_MARGIN = 32
-    const val DEFAULT_BOTTOM_WIDGET_MARGIN = 32
-
-    // Default gap/padding between app labels in the app drawer
     const val DEFAULT_APP_DRAWER_GAP = 8
 
     // Default font size (sp) for app drawer labels
     const val DEFAULT_APP_DRAWER_SIZE = 24
 
-    // Internal synthetic app identifiers (UI-only elements are not listed here)
-    const val INTERNAL_APP_DRAWER = "com.inkos.internal.app_drawer"
-    const val INTERNAL_NOTIFICATIONS = "com.inkos.internal.notifications"
-    const val INTERNAL_RECENTS = "com.inkos.internal.recents"
-    const val INTERNAL_SIMPLE_TRAY = "com.inkos.internal.simple_tray"
+    const val INKOS_SHORTCUT_APP_DRAWER = "inkos_app_drawer"
+    const val INKOS_SHORTCUT_NOTIFICATIONS = "inkos_notifications"
+    const val INKOS_SHORTCUT_SIMPLE_TRAY = "inkos_simple_tray"
+    const val INKOS_SHORTCUT_HUB = "inkos_hub"
+    const val INKOS_SHORTCUT_RECENTS = "inkos_recents"
+    const val INKOS_SHORTCUT_SETTINGS = "inkos_settings"
+
+    const val ACTION_OPEN_APP_DRAWER = "com.github.gezimos.inkos.action.OPEN_APP_DRAWER"
+    const val ACTION_OPEN_NOTIFICATIONS = "com.github.gezimos.inkos.action.OPEN_NOTIFICATIONS"
+    const val ACTION_OPEN_SIMPLE_TRAY = "com.github.gezimos.inkos.action.OPEN_SIMPLE_TRAY"
+    const val ACTION_OPEN_HUB = "com.github.gezimos.inkos.action.OPEN_HUB"
+    const val ACTION_OPEN_RECENTS = "com.github.gezimos.inkos.action.OPEN_RECENTS"
+    const val ACTION_OPEN_SETTINGS = "com.github.gezimos.inkos.action.OPEN_SETTINGS"
+
+
+    const val INTERNAL_CONTACT_PREFIX = "com.inkos.contact."
+    const val INTERNAL_WEB_SEARCH = "com.inkos.websearch"
+    const val INTERNAL_SETTINGS = "com.inkos.settings"
+    const val INTERNAL_MUSIC = "com.inkos.music"
+    const val INTERNAL_FILES = "com.inkos.files"
+
+    // Separators
+    const val SEPARATOR_EMPTY = "com.inkos.separator.empty"
+    const val SEPARATOR_EM_DASH = "com.inkos.separator.emdash"
+    const val SEPARATOR_DOTS = "com.inkos.separator.dots"
+    fun isSeparator(pkg: String) = pkg.startsWith("com.inkos.separator.")
 
     // Max widget margins
     const val MAX_TOP_WIDGET_MARGIN = 200
     const val MAX_BOTTOM_WIDGET_MARGIN = 200
 
+    // Android AppWidget hosting defaults
+    const val DEFAULT_ANDROID_WIDGET_HEIGHT = 120
+    const val MIN_ANDROID_WIDGET_HEIGHT = 60
+    const val MAX_ANDROID_WIDGET_HEIGHT = 400
+    const val DEFAULT_ANDROID_WIDGET_MARGIN = 0 // percentage of screen width
+    const val MAX_ANDROID_WIDGET_MARGIN = 80
+    const val APPWIDGET_HOST_ID = 1024
     fun updateMaxHomePages(context: Context) {
         val prefs = Prefs(context)
 
@@ -105,6 +113,8 @@ object Constants {
         const val APP_THEME = "APP_THEME"
         const val TEXT_COLOR = "TEXT_COLOR"
         const val BACKGROUND_COLOR = "BACKGROUND_COLOR"
+        const val DARK_TEXT_COLOR = "DARK_TEXT_COLOR"
+        const val DARK_BACKGROUND_COLOR = "DARK_BACKGROUND_COLOR"
         const val STATUS_BAR = "STATUS_BAR"
         const val NAVIGATION_BAR = "NAVIGATION_BAR"
         const val TEXT_SIZE_SETTINGS = "TEXT_SIZE_SETTINGS"
@@ -127,27 +137,37 @@ object Constants {
         const val SHOW_AM_PM = "SHOW_AM_PM"
         const val SHOW_SECOND_CLOCK = "SHOW_SECOND_CLOCK"
         const val CLOCK_MODE = "CLOCK_MODE"
+        const val CLOCK_STYLE = "CLOCK_STYLE"
         const val SECOND_CLOCK_OFFSET_HOURS = "SECOND_CLOCK_OFFSET_HOURS"
         const val SHOW_CLOCK = "SHOW_CLOCK"
         const val SHOW_DATE_BATTERY_COMBO = "SHOW_DATE_BATTERY_COMBO"
         const val SHOW_NOTIFICATION_COUNT = "SHOW_NOTIFICATION_COUNT"
+        const val NOTIFICATION_COUNT_SOURCE = "NOTIFICATION_COUNT_SOURCE"
         const val BACKGROUND_OPACITY = "BACKGROUND_OPACITY"
         const val HOME_ALIGNMENT = "HOME_ALIGNMENT"
+        const val HOME_CLOCK_ALIGNMENT = "HOME_CLOCK_ALIGNMENT"
+        const val HOME_DATE_ALIGNMENT = "HOME_DATE_ALIGNMENT"
+        const val HOME_QUOTE_ALIGNMENT = "HOME_QUOTE_ALIGNMENT"
         const val HOME_APPS_Y_OFFSET = "HOME_APPS_Y_OFFSET"
+
         const val HIDE_HOME_APPS = "HIDE_HOME_APPS"
         const val APP_DRAWER_ALIGNMENT = "APP_DRAWER_ALIGNMENT"
         const val APP_DRAWER_SIZE = "APP_DRAWER_SIZE"
         const val APP_DRAWER_GAP = "APP_DRAWER_GAP"
         const val APP_DRAWER_SEARCH_ENABLED = "APP_DRAWER_SEARCH_ENABLED"
+        const val APP_DRAWER_SEARCH_HIDDEN_APPS = "APP_DRAWER_SEARCH_HIDDEN_APPS"
         const val APP_DRAWER_AUTO_LAUNCH = "APP_DRAWER_AUTO_LAUNCH"
         const val APP_DRAWER_AUTO_SHOW_KEYBOARD = "APP_DRAWER_AUTO_SHOW_KEYBOARD"
         const val TEXT_ISLANDS = "TEXT_ISLANDS"
         const val TEXT_ISLANDS_INVERTED = "TEXT_ISLANDS_INVERTED"
         const val TEXT_ISLANDS_SHAPE = "TEXT_ISLANDS_SHAPE"
         const val SHOW_ICONS = "SHOW_ICONS"
+        const val DRAWER_SHOW_ICONS = "DRAWER_SHOW_ICONS"
         const val APP_DRAWER_AZ_FILTER = "APP_DRAWER_AZ_FILTER"
+        const val APP_DRAWER_SORT_ORDER = "APP_DRAWER_SORT_ORDER"
         const val APP_DRAWER_PAGER = "APP_DRAWER_PAGER"
         const val SHOW_NOTIFICATION_BADGE = "show_notification_badge"
+        const val NOTIFICATION_INDICATOR_STYLE = "notification_indicator_style"
         const val TOP_WIDGET_MARGIN = "TOP_WIDGET_MARGIN"
         const val BOTTOM_WIDGET_MARGIN = "BOTTOM_WIDGET_MARGIN"
         const val DATE_FONT = "DATE_FONT"
@@ -155,8 +175,60 @@ object Constants {
         const val ALL_CAPS_APPS = "ALL_CAPS_APPS"
         const val SMALL_CAPS_APPS = "SMALL_CAPS_APPS"
         const val HAPTIC_FEEDBACK = "HAPTIC_FEEDBACK"
+        const val VIBRATION_SCALE = "VIBRATION_SCALE"
         const val HOME_PAGER = "HOME_PAGER"
         const val LOCKED_APPS = "LOCKED_APPS"
+        const val SHOW_ANDROID_WIDGET = "SHOW_ANDROID_WIDGET"
+        const val ANDROID_WIDGET_ID = "ANDROID_WIDGET_ID"
+        const val ANDROID_WIDGET_HEIGHT = "ANDROID_WIDGET_HEIGHT"
+        const val ANDROID_WIDGET_MARGIN_START = "ANDROID_WIDGET_MARGIN_START"
+        const val ANDROID_WIDGET_MARGIN_END = "ANDROID_WIDGET_MARGIN_END"
+        const val BOTTOM_WIDGET_TYPE = "BOTTOM_WIDGET_TYPE"
+        const val EVENTS_CALENDAR_ID = "EVENTS_CALENDAR_ID"
+        const val EVENTS_FILTER = "EVENTS_FILTER"
+        const val EVENTS_INDEX = "EVENTS_INDEX"
+        const val EVENTS_CALENDAR_NAME = "EVENTS_CALENDAR_NAME"
+        const val EVENTS_HIDE_CONTROLS = "EVENTS_HIDE_CONTROLS"
+        const val SHORTCUT_LEFT_ICON = "SHORTCUT_LEFT_ICON"
+        const val SHORTCUT_LEFT_ACTION = "SHORTCUT_LEFT_ACTION"
+        const val SHORTCUT_RIGHT_ICON = "SHORTCUT_RIGHT_ICON"
+        const val SHORTCUT_RIGHT_ACTION = "SHORTCUT_RIGHT_ACTION"
+        const val SHORTCUT_PAGE_DOTS = "SHORTCUT_PAGE_DOTS"
+    }
+
+    /** Events filter: 0=24h, 1=1 week, 2=2 weeks, 3=1 month */
+    enum class EventsFilter(val index: Int, val days: Int) {
+        HOURS_24(0, 1),
+        WEEK_1(1, 7),
+        WEEKS_2(2, 14),
+        MONTH_1(3, 30)
+    }
+
+    enum class BottomWidgetType(val value: String) {
+        Disabled("disabled"),
+        Quote("quote"),
+        Events("events"),
+        AndroidWidget("android_widget"),
+        Shortcuts("search"), // value kept as "search" for backward compat
+        TotalUsage("total_usage"),
+        PageDots("page_dots")
+    }
+
+    enum class NotificationIndicator(val symbol: String, val label: String, val isSuperscript: Boolean) {
+        Asterisk("*", "Asterisk", true),
+        FilledCircle("●", "Filled Circle", false),
+        OutlineCircle("○", "Outline Circle", false),
+        FilledDiamond("◆", "Filled Diamond", false),
+        FilledSquare("■", "Filled Square", false);
+
+        companion object {
+            fun fromOrdinal(value: Int): NotificationIndicator =
+                entries.getOrElse(value) { Asterisk }
+        }
+    }
+
+    enum class ShortcutIcon {
+        Disabled, Search, Phone, Messages, Camera, Notes, Bubble, Music, Light, Star, Clock
     }
 
     enum class BackupType {
@@ -177,6 +249,10 @@ object Constants {
         SetDoubleTap,
         SetClickDate,
         SetQuoteWidget,
+        EditFavorites,
+        EditHiddenApps,
+        SetShortcutLeft,
+        SetShortcutRight,
 
     }
 
@@ -184,7 +260,7 @@ object Constants {
     Disabled,
     OpenApp,
     OpenAppDrawer,
-    OpenNotificationsScreen,
+    OpenLettersScreen,
     OpenRecentsScreen,
     OpenSimpleTray,
     EinkRefresh,
@@ -195,16 +271,36 @@ object Constants {
     OpenPowerDialog,
     RestartApp,
     ExitLauncher,
-    TogglePrivateSpace;
+    OpenHub,
+    OpenSettings,
+    Search,
+    TogglePrivateSpace,
+    ToggleWorkProfile;
+
+        companion object {
+            /** inkOS-related actions for gesture picker Tab 2 */
+            val INKOS_ACTIONS = listOf(
+                OpenAppDrawer, OpenLettersScreen, OpenRecentsScreen,
+                OpenSimpleTray, OpenHub, OpenSettings, Search, EinkRefresh, Brightness
+            )
+            /** System actions for gesture picker Tab 3 */
+            val SYSTEM_ACTIONS = listOf(
+                LockScreen, ShowRecents, OpenQuickSettings, OpenPowerDialog,
+                RestartApp, ExitLauncher, TogglePrivateSpace, ToggleWorkProfile, Disabled
+            )
+        }
 
         fun getString(context: Context): String {
             return when (this) {
                 OpenApp -> context.getString(R.string.open_app)
                 TogglePrivateSpace -> context.getString(R.string.private_space)
+                ToggleWorkProfile -> context.getString(R.string.work_profile)
                 RestartApp -> context.getString(R.string.restart_launcher)
-                OpenNotificationsScreen -> context.getString(R.string.notifications_screen_title)
+                OpenLettersScreen -> context.getString(R.string.letters_screen_title)
                 OpenRecentsScreen -> "Recents"
                 OpenSimpleTray -> context.getString(R.string.simple_tray_title)
+                OpenHub -> context.getString(R.string.shortcut_hub_short)
+                OpenSettings -> "Settings"
                 OpenAppDrawer -> context.getString(R.string.app_drawer)
                 EinkRefresh -> context.getString(R.string.eink_refresh)
                 ExitLauncher -> context.getString(R.string.settings_exit_inkos_title)
@@ -213,6 +309,7 @@ object Constants {
                 OpenQuickSettings -> context.getString(R.string.quick_settings)
                 OpenPowerDialog -> context.getString(R.string.power_dialog)
                 Brightness -> "Brightness" // Temporary string, add to strings.xml later
+                Search -> "Search"
                 Disabled -> context.getString(R.string.disabled)
             }
         }
@@ -222,10 +319,13 @@ object Constants {
             return when (this) {
                 OpenApp -> stringResource(R.string.open_app)
                 TogglePrivateSpace -> stringResource(R.string.private_space)
+                ToggleWorkProfile -> stringResource(R.string.work_profile)
                 RestartApp -> stringResource(R.string.restart_launcher)
-                OpenNotificationsScreen -> stringResource(R.string.notifications_screen_title)
+                OpenLettersScreen -> stringResource(R.string.letters_screen_title)
                 OpenRecentsScreen -> "Recents"
                 OpenSimpleTray -> stringResource(R.string.simple_tray_title)
+                OpenHub -> stringResource(R.string.shortcut_hub_short)
+                OpenSettings -> "Settings"
                 OpenAppDrawer -> stringResource(R.string.app_drawer)
                 EinkRefresh -> stringResource(R.string.eink_refresh)
                 ExitLauncher -> stringResource(R.string.settings_exit_inkos_title)
@@ -234,6 +334,7 @@ object Constants {
                 OpenQuickSettings -> stringResource(R.string.quick_settings)
                 OpenPowerDialog -> stringResource(R.string.power_dialog)
                 Brightness -> "Brightness" // Temporary string, add to strings.xml later
+                Search -> "Search"
                 Disabled -> stringResource(R.string.disabled)
             }
         }
@@ -241,12 +342,14 @@ object Constants {
 
     enum class Theme : EnumOption {
         Dark,
-        Light;
+        Light,
+        System;
 
         fun getString(context: Context): String {
             return when (this) {
                 Dark -> context.getString(R.string.dark)
                 Light -> context.getString(R.string.light)
+                System -> context.getString(R.string.system_default)
             }
         }
 
@@ -256,21 +359,24 @@ object Constants {
             return when (this) {
                 Dark -> stringResource(R.string.dark)
                 Light -> stringResource(R.string.light)
+                System -> stringResource(R.string.system_default)
             }
         }
     }
 
     enum class FontFamily : EnumOption {
         PublicSans,
+        Iosevka,
+        ZalandoExp,
         Vollkorn,
-        System,
         SpaceGrotesk,
-        Merriweather,
         PlusJakarta,
+        Merriweather,
         Shortstack,
         Manrope,
         Hoog,
-        Custom; // Add Custom for user-uploaded font
+        System,
+        Custom;
 
         fun getFont(context: Context, customPath: String? = null): Typeface? {
             val prefs = Prefs(context)
@@ -300,6 +406,8 @@ object Constants {
                 Merriweather -> ResourcesCompat.getFont(context, R.font.merriweather)
                 Manrope -> ResourcesCompat.getFont(context, R.font.manropemedium)
                 Hoog -> ResourcesCompat.getFont(context, R.font.hoog)
+                Iosevka -> ResourcesCompat.getFont(context, R.font.iosevka)
+                ZalandoExp -> ResourcesCompat.getFont(context, R.font.zalandosansexpandedregular)
             }
         }
 
@@ -314,12 +422,13 @@ object Constants {
                 Merriweather -> context.getString(R.string.settings_font_merriweather)
                 Manrope -> "Manrope Medium"
                 Hoog -> context.getString(R.string.settings_font_hoog)
+                Iosevka -> "Iosevka"
+                ZalandoExp -> "Zalando Expanded"
                 Custom -> "Custom Font"
             }
         }
 
         companion object {
-            // Helper to get all custom font display names and paths
             fun getAllCustomFonts(context: Context): List<Pair<String, String>> {
                 val prefs = Prefs(context)
                 return prefs.customFontPaths.map { path ->
@@ -341,6 +450,8 @@ object Constants {
                 Merriweather -> stringResource(R.string.settings_font_merriweather)
                 Manrope -> "Manrope Medium"
                 Hoog -> stringResource(R.string.settings_font_hoog)
+                Iosevka -> "Iosevka"
+                ZalandoExp -> "Zalando Expanded"
                 Custom -> "Custom Font"
             }
         }

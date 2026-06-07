@@ -4,25 +4,24 @@ import android.app.AppOpsManager
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
-import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.Process
 import android.provider.Settings
-import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
-import android.widget.LinearLayout
-import android.widget.TextView
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.Text
+import com.github.gezimos.inkos.ui.compose.inkOsSafeDrawingPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -30,12 +29,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
@@ -43,8 +45,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -60,198 +62,73 @@ import com.github.gezimos.inkos.helper.getHexForOpacity
 import com.github.gezimos.inkos.helper.openAppInfo
 import com.github.gezimos.inkos.helper.utils.VibrationHelper
 import com.github.gezimos.inkos.style.SettingsTheme
-import com.github.gezimos.inkos.style.resolveThemeColors
+import com.github.gezimos.inkos.style.Theme
+import com.github.gezimos.inkos.style.rememberScreenScale
+import com.github.gezimos.inkos.style.scaled
+import com.github.gezimos.inkos.helper.EditModeHelper
+import com.github.gezimos.inkos.ui.compose.EditModeOverlay
 import com.github.gezimos.inkos.ui.compose.NavHelper
-import com.github.gezimos.inkos.ui.compose.RecentsLayout
+import com.github.gezimos.inkos.ui.dialogs.SheetTitle
 import com.github.gezimos.inkos.ui.compose.RecentAppItem
+import com.github.gezimos.inkos.ui.compose.RecentsLayout
 import com.github.gezimos.inkos.ui.compose.gestureHelper
-import com.github.gezimos.inkos.ui.dialogs.LockedBottomSheetDialog
-
-/**
- * Fragment that shows recently used apps based on usage stats
- */
+import com.github.gezimos.inkos.ui.dialogs.ComposeBottomSheetHost
 class RecentsFragment : Fragment() {
 
     private lateinit var prefs: Prefs
     private lateinit var viewModel: MainViewModel
     
-    // Add a trigger to refresh recent apps when fragment resumes
-    // Using a simple counter that gets incremented in onResume
     private var refreshTriggerCounter = 0
     
-    // Key to trigger permission re-check when fragment resumes
     private var permissionCheckKey by mutableStateOf(0)
     
-    private var permissionExplanationDialog: LockedBottomSheetDialog? = null
-    
-    /**
-     * Shows an informational bottom sheet dialog explaining why usage stats permission is needed before requesting it.
-     */
+    private var permissionExplanationSheet: ComposeBottomSheetHost? = null
     private fun showPermissionExplanationDialog(
         title: String,
         message: String,
         onContinue: () -> Unit,
         onCancel: (() -> Unit)? = null
     ) {
-        val context = requireContext()
+        requireContext()
         
-        // Dismiss any existing permission dialog
-        permissionExplanationDialog?.dismiss()
-        
-        // Grab prefs and resolve theme colors
-        Prefs(context)
-        val (dlgTextColor, dlgBackground) = resolveThemeColors(context)
-        
-        val content = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            val pad = (12 * context.resources.displayMetrics.density).toInt()
-            setPadding(pad, pad, pad, pad)
-            
-            // Title
-            val titleView = TextView(context).apply {
-                text = title.uppercase()
-                gravity = Gravity.CENTER
-                textAlignment = View.TEXT_ALIGNMENT_CENTER
-                textSize = 16f
-                try { setTextColor(dlgTextColor) } catch (_: Exception) {}
-            }
-            addView(titleView)
-            
-            // Message
-            val messageView = TextView(context).apply {
-                text = message
-                gravity = Gravity.START
-                textAlignment = View.TEXT_ALIGNMENT_TEXT_START
-                textSize = 14f
-                val mPad = (8 * context.resources.displayMetrics.density).toInt()
-                setPadding(mPad, mPad, mPad, mPad)
-                try { setTextColor(dlgTextColor) } catch (_: Exception) {}
-            }
-            addView(messageView)
-            
-            // Buttons row
-            val buttonsRow = LinearLayout(context).apply {
-                orientation = LinearLayout.HORIZONTAL
-                val btnMargin = (8 * context.resources.displayMetrics.density).toInt()
-                val btnParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
-                    setMargins(btnMargin, btnMargin, btnMargin, 0)
-                }
-                
-                // Cancel button (if onCancel is provided)
-                if (onCancel != null) {
-                    val cancelBtn = Button(context).apply {
-                        text = context.getString(android.R.string.cancel)
-                        val btnPadding = (10 * context.resources.displayMetrics.density).toInt()
-                        setPadding(btnPadding, btnPadding, btnPadding, btnPadding)
-                        minWidth = 0
-                        minimumWidth = 0
-                        minHeight = 0
-                        minimumHeight = 0
-                        setOnClickListener {
+        permissionExplanationSheet?.dismiss()
+        val host = ComposeBottomSheetHost(requireActivity())
+        permissionExplanationSheet = host
+
+        host.show {
+            Column(
+                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp.scaled(rememberScreenScale()))
+            ) {
+                SheetTitle(title)
+                Text(
+                    text = message,
+                    style = SettingsTheme.typography.item,
+                    color = Theme.colors.text
+                )
+                androidx.compose.foundation.layout.Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.End
+                ) {
+                    if (onCancel != null) {
+                        TextButton(onClick = {
                             try { VibrationHelper.trigger(VibrationHelper.Effect.CLICK) } catch (_: Exception) {}
                             onCancel()
-                            permissionExplanationDialog?.dismiss()
+                            host.dismiss()
+                        }) {
+                            Text(text = getString(android.R.string.cancel), style = SettingsTheme.typography.button, color = Theme.colors.text)
                         }
+                        Spacer(modifier = Modifier.width(8.dp))
                     }
-                    // Style button
-                    try {
-                        val density = context.resources.displayMetrics.density
-                        val radius = (6 * density)
-                        val strokeWidth = (3f * density).toInt()
-                        val bgDrawable = GradientDrawable().apply {
-                            shape = GradientDrawable.RECTANGLE
-                            cornerRadius = radius
-                            setColor(dlgBackground)
-                            setStroke(strokeWidth, dlgTextColor)
-                        }
-                        cancelBtn.background = bgDrawable
-                        cancelBtn.setTextColor(dlgTextColor)
-                    } catch (_: Exception) {}
-                    cancelBtn.layoutParams = btnParams
-                    addView(cancelBtn)
-                }
-                
-                // Continue/OK button
-                val continueBtn = Button(context).apply {
-                    text = context.getString(android.R.string.ok)
-                    val btnPadding = (10 * context.resources.displayMetrics.density).toInt()
-                    setPadding(btnPadding, btnPadding, btnPadding, btnPadding)
-                    minWidth = 0
-                    minimumWidth = 0
-                    minHeight = 0
-                    minimumHeight = 0
-                    setOnClickListener {
+                    TextButton(onClick = {
                         try { VibrationHelper.trigger(VibrationHelper.Effect.CLICK) } catch (_: Exception) {}
-                        permissionExplanationDialog?.dismiss()
+                        host.dismiss()
                         onContinue()
+                    }) {
+                        Text(text = getString(android.R.string.ok), style = SettingsTheme.typography.button, color = Theme.colors.text)
                     }
                 }
-                // Style button
-                try {
-                    val density = context.resources.displayMetrics.density
-                    val radius = (6 * density)
-                    (3f * density).toInt()
-                    val bgDrawable = GradientDrawable().apply {
-                        shape = GradientDrawable.RECTANGLE
-                        cornerRadius = radius
-                        setColor(dlgTextColor)
-                    }
-                    continueBtn.background = bgDrawable
-                    continueBtn.setTextColor(dlgBackground)
-                } catch (_: Exception) {}
-                continueBtn.layoutParams = btnParams
-                addView(continueBtn)
             }
-            addView(buttonsRow)
         }
-        
-        // Apply fonts
-        try {
-            val fontFamily = prefs.getFontForContext("settings")
-            val customFontPath = prefs.getCustomFontPathForContext("settings")
-            val typeface = fontFamily.getFont(context, customFontPath)
-            val textSize = prefs.settingsSize.toFloat()
-            
-            fun applyFont(view: View) {
-                if (view is TextView) {
-                    typeface?.let { view.typeface = it }
-                    view.textSize = textSize
-                } else if (view is ViewGroup) {
-                    for (i in 0 until view.childCount) {
-                        applyFont(view.getChildAt(i))
-                    }
-                }
-            }
-            applyFont(content)
-        } catch (_: Exception) {}
-        
-        // Create and show bottom sheet dialog
-        val dialog = LockedBottomSheetDialog(context)
-        dialog.setContentView(content)
-        try {
-            content.setBackgroundColor(dlgBackground)
-            dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
-        } catch (_: Exception) {}
-        
-        dialog.setLocked(true)
-        dialog.show()
-        permissionExplanationDialog = dialog
-        
-        // WindowInsets padding for navigation bar
-        try {
-            val baseBottom = content.paddingBottom
-            dialog.window?.decorView?.let { decor ->
-                ViewCompat.setOnApplyWindowInsetsListener(decor) { _, insets ->
-                    try {
-                        val navBarInset = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
-                        val extra = (8 * context.resources.displayMetrics.density).toInt()
-                        content.setPadding(content.paddingLeft, content.paddingTop, content.paddingRight, baseBottom + navBarInset + extra)
-                    } catch (_: Exception) {}
-                    insets
-                }
-                ViewCompat.requestApplyInsets(decor)
-            }
-        } catch (_: Exception) {}
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -265,18 +142,27 @@ class RecentsFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        return ComposeView(requireContext()).apply {
+        val ctx = requireContext()
+
+        val backgroundColor = getHexForOpacity(ctx)
+        val root = android.widget.FrameLayout(ctx).apply {
+            setBackgroundColor(backgroundColor)
+            clipToPadding = false
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        }
+
+        val composeView = ComposeView(ctx).apply {
             setViewCompositionStrategy(androidx.compose.ui.platform.ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
                 val context = LocalContext.current
                 val density = LocalDensity.current
                 
-                // Check for usage stats permission - make it reactive so it updates when permission is granted
                 var hasPermission by remember { mutableStateOf(hasUsageStatsPermission(context)) }
                 var hasShownDialog by remember { mutableStateOf(false) }
                 
-                // Re-check permission when fragment resumes (triggered by permissionCheckKey from onResume)
-                // Read the class-level permissionCheckKey value - since it's mutableStateOf, reading it will trigger recomposition
                 val currentPermissionCheckKey = permissionCheckKey
                 LaunchedEffect(currentPermissionCheckKey) {
                     val newPermissionStatus = hasUsageStatsPermission(context)
@@ -287,53 +173,39 @@ class RecentsFragment : Fragment() {
                 }
                 
                 if (!hasPermission) {
-                    // Show permission required screen
-                    SettingsTheme(isDark = prefs.appTheme == Constants.Theme.Dark) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color(getHexForOpacity(context))),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "Usage access permission required",
-                                color = com.github.gezimos.inkos.style.Theme.colors.text,
-                                fontSize = 20.sp
-                            )
-                        }
-                    }
-                    
-                    // Show explanation dialog before requesting permission (only once per permission state)
                     LaunchedEffect(hasShownDialog) {
                         if (!hasShownDialog) {
                             hasShownDialog = true
                             showPermissionExplanationDialog(
                                 title = "Usage Stats Permission",
                                 message = "This app needs usage stats permission to show your recently used apps. You will be taken to Android settings to grant this permission.",
-                                onContinue = {
-                                    requestUsageStatsPermission()
-                                }
+                                onContinue = { requestUsageStatsPermission() }
                             )
                         }
                     }
-                    return@setContent
                 }
                 
                 // Use consolidated State from ViewModel
                 val appsDrawer by viewModel.appsDrawerUiState.collectAsState()
                 
-                // Stats mode state
-                var showStats by remember { mutableStateOf(false) }
+                val isEditMode by EditModeHelper.isEditModeFlow.collectAsState()
+
+                var showStats by remember { mutableStateOf(appsDrawer.recentsDefaultView == 1) }
+                LaunchedEffect(appsDrawer.recentsDefaultView) {
+                    showStats = appsDrawer.recentsDefaultView == 1
+                }
+
+                // Header DPAD state
+                var headerFocused by remember { mutableStateOf(false) }
+                var headerSelectedIndex by remember { mutableStateOf(0) } // 0=Title, 1=Cog
                 
-                // Get recent apps from usage stats - refresh when refreshTriggerCounter changes (onResume)
                 var localRefreshTrigger by remember { mutableStateOf(0) }
-                val recentApps by remember(localRefreshTrigger, showStats) {
+                val recentApps by remember(localRefreshTrigger, showStats, appsDrawer.recentsUsageFilter, appsDrawer.recentsUsageUnit, appsDrawer.recentsUnitCost, appsDrawer.recentsUnitCoffeePrice, appsDrawer.recentsUnitEmojiChar) {
                     derivedStateOf {
-                        getRecentApps(context, appsDrawer.appList, showStats)
+                        getRecentApps(context, appsDrawer.appList, showStats, appsDrawer.recentsUsageFilter)
                     }
                 }
                 
-                // Sync with class-level refreshTriggerCounter to refresh when fragment resumes
                 LaunchedEffect(refreshTriggerCounter) {
                     localRefreshTrigger++
                 }
@@ -353,7 +225,6 @@ class RecentsFragment : Fragment() {
                     state.apps = recentApps.map { it.app }
                 }
                 
-                // Reset to first page when switching between "most recent" and "most used"
                 LaunchedEffect(showStats) {
                     state.currentPage = 0
                     state.selectedItemIndex = 0
@@ -363,9 +234,6 @@ class RecentsFragment : Fragment() {
                 var isCalculated by remember { mutableStateOf(false) }
                 
                 // Robust appsPerPage calculation for recents:
-                // - Measure actual text height with the active font + size
-                // - Include vertical padding used by each row (gap)
-                // - Subtract the fixed header row ("RECENTS"/"MOST USED") so bottom items never clip
                 val textMeasurer = rememberTextMeasurer()
                 val appTypefaceNullable = remember(appsDrawer.appsFont, appsDrawer.customFontPath) {
                     try { appsDrawer.appsFont.getFont(context, appsDrawer.customFontPath) } catch (_: Exception) { null }
@@ -373,16 +241,17 @@ class RecentsFragment : Fragment() {
                 val appFontFamily = remember(appTypefaceNullable) {
                     if (appTypefaceNullable != null) FontFamily(appTypefaceNullable) else FontFamily.Default
                 }
+                val drawerScreenScale = rememberScreenScale()
                 val gapPx = remember(appsDrawer.appDrawerGap, density) {
                     try { with(density) { appsDrawer.appDrawerGap.dp.roundToPx() } } catch (_: Exception) { 0 }
                 }.coerceAtLeast(0)
-                val rowTextHeightPx = remember(appsDrawer.appDrawerSize, appFontFamily, textMeasurer) {
+                val rowTextHeightPx = remember(appsDrawer.appDrawerSize, appFontFamily, textMeasurer, drawerScreenScale) {
                     try {
                         textMeasurer
                             .measure(
                                 text = AnnotatedString("Ag"),
                                 style = TextStyle(
-                                    fontSize = appsDrawer.appDrawerSize.sp,
+                                    fontSize = appsDrawer.appDrawerSize.sp.scaled(drawerScreenScale),
                                     fontFamily = appFontFamily
                                 )
                             )
@@ -392,9 +261,6 @@ class RecentsFragment : Fragment() {
                         1
                     }
                 }.coerceAtLeast(1)
-                // Row height = text height + top padding + bottom padding
-                // Use 0.95 multiplier to account for text measurement including line-height that may not be fully used
-                // This allows fitting more items, and SpaceBetween will distribute any leftover space evenly
                 val rowHeightPx = remember(rowTextHeightPx, gapPx) {
                     ((rowTextHeightPx * 0.95f) + (gapPx * 2)).toInt().coerceAtLeast(1)
                 }
@@ -405,8 +271,6 @@ class RecentsFragment : Fragment() {
                     else {
                         // Subtract title row height from available space
                         val headerHeight = headerRows * rowHeightPx
-                        // Subtract one extra row as safety margin to prevent bottom clipping
-                        // This ensures the last item always fits, and SpaceBetween will distribute any leftover space
                         val available = (h - headerHeight - rowHeightPx).coerceAtLeast(rowHeightPx)
                         (available / rowHeightPx).coerceAtLeast(1)
                     }
@@ -464,8 +328,6 @@ class RecentsFragment : Fragment() {
                     }
                 }
                 
-                // Pad display apps with null placeholders to fill the page
-                // This ensures SpaceBetween always has the same number of items, creating consistent spacing
                 val paddedDisplayRecentApps = remember(displayRecentApps, state.appsPerPage) {
                     val base: List<RecentAppItem?> = displayRecentApps
                     val missing = (state.appsPerPage - displayRecentApps.size).coerceAtLeast(0)
@@ -523,22 +385,86 @@ class RecentsFragment : Fragment() {
                         modifier = Modifier
                             .fillMaxSize()
                             .background(Color(backgroundColor))
+                            .inkOsSafeDrawingPadding()
                     ) {
+                        if (isEditMode) {
+                            EditModeOverlay()
+                        }
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .padding(32.dp)
+                                .padding(32.dp.scaled(rememberScreenScale()))
                                 .onSizeChanged { containerSize = it }
                                 .focusRequester(columnFocusRequester)
                                 .focusable()
                                 .onPreviewKeyEvent { keyEvent ->
+                                    // Header DPAD navigation
+                                    if (keyEvent.type == KeyEventType.KeyDown) {
+                                        if (headerFocused) {
+                                            when (keyEvent.key) {
+                                                Key.DirectionDown -> {
+                                                    headerFocused = false
+                                                    state.isDpadMode = true
+                                                    state.selectedItemIndex = 0
+                                                    return@onPreviewKeyEvent true
+                                                }
+                                                Key.DirectionLeft -> {
+                                                    if (headerSelectedIndex > 0) {
+                                                        headerSelectedIndex--
+                                                    }
+                                                    return@onPreviewKeyEvent true
+                                                }
+                                                Key.DirectionRight -> {
+                                                    if (headerSelectedIndex < 1) {
+                                                        headerSelectedIndex++
+                                                    }
+                                                    return@onPreviewKeyEvent true
+                                                }
+                                                Key.Enter, Key.NumPadEnter, Key.DirectionCenter -> {
+                                                    when (headerSelectedIndex) {
+                                                        0 -> { showStats = !showStats }
+                                                        1 -> {
+                                                            EditModeHelper.showRecentsSettings(
+                                                                requireContext(), this@RecentsFragment, prefs
+                                                            ) {}
+                                                        }
+                                                    }
+                                                    return@onPreviewKeyEvent true
+                                                }
+                                                Key.Back, Key.Escape -> {
+                                                    headerFocused = false
+                                                    state.isDpadMode = true
+                                                    state.selectedItemIndex = 0
+                                                    return@onPreviewKeyEvent true
+                                                }
+                                                Key.DirectionUp -> {
+                                                    // Already at top, do nothing
+                                                    return@onPreviewKeyEvent true
+                                                }
+                                            }
+                                        } else if (keyEvent.key == Key.DirectionUp &&
+                                            state.selectedItemIndex == 0 && state.currentPage == 0 && state.isDpadMode
+                                        ) {
+                                            // Move from first app item to header
+                                            headerFocused = true
+                                            state.isDpadMode = false
+                                            return@onPreviewKeyEvent true
+                                        }
+                                    }
+                                    if (keyEvent.type == KeyEventType.KeyUp && headerFocused) {
+                                        return@onPreviewKeyEvent true
+                                    }
+
                                     try {
                                         val handled = NavHelper.handleAppsKeyEvent(
                                             keyEvent = keyEvent,
                                             keyPressTracker = keyPressTracker,
                                             isDpadModeSetter = { v -> state.isDpadMode = v },
                                             selectedIndexGetter = { state.selectedItemIndex },
-                                            selectedIndexSetter = { v -> state.selectedItemIndex = v },
+                                            selectedIndexSetter = { v ->
+                                                state.selectedItemIndex = v
+                                                headerFocused = false
+                                            },
                                             currentPage = state.currentPage,
                                             totalPages = totalPages,
                                             displayAppsSize = displayRecentApps.size,
@@ -547,14 +473,22 @@ class RecentsFragment : Fragment() {
                                             onAppClick = { index ->
                                                 val selectedApp = displayRecentApps.getOrNull(index)
                                                 if (selectedApp != null) {
-                                                    handleAppClick(selectedApp)
+                                                    if (isEditMode) {
+                                                        EditModeHelper.showRecentsSettings(requireContext(), this@RecentsFragment, prefs) {}
+                                                    } else {
+                                                        handleAppClick(selectedApp)
+                                                    }
                                                 }
                                             },
                                             onAppLongClick = { index ->
                                                 val selectedApp = displayRecentApps.getOrNull(index)
                                                 if (selectedApp != null) {
-                                                    vibrateFeedback()
-                                                    handleInfoApp(selectedApp.app)
+                                                    if (isEditMode) {
+                                                        EditModeHelper.showRecentsSettings(requireContext(), this@RecentsFragment, prefs) {}
+                                                    } else {
+                                                        vibrateFeedback()
+                                                        handleInfoApp(selectedApp.app)
+                                                    }
                                                 }
                                             },
                                             onNavigateBack = { findNavController().popBackStack() },
@@ -587,16 +521,19 @@ class RecentsFragment : Fragment() {
                                                 }
                                             } else if (delta < 0) {
                                                 val steps = -delta
-                                                if (state.currentPage == 0 && steps > 0) {
+                                                val newPage = (state.currentPage - steps).coerceAtLeast(0)
+                                                if (newPage != state.currentPage) {
+                                                    setCurrentPageSafe(newPage)
                                                     vibratePage()
-                                                    findNavController().popBackStack()
-                                                } else {
-                                                    val newPage = (state.currentPage - steps).coerceAtLeast(0)
-                                                    if (newPage != state.currentPage) {
-                                                        setCurrentPageSafe(newPage)
-                                                        vibratePage()
-                                                    }
                                                 }
+                                            }
+                                        } catch (_: Exception) {}
+                                    },
+                                    onLongSwipeDown = {
+                                        try {
+                                            if (state.currentPage == 0) {
+                                                vibratePage()
+                                                findNavController().popBackStack()
                                             }
                                         } catch (_: Exception) {}
                                     }
@@ -607,20 +544,39 @@ class RecentsFragment : Fragment() {
                                 uiState = appsDrawer,
                                 recentApps = displayRecentApps,
                                 paddedRecentApps = paddedDisplayRecentApps,
-                                totalPages = totalPages,
                                 isCalculated = isCalculated,
                                 showStats = showStats,
-                                onStatsToggle = { showStats = !showStats },
+                                hasPermission = hasPermission,
+                                onStatsToggle = {
+                                    if (isEditMode) {
+                                        EditModeHelper.showRecentsSettings(requireContext(), this@RecentsFragment, prefs) {}
+                                    } else {
+                                        showStats = !showStats
+                                    }
+                                },
+                                onSettingsClick = {
+                                    EditModeHelper.showRecentsSettings(requireContext(), this@RecentsFragment, prefs) {}
+                                },
+                                headerFocused = headerFocused,
+                                headerSelectedIndex = headerSelectedIndex,
                                 onAppClick = { recentApp ->
-                                    state.selectedItemIndex = displayRecentApps.indexOf(recentApp)
-                                    state.isDpadMode = false
-                                    handleAppClick(recentApp)
+                                    if (isEditMode) {
+                                        EditModeHelper.showRecentsSettings(requireContext(), this@RecentsFragment, prefs) {}
+                                    } else {
+                                        state.selectedItemIndex = displayRecentApps.indexOf(recentApp)
+                                        state.isDpadMode = false
+                                        handleAppClick(recentApp)
+                                    }
                                 },
                                 onAppLongClick = { recentApp ->
-                                    state.selectedItemIndex = displayRecentApps.indexOf(recentApp)
-                                    state.isDpadMode = false
-                                    vibrateFeedback()
-                                    handleInfoApp(recentApp.app)
+                                    if (isEditMode) {
+                                        EditModeHelper.showRecentsSettings(requireContext(), this@RecentsFragment, prefs) {}
+                                    } else {
+                                        state.selectedItemIndex = displayRecentApps.indexOf(recentApp)
+                                        state.isDpadMode = false
+                                        vibrateFeedback()
+                                        handleInfoApp(recentApp.app)
+                                    }
                                 }
                             )
                         }
@@ -628,6 +584,15 @@ class RecentsFragment : Fragment() {
                 }
             }
         }
+
+        root.addView(composeView)
+        return root
+    }
+
+    override fun onDestroyView() {
+        permissionExplanationSheet?.dismiss()
+        permissionExplanationSheet = null
+        super.onDestroyView()
     }
 
     private fun handleAppClick(recentApp: RecentAppItem) {
@@ -661,18 +626,30 @@ class RecentsFragment : Fragment() {
         }
     }
 
-    private fun getRecentApps(context: Context, installedApps: List<AppListItem>, showStats: Boolean = false): List<RecentAppItem> {
+    private fun getRecentApps(context: Context, installedApps: List<AppListItem>, showStats: Boolean = false, usageFilter: Int = 1): List<RecentAppItem> {
         return try {
             val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
             val endTime = System.currentTimeMillis()
-            val startTime = endTime - (7 * 24 * 60 * 60 * 1000L) // Last 7 days
-            
+            val startTime = when (usageFilter) {
+                0 -> { // Today — from midnight
+                    val cal = java.util.Calendar.getInstance()
+                    cal.set(java.util.Calendar.HOUR_OF_DAY, 0)
+                    cal.set(java.util.Calendar.MINUTE, 0)
+                    cal.set(java.util.Calendar.SECOND, 0)
+                    cal.set(java.util.Calendar.MILLISECOND, 0)
+                    cal.timeInMillis
+                }
+                1 -> endTime - (7L * 24 * 60 * 60 * 1000)   // This Week (7 days)
+                2 -> endTime - (30L * 24 * 60 * 60 * 1000)  // This Month (30 days)
+                else -> endTime - (365L * 24 * 60 * 60 * 1000) // All Time (~1 year)
+            }
+
             val usageStatsList = usageStatsManager.queryUsageStats(
                 UsageStatsManager.INTERVAL_DAILY,
                 startTime,
                 endTime
             )
-            
+
             // Create a map of package name to usage stats
             val usageMap = usageStatsList
                 .groupBy { it.packageName }
@@ -686,8 +663,7 @@ class RecentsFragment : Fragment() {
                     }
                 }
                 .filterValues { (lastUsed, totalTime) -> lastUsed > 0 && totalTime > 0 }
-            
-            // Match with installed apps and create RecentAppItem list
+
             installedApps
                 .filterNot { app ->
                     // Exclude inkOS and inkOS debug from recents
@@ -712,8 +688,6 @@ class RecentsFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
-        // Refresh recent apps and check permission when fragment resumes
-        // This triggers recomposition and permission re-check when returning from settings
         refreshTriggerCounter++
         permissionCheckKey++
         

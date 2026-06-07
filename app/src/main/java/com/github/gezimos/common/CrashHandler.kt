@@ -24,6 +24,12 @@ import kotlin.system.exitProcess
 class CrashHandler(private val context: Context) : Thread.UncaughtExceptionHandler {
 
     companion object {
+        const val CRASH_LOOP_PREFS = "crash_loop"
+        const val KEY_SAFE_MODE = "safe_mode"
+        const val KEY_CRASH_TIMESTAMPS = "crash_timestamps"
+        private const val CRASH_WINDOW_MS = 30_000L
+        private const val CRASH_THRESHOLD = 3
+
         private val userActions = LinkedBlockingQueue<String>(50) // Stores last 50 user actions
 
         fun logUserAction(action: String) {
@@ -86,7 +92,10 @@ class CrashHandler(private val context: Context) : Thread.UncaughtExceptionHandl
         // Step 1: Save custom crash log
         saveCrashLog(exception)
 
-        // Step 2: Start CrashReportActivity with the crash details
+        // Step 2: Record crash timestamp for crash-loop detection
+        recordCrashTimestamp()
+
+        // Step 3: Start CrashReportActivity with the crash details
         val intent = Intent(context, CrashReportActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         }
@@ -95,6 +104,35 @@ class CrashHandler(private val context: Context) : Thread.UncaughtExceptionHandl
         // Kill the process
         android.os.Process.killProcess(android.os.Process.myPid())
         exitProcess(1)
+    }
+
+    /**
+     * Records crash timestamps to detect crash loops.
+     * If 3+ crashes occur within 30 seconds, sets a safe_mode flag so
+     * MainActivity can skip normal UI and show the crash report directly.
+     * Uses commit() instead of apply() since the process is about to die.
+     */
+    private fun recordCrashTimestamp() {
+        try {
+            val sp = context.getSharedPreferences(CRASH_LOOP_PREFS, Context.MODE_PRIVATE)
+            val now = System.currentTimeMillis()
+
+            val existing = sp.getString(KEY_CRASH_TIMESTAMPS, "")
+                ?.split(",")
+                ?.filter { it.isNotBlank() }
+                ?.mapNotNull { it.toLongOrNull() }
+                ?.filter { now - it < CRASH_WINDOW_MS }
+                ?: emptyList()
+
+            val updated = existing + now
+
+            val editor = sp.edit()
+            editor.putString(KEY_CRASH_TIMESTAMPS, updated.joinToString(","))
+            if (updated.size >= CRASH_THRESHOLD) {
+                editor.putBoolean(KEY_SAFE_MODE, true)
+            }
+            editor.commit()
+        } catch (_: Exception) {}
     }
 
     @RequiresApi(Build.VERSION_CODES.P)

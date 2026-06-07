@@ -23,3 +23,14 @@
 -dontwarn javax.annotation.processing.Processor
 -dontwarn javax.annotation.processing.AbstractProcessor
 -dontwarn javax.annotation.processing.SupportedOptions
+
+# ── Gson TypeToken reflection ────────────────────────────────────────────────
+# Gson uses reflection via TypeToken to deserialize generic types. R8 strips
+# the generic signature and renames fields, causing runtime crashes.
+-keepattributes Signature
+-keep class com.google.gson.reflect.TypeToken { *; }
+-keep class * extends com.google.gson.reflect.TypeToken
+
+# Data classes deserialized by Gson (field names must survive minification)
+-keep class com.github.gezimos.inkos.services.NotificationManager$ConversationNotification { *; }
+-keep class com.github.gezimos.inkos.helper.PinnedShortcutData { *; }

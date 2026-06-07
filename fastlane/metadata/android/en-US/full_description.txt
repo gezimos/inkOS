@@ -6,7 +6,7 @@
 
 - Drag-and-drop app reordering with adjustable padding
 - Multiple pages with page indicators
-- Built-in clock, audio, date, batter widgets
+- Built-in clock, audio, date, battery widgets
 - Configurable number of home apps
 - Paged App Drawer with no animations
 - Hide unwanted apps from the drawer

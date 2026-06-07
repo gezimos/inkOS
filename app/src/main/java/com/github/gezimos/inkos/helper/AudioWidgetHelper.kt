@@ -27,7 +27,6 @@ class AudioWidgetHelper private constructor(private val context: Context) {
 
     private val _mediaState = MutableStateFlow<MediaState?>(null)
 
-    // Legacy compatibility - expose as MediaPlayerInfo for existing UI code
     data class MediaPlayerInfo(
         val packageName: String,
         val isPlaying: Boolean,
@@ -44,6 +43,7 @@ class AudioWidgetHelper private constructor(private val context: Context) {
     private var currentController: MediaController? = null
     private var currentCallback: MediaController.Callback? = null
     private var userDismissed = false
+    private var dismissedPackageName: String? = null
 
     companion object {
         @Volatile
@@ -55,19 +55,10 @@ class AudioWidgetHelper private constructor(private val context: Context) {
             }
         }
     }
-
-    /**
-     * Initialize the helper with a component name for notification listener access.
-     * Call this from NotificationService.onListenerConnected()
-     */
     fun initialize(componentName: ComponentName) {
         mediaSessionManager = context.getSystemService(Context.MEDIA_SESSION_SERVICE) as? MediaSessionManager
         setupActiveSessionsListener(componentName)
     }
-
-    /**
-     * Clean up resources. Call from NotificationService.onDestroy()
-     */
     fun cleanup() {
         activeSessionsListener?.let { listener ->
             mediaSessionManager?.removeOnActiveSessionsChangedListener(listener)
@@ -97,23 +88,22 @@ class AudioWidgetHelper private constructor(private val context: Context) {
     }
 
     private fun handleActiveSessionsChanged(controllers: List<MediaController>?) {
-        // Find the first active (playing or paused) controller
         val activeController = controllers?.firstOrNull { controller ->
             val state = controller.playbackState?.state
             state == PlaybackState.STATE_PLAYING || state == PlaybackState.STATE_PAUSED
         }
 
         if (activeController != null) {
-            // If user dismissed and this is the same package that's paused, don't show
-            if (userDismissed && 
-                activeController.packageName == currentController?.packageName &&
+            val dismissedPkg = dismissedPackageName ?: currentController?.packageName
+            if (userDismissed &&
+                activeController.packageName == dismissedPkg &&
                 activeController.playbackState?.state != PlaybackState.STATE_PLAYING) {
                 return
             }
-            
-            // Reset dismissal if a new package starts playing or current starts playing again
+
             if (activeController.playbackState?.state == PlaybackState.STATE_PLAYING) {
                 userDismissed = false
+                dismissedPackageName = null
             }
             
             registerControllerCallback(activeController)
@@ -243,6 +233,7 @@ class AudioWidgetHelper private constructor(private val context: Context) {
     fun stopMedia(): Boolean {
         val controller = _mediaState.value?.controller ?: return false
         return try {
+            unregisterCurrentCallback()
             controller.transportControls.stop()
             dismissMediaPlayer()
             true
@@ -254,34 +245,38 @@ class AudioWidgetHelper private constructor(private val context: Context) {
 
     fun openMediaApp(): Boolean {
         val packageName = _mediaState.value?.packageName ?: return false
-        return try {
-            // First try session activity (opens directly to player)
-            val controller = _mediaState.value?.controller
-            controller?.sessionActivity?.send()
-            true
-        } catch (_: Exception) {
-            // Fallback to launching the app normally
+        try {
+            val intent = context.packageManager.getLaunchIntentForPackage(packageName)
+            intent?.let {
+                it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(it)
+                return true
+            }
+        } catch (e: Exception) {
+            android.util.Log.w("AudioWidgetHelper", "Launch intent failed, will try sessionActivity if available", e)
+        }
+
+        val controller = _mediaState.value?.controller
+        val pending = controller?.sessionActivity
+        if (pending != null) {
             try {
-                val intent = context.packageManager.getLaunchIntentForPackage(packageName)
-                intent?.let {
-                    it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    context.startActivity(it)
-                    true
-                } ?: false
-            } catch (_: Exception) {
-                false
+                pending.send()
+                return true
+            } catch (e: Exception) {
+                android.util.Log.w("AudioWidgetHelper", "sessionActivity.send() failed as fallback", e)
             }
         }
+
+        return false
     }
 
     fun dismissMediaPlayer() {
         userDismissed = true
+        dismissedPackageName = currentController?.packageName ?: _mediaState.value?.packageName
         clearState()
     }
 
     fun resetDismissalState() {
-        userDismissed = false
-        // Re-check active sessions to potentially restore widget
         val manager = mediaSessionManager ?: return
         val componentName = ComponentName(context, com.github.gezimos.inkos.services.NotificationService::class.java)
         try {
@@ -308,7 +303,6 @@ class AudioWidgetHelper private constructor(private val context: Context) {
         } catch (_: Exception) {}
     }
 
-    // Legacy methods that are no longer needed but kept for compatibility
     @Deprecated("No longer needed - MediaSessionManager handles this automatically")
     @Suppress("UNUSED_PARAMETER", "unused")
     fun updateMediaPlayer(
@@ -318,7 +312,6 @@ class AudioWidgetHelper private constructor(private val context: Context) {
         title: String?,
         artist: String?
     ) {
-        // No-op - MediaSessionManager now handles all updates
     }
 
     interface MediaActionCallback {

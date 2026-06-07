@@ -95,16 +95,12 @@ class SimpleTrayViewModel(application: Application) : AndroidViewModel(applicati
                 if (airplane == 1) {
                     false
                 } else {
-                    // If there are no active SIM subscriptions, treat mobile data as OFF
                     val sm = try { appContext.getSystemService(android.telephony.SubscriptionManager::class.java) } catch (_: Exception) { null }
                     val activeCount = try { sm?.activeSubscriptionInfoCount ?: 0 } catch (_: Exception) { 0 }
                     if (activeCount <= 0) {
                         false
                     } else {
                         val tm = appContext.getSystemService(TelephonyManager::class.java)
-                        // Prefer TelephonyManager.isDataEnabled when permission is available. Otherwise fall back
-                        // to Settings.Global.MOBILE_DATA if available, then to currentCellState(). This avoids
-                        // treating a wifi-only connectivity change as mobile data being on.
                         if (ContextCompat.checkSelfPermission(appContext, android.Manifest.permission.READ_PHONE_STATE) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
                             try { tm.isDataEnabled } catch (_: Exception) {
                                 try { Settings.Global.getInt(appContext.contentResolver, "mobile_data", 0) == 1 } catch (_: Exception) { currentCellState() }
@@ -116,14 +112,15 @@ class SimpleTrayViewModel(application: Application) : AndroidViewModel(applicati
                 }
             } catch (_: Exception) { false }
 
-            // torch state will be updated via TorchCallback when available; set false if not available
             _flashlightEnabled.value = false
 
             // Update brightness from system
             val currentBrightness = try {
                 Settings.System.getInt(appContext.contentResolver, Settings.System.SCREEN_BRIGHTNESS)
             } catch (_: Exception) { prefs.brightnessLevel }
-            if (_brightnessLevel.value != currentBrightness) {
+            if (currentBrightness == 1 && _brightnessLevel.value == 0) {
+                // Keep the "off" state
+            } else if (_brightnessLevel.value != currentBrightness) {
                 _brightnessLevel.value = currentBrightness
             }
         }
@@ -167,8 +164,6 @@ class SimpleTrayViewModel(application: Application) : AndroidViewModel(applicati
             val cm = appContext.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
             val networkCallback = object : ConnectivityManager.NetworkCallback() {
                 override fun onCapabilitiesChanged(network: Network, networkCapabilities: NetworkCapabilities) {
-                    // Recompute full state when network capabilities change; this avoids mixing
-                    // wifi connectivity events with mobile-data toggle state.
                     viewModelScope.launch {
                         try { refreshStates() } catch (_: Exception) {}
                     }
@@ -199,7 +194,6 @@ class SimpleTrayViewModel(application: Application) : AndroidViewModel(applicati
                 cameraManager?.registerTorchCallback(torchCb, Handler(Looper.getMainLooper()))
             } catch (_: Exception) {}
 
-            // Airplane mode: update mobile data state when airplane toggles
             try {
                 val airplaneReceiver = object : BroadcastReceiver() {
                     override fun onReceive(context: Context?, intent: Intent?) {
@@ -209,7 +203,6 @@ class SimpleTrayViewModel(application: Application) : AndroidViewModel(applicati
                 appContext.registerReceiver(airplaneReceiver, IntentFilter(Intent.ACTION_AIRPLANE_MODE_CHANGED))
             } catch (_: Exception) {}
 
-            // SIM state changes: update mobile data state when SIMs inserted/removed
             try {
                 val simReceiver = object : BroadcastReceiver() {
                     override fun onReceive(context: Context?, intent: Intent?) {
@@ -227,6 +220,9 @@ class SimpleTrayViewModel(application: Application) : AndroidViewModel(applicati
                         viewModelScope.launch {
                             try {
                                 val current = Settings.System.getInt(appContext.contentResolver, Settings.System.SCREEN_BRIGHTNESS)
+                                if (current == 1 && _brightnessLevel.value == 0) {
+                                    return@launch
+                                }
                                 if (_brightnessLevel.value != current) {
                                     _brightnessLevel.value = current
                                 }
@@ -245,7 +241,6 @@ class SimpleTrayViewModel(application: Application) : AndroidViewModel(applicati
     fun openInternetPanel() { viewModelScope.launch { _uiEvents.emit(SimpleTrayUiEvent.OpenInternetPanel) } }
     fun openBluetoothSettings() { viewModelScope.launch { _uiEvents.emit(SimpleTrayUiEvent.OpenBluetoothSettings) } }
 
-    // Toggle actions (permission checks may cause permissionRequests to be emitted)
     fun requestToggleBluetooth() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
             ContextCompat.checkSelfPermission(appContext, android.Manifest.permission.BLUETOOTH_CONNECT) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
@@ -258,8 +253,6 @@ class SimpleTrayViewModel(application: Application) : AndroidViewModel(applicati
     fun toggleBluetooth() {
         viewModelScope.launch {
             try {
-                // Android 15+ (API 35) restricts BluetoothAdapter.enable()/disable() for third-party apps
-                // Open Settings directly instead of attempting deprecated API calls
                 if (Build.VERSION.SDK_INT >= 35) {
                     _uiEvents.emit(SimpleTrayUiEvent.OpenBluetoothSettings)
                     return@launch
@@ -277,7 +270,6 @@ class SimpleTrayViewModel(application: Application) : AndroidViewModel(applicati
                     kotlinx.coroutines.delay(800)
                     val nowEnabled = try { btManager?.adapter?.isEnabled == true } catch (_: Exception) { wasEnabled }
                     if (nowEnabled == wasEnabled) {
-                        // Toggle had no effect (restricted on some devices/OS); prompt user to toggle in settings
                         viewModelScope.launch { _uiEvents.emit(SimpleTrayUiEvent.OpenBluetoothSettings) }
                     }
                     _bluetoothEnabled.value = nowEnabled
@@ -311,11 +303,9 @@ class SimpleTrayViewModel(application: Application) : AndroidViewModel(applicati
     fun setBrightness(level: Int) {
         viewModelScope.launch {
             val v = level.coerceIn(0, 255)
-            // Some vendor drivers don't accept 0. Write 1 to system but keep prefs/UI as 0.
             val writeVal = if (v == 0) 1 else v
             try {
                 prefs.brightnessLevel = v
-                // Save non-zero values to lastBrightnessLevel for restoration
                 if (v > 0) {
                     prefs.lastBrightnessLevel = v
                 }
@@ -327,7 +317,6 @@ class SimpleTrayViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    // Called by Fragment when permission resolved — retry pending actions as needed
     fun onPermissionResult(request: SimpleTrayPermissionRequest, granted: Boolean) {
         viewModelScope.launch {
             if (!granted) return@launch

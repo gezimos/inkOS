@@ -13,7 +13,6 @@ class inkOS : Application() {
     override fun onCreate() {
         super.onCreate()
 
-        // Initialize com.github.gezimos.common.CrashHandler to catch uncaught exceptions
         Thread.setDefaultUncaughtExceptionHandler(CrashHandler(applicationContext))
 
         // Initialize prefs here

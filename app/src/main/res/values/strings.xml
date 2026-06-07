@@ -1,154 +1,326 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="brightness">Brightness</string>
-    <string name="app_name_mode">App Name Type</string>
-    <string name="app_name_mode_normal">Normal</string>
-    <string name="app_name_mode_all_caps">UPPERCASE</string>
-    <!-- Base Settings -->
+
+    <!-- Static shortcut labels -->
+    <string name="shortcut_app_drawer_short">App Drawer</string>
+    <string name="shortcut_letters_short">Letters</string>
+    <string name="shortcut_simple_tray_short">Simple Tray</string>
+    <string name="shortcut_hub_short">Hub</string>
+    <string name="shortcut_recents_short">Recents</string>
+    <string name="shortcut_settings_short">inkOS Settings</string>
+    <string name="shortcut_tab_apps">Apps</string>
+    <string name="shortcut_tab_pinned">Pinned</string>
+
+    <!-- Common labels -->
+    <string name="cancel">Cancel</string>
+    <string name="open">Open</string>
+    <string name="browse">Browse</string>
+    <string name="delete">Delete</string>
+    <string name="hide">Hide</string>
+    <string name="unhide">Unhide</string>
+    <string name="show">Show</string>
+    <string name="lock">Lock</string>
+    <string name="unlock">Unlock</string>
+    <string name="rename">Rename</string>
+    <string name="info">Info</string>
+    <string name="okay">Okay</string>
+    <string name="enabled">Enabled</string>
+    <string name="disabled">Disabled</string>
+    <string name="reset">Reset</string>
+    <string name="done">Done</string>
+    <string name="search">Search</string>
+    <string name="left">Left</string>
+    <string name="center">Center</string>
+    <string name="right">Right</string>
+    <string name="top">Top</string>
+    <string name="bottom">Bottom</string>
+    <string name="off">Off</string>
+    <string name="dark">Dark</string>
+    <string name="light">Light</string>
+    <string name="system_default">System</string>
     <string name="select_app">Select App</string>
+    <string name="brightness">Brightness</string>
+    <string name="customizations">Customizations</string>
 
-    <!-- Strings used for settings menus -->
+    <!-- Buttons -->
+    <string name="btn_save">Save</string>
+    <string name="btn_ok">OK</string>
+    <string name="btn_copy">Copy</string>
+    <string name="select_all">Select All</string>
+    <string name="deselect_all">Deselect All</string>
+    <string name="btn_paste">Paste</string>
+    <string name="btn_back">Back</string>
+    <string name="btn_back_arrow">← Back</string>
+    <string name="btn_back_upper">BACK</string>
+    <string name="btn_skip">SKIP</string>
+    <string name="btn_select">SELECT</string>
+    <string name="btn_next">NEXT</string>
+    <string name="btn_finish">FINISH</string>
+    <string name="choose_app">CHOOSE APP</string>
+
+    <!-- Content descriptions -->
+    <string name="cd_charging">Charging</string>
+    <string name="cd_notifications">Notifications</string>
+    <string name="cd_previous_event">Previous event</string>
+    <string name="cd_next_event">Next event</string>
+    <string name="cd_left_shortcut">Left shortcut</string>
+    <string name="cd_right_shortcut">Right shortcut</string>
+    <string name="cd_edit_widget">Edit widget</string>
+    <string name="cd_decrease">Decrease</string>
+    <string name="cd_increase">Increase</string>
+    <string name="cd_delete_font">Delete font</string>
+    <string name="cd_font_license">Font License</string>
+    <string name="cd_remove">Remove</string>
+    <string name="cd_add">Add</string>
+    <string name="cd_dismiss">Dismiss</string>
+
+    <!-- Tab labels -->
+    <string name="tab_style">Style</string>
+    <string name="tab_function">Function</string>
+    <string name="tab_gestures">Gestures</string>
+    <string name="tab_theme">Theme</string>
+    <string name="tab_alignment">Alignment</string>
+    <string name="tab_islands_corners">Islands/Corners</string>
+    <string name="tab_icons">Icons</string>
+    <string name="tab_notifications">Notifications</string>
+    <string name="tab_search">Search</string>
+    <string name="tab_filtering">Filtering</string>
+    <string name="tab_fonts">Fonts</string>
+    <string name="tab_custom">Custom</string>
+
+    <!-- Settings navigation -->
     <string name="settings_name">Settings</string>
-
     <string name="settings_home_title">Home</string>
-
     <string name="settings_look_feel_title">Look &amp; Feel</string>
-    <string name="use_volume_keys_for_pages">VolumeKey Navigation</string>
-
     <string name="settings_gestures_title">Gestures</string>
-    <string name="edge_swipe_back">Edge swipe back</string>
-
     <string name="settings_hidden_apps_title">Hidden Apps</string>
-
-
     <string name="settings_advanced_title">Advanced</string>
-
     <string name="settings_exit_inkos_title">Exit inkOS</string>
+    <string name="fonts_settings_title">Typography</string>
+    <string name="look_feel_settings_title">Look &amp; Feel</string>
+    <string name="gestures_settings_title">Gestures</string>
+    <string name="notification_section">Notifications</string>
+    <string name="notification_home">Home Notifications</string>
 
-
-    <!-- Strings used for features settings -->
-    <string name="theme_mode">Theme mode</string>
-    <string name="settings_text_size">Settings Text Size</string>
-
+    <!-- Settings section titles -->
     <string name="home_management">Home &amp; App Management</string>
+    <string name="home_widgets">Home Widgets</string>
+    <string name="top_widgets">Top Widgets</string>
+    <string name="clock_section">Clock</string>
+    <string name="date_row_section">Date Row</string>
+    <string name="bottom_widgets">Bottom Widgets</string>
+    <string name="layout_positioning">Layout &amp; Positioning</string>
+    <string name="visibility_display">Visibility &amp; Display</string>
+    <string name="element_colors">Colors</string>
+    <string name="donate">Donate</string>
+    <string name="community">Community</string>
+    <string name="about">About</string>
+    <string name="desc_about">Credits &amp; support</string>
+    <string name="tooltip_pinch_settings">Pinch in empty areas to open Settings</string>
+    <string name="extra_features">Extras</string>
+    <string name="icons_buttons">Icons &amp; Buttons</string>
+    <string name="text_islands_section">Text Islands</string>
+    <string name="system_section">System</string>
+    <string name="other_functions">Other Functions</string>
 
-    <string name="lock_home_apps">Lock Home Apps</string>
-    <string name="lock_settings">Lock Settings</string>
-    <string name="system_shortcuts">System Shortcuts</string>
+    <!-- Edit mode -->
+    <string name="edit_mode">Edit Mode</string>
+    <string name="exit_edit_mode">Exit Edit Mode</string>
+
+    <!-- Home settings -->
     <string name="home_apps">Home Apps</string>
     <string name="apps_on_home_screen">Number of Home Apps</string>
     <string name="pages_on_home_screen">Number of Pages</string>
     <string name="enable_home_pager">Enable Page Indicator</string>
-    <string name="az_filter">AZ Filter</string>
-    <string name="filtring">Filtring</string>
     <string name="home_page_reset">Home Page Reset</string>
-
-
-    <string name="home_widgets">Home Widgets</string>
-    <string name="top_widgets">Top Widgets</string>
-    <string name="bottom_widgets">Bottom Widgets</string>
-    <string name="show_date">Date</string>
-    <string name="show_date_battery_combo">Date + Battery</string>
-    <string name="date_font">Date Font</string>
-    <string name="date_text_size">Date Text Size</string>
+    <string name="lock_home_apps">Lock Home Apps</string>
+    <string name="lock_settings">Lock Settings</string>
     <string name="longpress_app_info">Long Press for App Info</string>
+    <string name="extend_home_apps_area">Extend Clickable Area</string>
+    <string name="home_alignment">Home Alignment</string>
+    <string name="home_apps_alignment">Home Apps Alignment</string>
+    <string name="home_clock_alignment">Clock alignment</string>
+    <string name="home_date_alignment">Date alignment</string>
+    <string name="home_quote_alignment">Widget alignment</string>
+    <string name="app_size_gap">App Size/Gap</string>
+    <string name="nr_apps_pages">Nr of Apps/Pages</string>
+    <string name="margin_offset">Margin/Offset</string>
+
+    <!-- Clock -->
     <string name="show_clock">Show Clock</string>
     <string name="clock_format">Clock Format</string>
-    <string name="clock_mode_system">System</string>
-    <string name="clock_mode_24">24 hour</string>
-    <string name="clock_mode_12">12 hour</string>
+    <string name="clock_style">Clock Style</string>
+    <string name="show_am_pm">Show AM/PM</string>
+    <string name="dual_clocks">Dual Clocks</string>
+    <string name="second_clock_offset">Second clock offset</string>
+
+    <!-- Date row -->
+    <string name="date_format">Date Format</string>
+    <string name="show_date">Date</string>
+    <string name="show_date_battery_combo">Date + Battery</string>
     <string name="show_battery">Show Battery</string>
     <string name="show_notification_count">Show Notification Count</string>
+
+    <!-- Bottom widgets -->
+    <string name="bottom_widget">Bottom Widget</string>
+    <string name="bottom_widget_disabled">Disabled</string>
+    <string name="bottom_widget_quote">Quote</string>
+    <string name="bottom_widget_events">Events</string>
+    <string name="bottom_widget_android">Android Widget</string>
+    <string name="bottom_widget_shortcuts">Shortcuts</string>
+    <string name="bottom_widget_total_usage">Total Usage</string>
+    <string name="bottom_widget_page_dots">Page Dots</string>
     <string name="show_quote">Show Quote</string>
     <string name="show_audio_widget">Show Audio Widget</string>
-    <string name="quote_font">Quote Font</string>
-    <string name="quote_text_size">Quote Text Size</string>
+    <string name="show_android_widget">Show Android Widget</string>
     <string name="quote_text">Quote Text</string>
+    <string name="shortcut_left_icon">Left Icon</string>
+    <string name="shortcut_left_action">Left Action</string>
+    <string name="shortcut_right_icon">Right Icon</string>
+    <string name="shortcut_right_action">Right Action</string>
+    <string name="hide_outline">Hide Outline</string>
+
+    <!-- Android widget -->
+    <string name="android_widget_height">Widget Height</string>
+    <string name="android_widget_margin_start">Left Margin</string>
+    <string name="android_widget_margin_end">Right Margin</string>
+    <string name="android_widget_alignment">Widget Alignment</string>
+    <string name="choose_android_widget">Choose Widget</string>
+    <string name="remove_android_widget">Remove Widget</string>
+    <string name="loading_widget">Loading widget…</string>
+
+    <!-- Calendar events -->
+    <string name="events_grant_permission">Grant Permission</string>
+    <string name="events_grant_permission_subtitle">In order to access calendar events</string>
+    <string name="events_choose_calendar">Choose calendar</string>
+    <string name="events_all_calendars">All calendars</string>
+    <string name="events_no_calendar">No calendar selected</string>
+    <string name="events_no_events">No upcoming events</string>
+    <string name="events_filter">Filter</string>
+    <string name="events_filter_24h">24 hours</string>
+    <string name="events_filter_1week">1 week</string>
+    <string name="events_filter_2weeks">2 weeks</string>
+    <string name="events_filter_1month">1 month</string>
+
+    <!-- Notifications -->
     <string name="show_notification_badge">Asterisk Notification</string>
-    <string name="show_notification_text">Label Notifications</string>
-    <string name="enable_notifications">Notification Window (Letters) </string>
+    <string name="label_notifications">Label Notifications</string>
+    <string name="badge_indicator">Badge Indicator</string>
+    <string name="badge_character_limit">Character Limit</string>
     <string name="show_media_playing_indicator">Media Playing Asterisk</string>
     <string name="show_media_playing_name">Media Playing Name</string>
     <string name="show_sender_name">Sender Name</string>
     <string name="show_conversation_group_name">Group Name</string>
     <string name="show_message">Message</string>
     <string name="clear_conversation_on_app_open">Clear When App Opens</string>
-    <string name="notifications_window_title">Notifications Window</string>
-    <string name="badge_character_limit">Character Limit</string>
-    <string name="push_notifications">Push Notifications</string>
+    <string name="letters_window">Letters Window</string>
+    <string name="letters_allowlist">Letters Allowlist</string>
+    <string name="push_notifications">Enable Notifications</string>
     <string name="chat_notifications_section">Chat Notifications</string>
-    <string name="home_notifications_allowlist">Home Notifications Allowlist</string>
-    <string name="notification_permission_enabled">Notification permission enabled</string>
-    <string name="notification_permissions">Notification permissions</string>
-    <string name="reset">Reset</string>
+    <string name="home_notifications_allowlist">Home Noti. Allowlist</string>
+    <string name="notification_permission_enabled">Notification access on</string>
     <string name="notifications_per_page">Notifications Per Page</string>
     <string name="enable_bottom_navigation">Enable Bottom Navigation</string>
+    <string name="no_notifications">No notifications</string>
+    <string name="letters_screen_title">Letters</string>
+    <string name="simple_tray_title">Simple Tray</string>
+    <string name="simple_tray_allowlist">Simple Tray Allowlist</string>
+    <string name="simple_tray_apps">Simple Tray Apps</string>
+    <string name="hub_allowlist">Hub Allowlist</string>
+    <string name="hub_apps">Hub Apps</string>
 
+    <!-- App drawer -->
+    <string name="app_drawer">App Drawer</string>
+    <string name="app_drawer_alignment">Alignment</string>
+    <string name="az_filter">AZ Filter</string>
+    <string name="filtring">Filtring</string>
+    <string name="show_icons">Show Icons</string>
+    <string name="sort_order">Sort Order</string>
+    <string name="hide_home_apps">Hide Home Apps</string>
+    <string name="search_hidden_apps">Search Hidden Apps</string>
 
-    <!-- Strings used for look & feel settings -->
-    <string name="look_feel_settings_title">Look &amp; Feel</string>
-    <string name="choose_wallpaper_picker">Choose Wallpaper Picker</string>
+    <!-- Search -->
+    <string name="search_everything">Search everything</string>
+    <string name="search_contacts">Search contacts</string>
+    <string name="search_web">Search web</string>
+    <string name="search_settings">Search settings</string>
+    <string name="search_music">Search music</string>
+    <string name="search_files">Search files</string>
+    <string name="search_folders">Search Folders</string>
+    <string name="search_folders_add">Add</string>
+    <string name="auto_show_keyboard">Auto Show Keyboard</string>
+    <string name="auto_launch_result">Auto-launch result</string>
+    <string name="contacts_to_show">Contacts to show</string>
+    <string name="no_folders_selected">No folders selected</string>
 
-    <string name="app_text_size">App Text Size</string>
-    <string name="clock_text_size">Clock Text Size</string>
+    <!-- Fonts -->
+    <string name="settings_font_section">Settings Font</string>
+    <string name="settings_font_hoog">Hoog</string>
+    <string name="apps_font">Apps Font</string>
+    <string name="clock_font">Clock Font</string>
+    <string name="date_font">Date Font</string>
+    <string name="quote_font">Widget Font</string>
+    <string name="letters_font">Letters Font</string>
+    <string name="universal_custom_font">Universal Font</string>
+    <string name="app_notification_font">Badge Noti. Font</string>
+    <string name="label_notifications_font">Label Notifications Font</string>
+    <string name="label_notifications_size">Label Notifications Size</string>
+    <string name="title_label">Title</string>
+    <string name="title_font">Title Font</string>
+    <string name="title_size">Title Size</string>
+    <string name="body_font">Body Font</string>
+    <string name="body_text_size">Body Text Size</string>
+    <string name="home_fonts">Home Fonts</string>
+    <string name="reset_all">Reset All</string>
+    <string name="add_custom_font">Add Custom Font...</string>
+    <string name="custom_fonts">Custom Fonts</string>
+    <string name="no_custom_fonts">No custom fonts</string>
+    <string name="confirm_delete_font">Confirm Delete</string>
 
-
-    <string name="layout_positioning">Layout &amp; Positioning</string>
-
-    <string name="app_size">App Size</string>
+    <!-- Sizes -->
+    <string name="app_text_size">App Size</string>
+    <string name="clock_text_size">Clock Size</string>
+    <string name="date_text_size">Date Size</string>
+    <string name="quote_text_size">Widget Size</string>
+    <string name="settings_text_size">Settings Text Size</string>
+    <string name="app_drawer_size">App Drawer Size</string>
     <string name="app_padding_size">Gap Between Apps</string>
+    <string name="icon_size">Icon Size</string>
+    <string name="widget_size">Widget Size</string>
     <string name="home_apps_y_offset">Home Apps Y-Offset</string>
     <string name="top_widget_margin">Top Widget Margin</string>
     <string name="bottom_widget_margin">Bottom Widget Margin</string>
 
-    <string name="extend_home_apps_area">Extend Clickable Area</string>
+    <!-- App name display -->
+    <string name="app_name_mode">App Name Type</string>
+    <string name="app_name_mode_normal">Lettercase</string>
+    <string name="app_name_mode_all_caps">UPPERCASE</string>
+    <string name="small_caps_apps">lowercase</string>
 
-    <string name="visibility_display">Visibility &amp; Display</string>
-
-    <string name="show_status_bar">Show Status Bar</string>
-
-    <string name="show_navigation_bar">Show Gesture/Navbar</string>
-
-    <string name="element_colors">Element Colors</string>
-
+    <!-- Look &amp; Feel -->
+    <string name="themes">Presets</string>
+    <string name="custom_theme">Custom</string>
+    <string name="theme_mode">Theme mode</string>
+    <string name="choose_wallpaper_picker">Choose Wallpaper Picker</string>
     <string name="background_color">Background</string>
     <string name="text_color">Text Color</string>
     <string name="battery_color">Battery</string>
+    <string name="button_corners">Button-Island Corners</string>
+    <string name="text_islands">Enable Text Islands</string>
+    <string name="invert_islands">Invert Islands</string>
+    <string name="show_status_bar">Show Status Bar</string>
+    <string name="show_navigation_bar">Show Gesture/Navbar</string>
+    <string name="vibration_feedback">Vibration Feedback</string>
+    <string name="vibration_strength">Vibration Strength</string>
 
-    <string name="small_caps_apps">lowercase</string>
-
-    <string name="fonts_settings_title">Typography</string>
-    <string name="settings_font_hoog">Hoog</string>
-
-
-    <!-- Font sections -->
-    <string name="settings_font_section">Settings Font</string>
-    <string name="apps_font">Apps Font</string>
-    <string name="clock_font">Clock Font</string>
-    <string name="notification_section">Notifications</string>
-    <string name="notification_home">Home Notifications</string>
-
-    <string name="app_notification_font">Badge Noti. Font</string>
-
-
-    <string name="universal_custom_font">Universal Font</string>
-    <string name="universal_custom_font_selector">Universal Font</string>
-    <string name="notifications_font">Notifications Font</string>
-
-    <!-- Strings used for gestures settings -->
-    <string name="gestures_settings_title">Gestures</string>
-
+    <!-- Gestures -->
     <string name="tap_click_actions">Tap/Click</string>
-
     <string name="double_tap">Double Tap</string>
     <string name="clock_click_app">Click on Clock</string>
     <string name="date_click_app">Click on Date</string>
     <string name="quote_click_app">Click on Quote</string>
-    
     <string name="edit_gestures_settings_toast">Edit actions &amp; Gestures in Settings/Gestures</string>
-
     <string name="swipe_movement">Swipe Movement</string>
-
     <string name="swipe_left_app">Swipe left</string>
     <string name="swipe_right_app">Swipe right</string>
     <string name="swipe_up_app">Swipe up</string>
@@ -159,14 +331,18 @@
     <string name="swipe_ratio_display_format">%1$.2fx</string>
     <string name="swipe_ratio_dialog_hint">Enter a ratio between %1$.2f× and %2$.2f×</string>
     <string name="swipe_ratio_value_label">Ratio</string>
+    <string name="edge_swipe_back">Edge swipe back</string>
+    <string name="use_volume_keys_for_pages">VolumeKey Navigation</string>
 
-    <string name="open_app">Open App</string>
+    <!-- Gesture actions -->
+    <string name="open_app">Apps</string>
+    <string name="gesture_tab_inkos">inkOS</string>
+    <string name="gesture_tab_system">System</string>
     <string name="private_space">Private Spaces</string>
     <string name="next_page">Go to Next Page</string>
     <string name="previous_page">Go to Previous Page</string>
-    <string name="eink_refresh_switch">Eink Auto Rrefresh</string>
     <string name="eink_auto_refresh">Auto E-ink Refresh</string>
-    <string name="eink_auto_mode">E-ink Auto Mode</string>
+    <string name="eink_auto_mode">E-ink Mode</string>
     <string name="eink_refresh">E-ink Refresh</string>
     <string name="lock_screen">Lock Screen</string>
     <string name="show_recents">Show Recents</string>
@@ -175,40 +351,254 @@
     <string name="open_quick_settings">Open Quick Settings</string>
     <string name="open_power_dialog">Open Power Dialog</string>
     <string name="open_tools">Open Tools</string>
+    <string name="open_clock">Open Clock</string>
 
-
-    <!-- Strings used for advanced settings -->
+    <!-- Advanced settings -->
     <string name="advanced_settings_title">Advanced</string>
-
     <string name="app_version">App Version</string>
-
     <string name="advanced_settings_set_as_default_launcher">Set as Default Launcher</string>
     <string name="advanced_settings_change_default_launcher">Change Default Launcher</string>
-
     <string name="advanced_settings_restart_title">Restart Launcher</string>
-
+    <string name="restart_launcher">Restart Launcher</string>
     <string name="advanced_settings_backup_restore_title">Backup/Restore</string>
-
-    <string name="advanced_settings_backup_restore_backup">Backup</string>
+    <string name="backup_all_data">Backup All Data</string>
+    <string name="backup_theme">Backup Theme</string>
     <string name="advanced_settings_backup_restore_restore">Restore</string>
-    <string name="advanced_settings_backup_restore_clear">Clear All Data</string>
-
     <string name="advanced_settings_backup_restore_clear_title">Clear Preferences</string>
     <string name="advanced_settings_backup_restore_clear_description">Are you sure you want to do this?</string>
     <string name="advanced_settings_backup_restore_clear_yes">Yes</string>
     <string name="advanced_settings_backup_restore_clear_no">No</string>
-
     <string name="advanced_settings_share_application_description">Elevate your experience with %1$s!</string>
     <string name="advanced_settings_share_application_description_addon">Get it now on %1$s and see what everyone is talking about! %2$s\n</string>
+    <string name="auto_eink_refresh">Auto E-Ink Refresh</string>
+    <string name="auto_refresh_home_only">Auto Refresh Only in Home</string>
+    <string name="eink_refresh_delay">E-Ink Refresh Delay</string>
+    <string name="ui_scale">UI Scale</string>
+    <string name="onboarding">Onboarding</string>
+    <string name="guide">Guide</string>
+    <string name="buy_me_a_coffee">Buy Me a Coffee</string>
+    <string name="github_sponsors">GitHub Sponsors</string>
+    <string name="report_issues">Report Issues</string>
+    <string name="reddit_inkos">Reddit — r/inkos</string>
+    <string name="font_license_ofl">Font License (OFL)</string>
+    <string name="credits">Credits</string>
 
+    <!-- App shortcuts -->
+    <string name="app_shortcuts">App Shortcuts</string>
+    <string name="shortcuts_selected">%1$d selected</string>
+    <string name="no_app_shortcuts">No app shortcuts available</string>
+    <string name="no_inkos_shortcuts">No inkOS shortcuts</string>
+    <string name="no_pinned_shortcuts">No pinned shortcuts. Pinned shortcuts can be created from Browsers (like chrome/firefox/brave) or from other apps like Activity launcher.</string>
+    <string name="system_shortcuts_search_hint">System shortcuts are now available via Search. Enable Settings search in App Drawer / Search settings.</string>
+    <string name="shortcut_icon">Shortcut Icon</string>
 
-    <!-- App Page Strings -->
+    <!-- Favorites -->
     <string name="favorite_apps">Favorite Apps</string>
     <string name="reorder_apps">Re-order Apps</string>
+    <string name="edit_favorites">Edit Favorites</string>
+    <string name="max_favorites_reached">Maximum %d favorites reached</string>
 
-    <!-- Accessibility/Help Strings -->
+    <!-- Separators -->
+    <string name="separator_empty">Empty Space</string>
+    <string name="separator_em_dash">Em Dash —</string>
+    <string name="separator_dots">Dots ···</string>
+
+    <!-- Context menu -->
+    <string name="unpin_shortcut">Unpin shortcut</string>
+    <string name="uninstall">Uninstall</string>
+    <string name="app_info">App info</string>
+
+    <!-- Format strings (edit mode sliders) -->
+    <string name="widget_height_fmt">Widget height: %1$ddp</string>
+    <string name="left_margin_fmt">Left margin: %1$d%%</string>
+    <string name="right_margin_fmt">Right margin: %1$d%%</string>
+    <string name="top_margin_fmt">Top widget margin: %1$d</string>
+    <string name="bottom_margin_fmt">Bottom widget margin: %1$d</string>
+    <string name="y_offset_fmt">Home apps Y-offset: %1$d</string>
+    <string name="app_text_size_fmt">App text size: %1$d</string>
+    <string name="app_gap_fmt">App gap: %1$d</string>
+    <string name="num_home_apps_fmt">Number of home apps: %1$d</string>
+    <string name="num_pages_fmt">Number of pages: %1$d</string>
+    <string name="drawer_size_fmt">App size: %1$d</string>
+    <string name="drawer_gap_fmt">App gap: %1$d</string>
+    <string name="hidden_count_fmt">%1$d hidden</string>
+    <string name="selected_count_fmt">%1$d selected</string>
+
+    <!-- Option values -->
+    <string name="option_default">Default</string>
+    <string name="option_box_solid">Box Solid</string>
+    <string name="option_box_outline">Box Outline</string>
+    <string name="option_flip">Flip</string>
+    <string name="option_round">Round</string>
+    <string name="option_analog">Analog</string>
+    <string name="option_split">Split</string>
+    <string name="option_horizontal">Horizontal</string>
+    <string name="option_stacked">Stacked</string>
+    <string name="option_digital">Digital</string>
+    <string name="option_matrix">Matrix</string>
+    <string name="option_system">System</string>
+    <string name="option_24_hour">24 Hour</string>
+    <string name="option_12_hour">12 Hour</string>
+    <string name="option_12_hour_alt">12 Hour Alt</string>
+    <string name="option_date_format_1">Thu, 5 Mar</string>
+    <string name="option_date_format_2">Thu, Mar 5</string>
+    <string name="option_date_format_3">Mar 5</string>
+    <string name="option_date_format_4">5 Mar</string>
+    <string name="option_date_format_5">Wednesday</string>
+    <string name="option_simple_tray">SimpleTray</string>
+    <string name="option_letters">Letters</string>
+    <string name="option_hub">Hub</string>
+    <string name="option_pill">Pill</string>
+    <string name="option_rounded">Rounded</string>
+    <string name="option_square">Square</string>
+    <string name="option_az">A-Z</string>
+    <string name="option_most_used">Most Used</string>
+    <string name="option_last_used">Last Used</string>
+    <string name="option_recents">Recents</string>
+    <string name="option_today">Today</string>
+    <string name="option_this_week">This Week</string>
+    <string name="option_this_month">This Month</string>
+    <string name="option_all_time">All Time</string>
+    <string name="option_time">Time</string>
+    <string name="option_money">Money</string>
+    <string name="option_coffee">Coffee</string>
+    <string name="option_none_widget">None</string>
+    <string name="option_all">All</string>
+
+    <!-- Icon style -->
+    <string name="icon_style">Icon Style</string>
+    <string name="icon_shape">Icon Shape</string>
+    <string name="icon_none">None</string>
+    <string name="icon_letters">Letters</string>
+    <string name="icon_inkos">Tinted</string>
+    <string name="icon_minimal">Glyph</string>
+    <string name="icon_filled">Filled</string>
+    <string name="icon_tint_contrast">Tint Contrast</string>
+    <string name="desc_icon_tint_contrast">Adjust contrast of Tinted icons (0.0× soft, 1.0× normal, 3.0× extreme)</string>
+    <string name="icon_system">System</string>
+    <string name="icon_preview_text">Ab</string>
+
+    <!-- Recents -->
+    <string name="default_view">Default View</string>
+    <string name="usage_period">Usage Period</string>
+    <string name="most_used_unit">Most Used Unit</string>
+    <string name="currency_symbol">Currency Symbol</string>
+    <string name="hourly_rate">Hourly Rate</string>
+    <string name="hourly_rate_hint">Hourly Rate (whole number)</string>
+    <string name="unit_emoji">Unit Emoji</string>
+    <string name="coffee_price">Coffee Price</string>
+    <string name="coffee_price_hint">Price per coffee (whole number)</string>
+    <string name="usage_permission">Usage Permission</string>
+    <string name="no_recent_apps">No recent apps</string>
+
+    <!-- Wallpaper -->
+    <string name="wallpaper">Wallpaper</string>
+    <string name="wallpaper_visibility">Wallpaper Visibility</string>
+    <string name="wallpaper_set">APPLY</string>
+    <string name="set_wallpaper_for">Set wallpaper for</string>
+    <string name="wallpaper_inkos">inkOS</string>
+    <string name="wallpaper_android">Android</string>
+    <string name="wallpaper_home_screen">Home Screen</string>
+    <string name="wallpaper_lock_screen">Lock Screen</string>
+    <string name="wallpaper_both">Both</string>
+    <string name="about_inkos_wallpaper">About inkOS Wallpaper</string>
+    <string name="what_is_inkos_wallpaper">What is inkOS Wallpaper?</string>
+    <string name="inkos_wallpaper_explanation">inkOS wallpaper is a \"faux\" wallpaper, it\'s an image that appears over the actual android wallpaper layer.\n\nIt\'s function it\'s meant to circumvent Android cropping and zooming in your wallpaper which might break the the 1:1 pixel scaling which can cause defect to your image especially if you\'re using an e-ink device.\n\nMake sure to use correct aspect ratio, or have the exact resolution as your display.\n\nSetting an Android wallpaper will automatically clear the inkOS wallpaper.</string>
+
+    <!-- Theme config -->
+    <string name="theme_config">Theme Config</string>
+    <string name="theme_config_hint">Disable the settings you want not to be overridden. Enabled ones will replace your existing settings.</string>
+    <string name="config_colors">Colors</string>
+    <string name="config_font">Font</string>
+    <string name="config_icons">Icons</string>
+    <string name="config_layout">Layout</string>
+    <string name="config_wallpaper">Wallpaper</string>
+    <string name="theme_exported">Theme exported</string>
+    <string name="theme_imported">Theme imported</string>
+
+    <!-- Backup / Restore -->
+    <string name="backup_restore_title">BACKUP / RESTORE</string>
+    <string name="restore_data">Restore Data</string>
+    <string name="export_theme">Export Theme</string>
+    <string name="import_theme">Import Theme</string>
+    <string name="clear_all_data">Clear All Data</string>
+    <string name="theme_export_import">Theme</string>
+    <string name="desc_backup_restore">Backup, restore, or clear all data</string>
+    <string name="desc_theme_export_import">Export or import your theme settings</string>
+    <string name="clear_all_data_confirm_title">Clear All Data</string>
+    <string name="clear_all_data_confirm_description">This will delete all preferences, custom fonts, wallpaper, and cached data. This cannot be undone.</string>
+
+    <!-- Quick Menu -->
+    <string name="quick_menu">QUICK MENU</string>
+    <string name="inkos_settings">inkOS Settings</string>
+    <string name="system_settings">System Settings</string>
+
+    <!-- Media player -->
+    <string name="open_music_app">Open music app</string>
+    <string name="previous_track">Previous track</string>
+    <string name="play_or_pause">Play or pause</string>
+    <string name="next_track">Next track</string>
+    <string name="stop_playback">Stop playback</string>
+
+    <!-- Private Space -->
+    <string name="alert_requires_android_v">This functionality requires Android 15 or later.</string>
+    <string name="toast_private_space_default_home_screen">inkOS needs to be the default home screen to access private space.</string>
+    <string name="toast_private_space_locked">Private space locked</string>
+    <string name="toast_private_space_unlocked">Private space unlocked</string>
+    <string name="toast_private_space_not_available">Private space is not available</string>
+
+    <!-- Work Profile -->
+    <string name="work_profile">Work Profile</string>
+    <string name="toast_work_profile_paused">Work profile paused</string>
+    <string name="toast_work_profile_resumed">Work profile resumed</string>
+    <string name="toast_work_profile_not_available">Work profile is not available</string>
+
+    <!-- Hub -->
+    <string name="hub_all">All</string>
+    <string name="hub_messages">Messages</string>
+    <string name="hub_calls">Calls</string>
+    <string name="hub_email">Email</string>
+    <string name="hub_events">Events</string>
+    <string name="hub_other">Other</string>
+    <string name="hub_action">Action</string>
+    <string name="hub_open">Open</string>
+    <string name="hub_clear_all">Clear All</string>
+    <string name="hub_clear">Clear</string>
+
+    <!-- Privacy Policy -->
+    <string name="privacy_policy">Privacy Policy</string>
+    <string name="privacy_updated">Last updated: December 2025</string>
+    <string name="privacy_no_data_title">No Data Collection</string>
+    <string name="privacy_no_data_body">inkOS does not track you. We cannot collect, store, or share your data because inkOS does not have the capability to access or transmit your personal information.</string>
+    <string name="privacy_no_server_title">No Server Connections</string>
+    <string name="privacy_no_server_body">inkOS does not connect to any servers. All functionality operates entirely on your device. There is no network communication and no external connections.</string>
+    <string name="privacy_local_title">Local Data Only</string>
+    <string name="privacy_local_body">inkOS only previews and displays data that already exists on your phone. All app information, notifications, and settings are processed locally. Nothing leaves your device.</string>
+    <string name="privacy_open_source_title">Open Source</string>
+    <string name="privacy_open_source_body">inkOS is open source. You can review the source code on GitHub to verify these claims.</string>
+    <string name="ofl_title">Open Font License 1.1</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_welcome">WELCOME</string>
+    <string name="onboarding_privacy">PRIVACY</string>
+    <string name="onboarding_notifications">NOTIFICATIONS</string>
+    <string name="onboarding_default_launcher">DEFAULT HOME</string>
+    <string name="onboarding_settings">SETTINGS</string>
+    <string name="onboarding_theme">THEME</string>
+    <string name="onboarding_home_apps">HOME APPS</string>
+    <string name="onboarding_app_version">APP VERSION</string>
+    <string name="onboarding_read_policy">READ FULL POLICY</string>
+    <string name="onboarding_agree_policy">I agree to the Privacy Policy</string>
+    <string name="onboarding_choose_preset">CHOOSE PRESET</string>
+    <string name="onboarding_edit_favorites">EDIT FAVORITES</string>
+    <string name="onboarding_permission_granted">PERMISSION GRANTED</string>
+    <string name="onboarding_grant_permission">GRANT PERMISSION</string>
+    <string name="onboarding_default_set">DEFAULT LAUNCHER SET</string>
+    <string name="onboarding_set_default">SET DEFAULT LAUNCHER</string>
+
+    <!-- Accessibility -->
     <string name="accessibility_service_name">inkOS Actions Service</string>
-    <string name="accessibility_service_description">This accessibility service allows inkOS to do certain actions such as locking the screen or opening the quick settings. Our accessibility service does not collect or share any data.</string>
+    <string name="accessibility_service_description">inkOS uses this accessibility service solely to perform system actions you assign to gestures: lock screen, open recent apps, open quick settings, and open the power dialog. This service does not read, collect, store, or share any screen content, personal data, or user information. No data leaves your device.</string>
     <string name="can_not_delete_system_apps">Can\'t Delete System Apps</string>
     <string name="drawer_list_empty_hint">No apps found</string>
     <string name="long_press_for_settings">Long press anywhere for settings</string>
@@ -216,7 +606,7 @@
     <string name="swipe_up_for_apps">Swipe up and down for pages</string>
     <string name="app_drawer_tips">Tip: Swipe down to dismiss. Scroll to hide keyboard.</string>
 
-    <!-- PinCode Strings -->
+    <!-- Biometric -->
     <string name="text_authentication_cancel">Authentication Cancel.</string>
     <string name="text_authentication_error">Authentication error: %1$s (code %2$d)</string>
     <string name="text_authentication_failed">Authentication failed.</string>
@@ -224,71 +614,208 @@
     <string name="text_biometric_login_app">Biometric login for %1$s</string>
     <string name="text_biometric_login_sub">Log in using your biometric credentials.</string>
 
-    <!-- Crash Strings -->
+    <!-- Crash reporting -->
     <string name="acra_crash">Crash</string>
     <string name="acra_dialog_text">We\'re sorry, but %1$s has encountered an unexpected issue and needs to close. Please help us improve by sending a crash report.\n\n%1$s values your privacy and the data collected is solely used for improving app stability. No personal information is collected. Thank you for your support!</string>
     <string name="acra_send_report">Send Report</string>
     <string name="acra_dont_send">Don\'t Send</string>
+
+    <!-- Errors -->
     <string name="error_invalid_file_title">Invalid file type</string>
     <string name="error_invalid_file_message">Use the backup .json file you exported</string>
+    <string name="error_no_file_picker_title">No File Picker Found</string>
+    <string name="error_no_file_picker_message">No compatible file manager is installed. Please install a file manager app to restore backups.</string>
 
+    <!-- Toast messages -->
+    <string name="toast_copied">Copied</string>
+    <string name="toast_pasted">Pasted</string>
+    <string name="toast_permission_failed">Permission request failed. Please try again.</string>
+    <string name="toast_bluetooth_permission">Bluetooth permission required to toggle</string>
+    <string name="toast_phone_permission">Phone state permission required</string>
+    <string name="toast_camera_permission">Camera permission required to use flashlight</string>
+    <string name="toast_please_wait">Please wait…</string>
+    <string name="toast_all_dismissed">All notifications dismissed</string>
+    <string name="toast_no_flashlight">No flashlight available</string>
+    <string name="toast_allow_bluetooth">Allow Bluetooth permission to toggle</string>
+    <string name="toast_allow_camera">Allow camera permission to use flashlight</string>
+    <string name="toast_android15_bluetooth">Android 15+ requires manual Bluetooth toggle</string>
+    <string name="toast_no_widgets_available">No widgets available</string>
+    <string name="toast_widget_config_unavailable">Widget configuration not available</string>
+    <string name="toast_shortcut_unpinned">Shortcut unpinned</string>
+    <string name="toast_unpin_failed">Failed to unpin shortcut</string>
+    <string name="toast_shortcut_removed">Shortcut removed from drawer</string>
+    <string name="toast_biometric_unavailable">Biometric authentication not available</string>
 
-    <!-- Settings Strings -->
-    <string name="dark">Dark</string>
-    <string name="light">Light</string>
-    <string name="system_default">System</string>
-    <string name="restart_launcher">Restart Launcher</string>
-    <string name="delete">Delete</string>
-    <string name="hide">Hide</string>
-    <string name="show">Show</string>
-    <string name="lock">Lock</string>
-    <string name="unlock">Unlock</string>
-    <string name="rename">Rename</string>
-    <string name="info">Info</string>
-    <string name="okay">Okay</string>
-    <string name="cancel">Cancel</string>
-    <string name="enabled">Enabled</string>
-    <string name="disabled">Disabled</string>
-    <string name="open">Open</string>
-    <string name="close">Close</string>
-    <string name="open_clock">Open Clock</string>
-    <string name="app_drawer">App Drawer</string>
-    <string name="customizations">Customizations</string>
-    <string name="search">Search</string>
-    <string name="app_drawer_alignment">Alignment</string>
-    <string name="app_drawer_align_left">Left</string>
-    <string name="app_drawer_align_center">Center</string>
-    <string name="app_drawer_align_right">Right</string>
-    <string name="confirm_delete_font">Confirm Delete</string>
-
-    <!-- Short alignment labels requested by user -->
-    <string name="left">Left</string>
-    <string name="center">Center</string>
-    <string name="right">Right</string>
-
-    <!-- Media Player Strings -->
-    <string name="open_music_app">Open music app</string>
-    <string name="previous_track">Previous track</string>
-    <string name="play_or_pause">Play or pause</string>
-    <string name="next_track">Next track</string>
-    <string name="stop_playback">Stop playback</string>
-
-    <!-- Permissions Strings -->
+    <!-- Permission dialogs -->
+    <string name="perm_bluetooth_title">Bluetooth Permission</string>
+    <string name="perm_bluetooth_body">This app needs Bluetooth permission to toggle Bluetooth on and off from the quick settings tray.</string>
+    <string name="perm_phone_title">Phone State Permission</string>
+    <string name="perm_phone_body">This app needs phone state permission to read and control mobile data settings from the quick settings tray.</string>
+    <string name="perm_camera_title">Camera Permission</string>
+    <string name="perm_camera_body">This app needs camera permission to use the flashlight feature from the quick settings tray.</string>
+    <string name="perm_write_settings_title">Modify System Settings Permission</string>
+    <string name="perm_write_settings_body">This app needs permission to modify system settings to control screen brightness. You will be taken to Android settings to grant this permission.</string>
+    <string name="perm_notification_title">Notification Access</string>
+    <string name="perm_notification_body">inkOS needs notification access to show your notifications here. You will be taken to Android settings to grant this permission.</string>
     <string name="bluetooth_permission_required_title">BLUETOOTH PERMISSION REQUIRED:</string>
     <string name="bluetooth_permission_required_body">This particular tool is only useful for Mudita Kompakt or other phones that do not have Bluetooth History. Missing permissions: %1$s. Please grant permissions to use Bluetooth features.</string>
 
-    <!-- Private Spaces Strings -->
-    <string name="alert_requires_android_v">This functionality requires Android 15 or later.</string>
-    <string name="toast_private_space_default_home_screen">inkOS needs to be the default home screen to access private space.</string>
-    <string name="toast_private_space_locked">Private space locked</string>
-    <string name="toast_private_space_not_available">Private space is not available</string>
+    <!-- Widgets (Android home/lock screen) -->
+    <string name="quote_widget_label">Quote</string>
+    <string name="quote_widget_description">Display quote on home</string>
+    <string name="quote_widget_loading">Loading…</string>
+    <string name="notification_widget_label">Notification LS</string>
+    <string name="notification_widget_description">Shows count for most recent apps</string>
 
-    <string name="notifications_screen_title">Notifications</string>
-    <string name="simple_tray_title">Simple Tray</string>
-    <string name="no_notifications">No notifications</string>
+    <!-- Settings item descriptions -->
+    <string name="desc_home_settings">Widgets, clock &amp; status bar</string>
+    <string name="desc_drawer_settings">Style, sorting &amp; search</string>
+    <string name="desc_fonts_settings">Typography &amp; text sizing</string>
+    <string name="desc_look_feel_settings">Theme, colors &amp; wallpaper</string>
+    <string name="desc_gestures_settings">Swipe &amp; tap actions</string>
+    <string name="desc_notifications_settings">Badges &amp; notification dots</string>
+    <string name="desc_private_space">Manage private space</string>
+    <string name="desc_work_profile">Toggle work apps</string>
+    <string name="desc_advanced_settings">Launcher &amp; utilities</string>
+    <string name="desc_extras_settings">Extras &amp; tools</string>
+    <string name="desc_buy_coffee">Support with a coffee</string>
+    <string name="desc_github_sponsor">Become a GitHub sponsor</string>
+    <string name="desc_report_bugs">Report bugs or features</string>
+    <string name="desc_reddit_community">Join the Reddit community</string>
+    <string name="desc_app_version">Tap to view app info</string>
+    <string name="desc_font_license">Open Font License</string>
+    <string name="desc_open_source">Original Forks</string>
+    <string name="desc_eink_mode">Clear > Contrast > Read</string>
+    <string name="desc_eink_auto_refresh">Reduce e-ink ghosting</string>
+    <string name="desc_eink_home_only">Auto refresh home only</string>
+    <string name="desc_eink_interval">Interval between refreshes</string>
+    <string name="desc_volume_keys">Use volume keys for pages</string>
+    <string name="desc_lock_home_apps">Prevent rearranging apps</string>
+    <string name="desc_longpress_app_info">Long-press for app info</string>
+    <string name="desc_lock_settings">Biometric lock for settings</string>
+    <string name="desc_app_padding">Gap between home apps</string>
+    <string name="desc_home_y_offset">Vertical position of apps</string>
+    <string name="desc_top_widget_margin">Space above the clock/date</string>
+    <string name="desc_bottom_widget_margin">Space below bottom widget</string>
+    <string name="desc_home_apps_num">Nr of app favorites in home</string>
+    <string name="desc_home_pages_num">Number of pages in home</string>
+    <string name="desc_page_indicator">Show page indicator dots</string>
+    <string name="desc_page_reset">Always returns to 1st page</string>
+    <string name="desc_home_alignment">Align home apps</string>
+    <string name="desc_show_clock">Show clock on home</string>
+    <string name="desc_clock_format">Choose 12h, 24h, or system</string>
+    <string name="desc_clock_style">Visual style of the clock</string>
+    <string name="desc_show_am_pm">Display AM/PM on the clock</string>
+    <string name="desc_dual_clocks">Dual clocks with timezone</string>
+    <string name="desc_second_clock_offset">Set time zone difference</string>
+    <string name="desc_clock_alignment">Align clock</string>
+    <string name="desc_show_date">Show date on home</string>
+    <string name="desc_date_format">Date display format</string>
+    <string name="desc_show_battery">Battery % next to date</string>
+    <string name="desc_notification_count">Unread notification count</string>
+    <string name="desc_notification_style">Letters or Simple Tray</string>
+    <string name="desc_date_alignment">Align date row</string>
+    <string name="desc_audio_widget">Media controls on playback</string>
+    <string name="desc_bottom_widget">Choose your bottom widget</string>
+    <string name="desc_events_calendar">Calendar for events</string>
+    <string name="desc_events_filter">Filter events by time range</string>
+    <string name="desc_quote_text">Custom quote text</string>
+    <string name="desc_quote_alignment">Align bottom widget</string>
+    <string name="desc_choose_widget">Select an Android widget</string>
+    <string name="desc_widget_height">Android widget height</string>
+    <string name="desc_widget_margin_start">Widget left margin</string>
+    <string name="desc_widget_margin_end">Widget right margin</string>
+    <string name="desc_remove_widget">Remove current widget</string>
+    <string name="desc_extend_area">Full width for home apps</string>
+    <string name="desc_all_apps">Browse all installed apps</string>
+    <string name="desc_hidden_apps">Manage hidden apps</string>
+    <string name="desc_app_shortcuts">Manage app shortcuts</string>
+    <string name="desc_drawer_font_size">Drawer app font size</string>
+    <string name="desc_drawer_gap">Gap between drawer apps</string>
+    <string name="desc_drawer_alignment">Align drawer apps</string>
+    <string name="desc_drawer_icons">Show icons in drawer</string>
+    <string name="desc_az_filter">A-Z quick nav filter</string>
+    <string name="desc_drawer_sort">App sort order in drawer</string>
+    <string name="desc_hide_home_apps">Hide home apps in drawer</string>
+    <string name="desc_show_search_bar">Show search bar</string>
+    <string name="desc_auto_keyboard">Auto-open keyboard</string>
+    <string name="desc_auto_open_result">Auto-open single result</string>
+    <string name="desc_search_hidden">Search hidden apps too</string>
+    <string name="desc_search_contacts">Search contacts too</string>
+    <string name="desc_contact_lists">Select contact lists</string>
+    <string name="desc_search_web">Include web results</string>
+    <string name="desc_search_settings">Include settings results</string>
+    <string name="desc_search_music">Include music results</string>
+    <string name="desc_search_files">Search files in folders</string>
+    <string name="desc_search_folders">Manage folders to search</string>
+    <string name="desc_theme_preset">Choose a preset theme</string>
+    <string name="desc_theme_mode">Light, dark, or system</string>
+    <string name="desc_element_colors">Edit background &amp; text</string>
+    <string name="desc_wallpaper">Choose wallpaper</string>
+    <string name="desc_wallpaper_opacity">Set wallpaper opacity</string>
+    <string name="desc_show_icons">Show icons next to names</string>
+    <string name="desc_icon_pack">Choose icon pack</string>
+    <string name="desc_icon_shape">Shape of icon masks</string>
+    <string name="desc_button_corners">Corner style for UI buttons</string>
+    <string name="desc_text_islands">Text background shapes</string>
+    <string name="desc_invert_islands">Swap island text &amp; bg color</string>
+    <string name="desc_vibration">Vibrate on touch</string>
+    <string name="desc_vibration_strength">Adjust how strong all vibrations feel</string>
+    <string name="desc_status_bar">Show the system status bar</string>
+    <string name="desc_navigation_bar">Show system navbar</string>
+    <string name="desc_double_tap">Double tap action</string>
+    <string name="desc_clock_tap">Clock tap action</string>
+    <string name="desc_date_tap">Date tap action</string>
+    <string name="desc_quote_tap">Quote tap action</string>
+    <string name="desc_swipe_left">Swipe left action</string>
+    <string name="desc_swipe_right">Swipe right action</string>
+    <string name="desc_swipe_up">Swipe up action</string>
+    <string name="desc_swipe_down">Swipe down action</string>
+    <string name="desc_short_swipe">Short swipe sensitivity</string>
+    <string name="desc_long_swipe">Long swipe sensitivity</string>
+    <string name="desc_edge_swipe">Edge swipe to go back</string>
+    <string name="desc_universal_font">One font for everything</string>
+    <string name="desc_universal_font_select">Choose the universal font</string>
+    <string name="desc_settings_font">Settings font</string>
+    <string name="desc_settings_size">Text size for settings</string>
+    <string name="desc_apps_font">Font for app names</string>
+    <string name="desc_apps_size">Text size for app names</string>
+    <string name="desc_app_name_mode">Letter case style</string>
+    <string name="desc_clock_font">Font for the clock widget</string>
+    <string name="desc_clock_size">Text size for the clock</string>
+    <string name="desc_date_font">Font for the date display</string>
+    <string name="desc_date_size">Text size for the date</string>
+    <string name="desc_quote_font">Font for the quote widget</string>
+    <string name="desc_quote_size">Text size for quotes</string>
+    <string name="desc_noti_label_font">Notification label font</string>
+    <string name="desc_noti_label_size">Notification label size</string>
+    <string name="desc_letters_title">Letters window title</string>
+    <string name="desc_letters_title_font">Letters title font</string>
+    <string name="desc_letters_title_size">Letters title size</string>
+    <string name="desc_noti_body_font">Notification body font</string>
+    <string name="desc_noti_body_size">Notification body size</string>
+    <string name="desc_noti_access">Notification Reading Permission</string>
+    <string name="desc_noti_dots">Notification dots on apps</string>
+    <string name="desc_noti_text_home">Notification text on home</string>
+    <string name="desc_media_indicator">Media playing indicator</string>
+    <string name="desc_media_track_name">Show playing track name</string>
+    <string name="desc_noti_app_filter">Notification app filter</string>
+    <string name="desc_sender_name">Display message sender name</string>
+    <string name="desc_group_name">Display group chat name</string>
+    <string name="desc_message_preview">Message preview text</string>
+    <string name="desc_noti_char_limit">Notification char limit</string>
+    <string name="desc_enable_letters">Enable letters window</string>
+    <string name="desc_clear_on_open">Clear on app open</string>
+    <string name="desc_letters_filter">Letters app filter</string>
+    <string name="desc_noti_per_page">Notifications per page</string>
+    <string name="desc_bottom_nav">Bottom page navigation</string>
+    <string name="desc_simple_tray_filter">Simple tray app filter</string>
 
-    <!-- Error messages for file picker -->
-    <string name="error_no_file_picker_title">No File Picker Found</string>
-    <string name="error_no_file_picker_message">No compatible file manager is installed. Please install a file manager app to restore backups.</string>
-    <string name="notification_listener_access">Notification permissions</string>
+    <string name="accessibility_permission_title">Accessibility Permission Required</string>
+    <string name="accessibility_permission_message">inkOS needs accessibility service access to perform this gesture action (lock screen, recent apps, quick settings, or power dialog).\n\nThis service only performs the system action you assigned. It does not read screen content, collect personal data, or transmit any information. All processing stays on your device.\n\nYou will be taken to accessibility settings to enable the inkOS Actions Service.</string>
+    <string name="btn_deny">Deny</string>
+    <string name="btn_allow">Allow</string>
+    <string name="write_settings_permission_title">Modify System Settings</string>
+    <string name="write_settings_permission_message">Brightness control requires permission to modify system settings. You will be taken to settings to grant this permission.</string>
+
 </resources>

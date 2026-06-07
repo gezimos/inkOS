@@ -1,50 +1,52 @@
 package com.github.gezimos.inkos
 
-import android.os.Build
-import android.os.Handler
+import android.annotation.SuppressLint
 import android.os.IBinder
-import android.os.Looper
 import android.os.Parcel
 import android.util.Log
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleObserver
-import androidx.lifecycle.OnLifecycleEvent
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
 
-class EinkHelper : LifecycleObserver {
+/**
+ * Thanks to UndefinedProgrammer for providing the fix for E-ink helper.
+ * Credits: https://github.com/UndefinedProgrammer/InkMaster
+ */
+class EinkHelper(private val packageName: String) : DefaultLifecycleObserver {
 
     private var meinkService: IBinder? = null
-    private var isMeinkServiceInitialized = false
-    private var currentMeinkMode: Int = MEINK_MODE_READING
-    private val handler = Handler(Looper.getMainLooper())
-    private var pendingRetryMode: Int? = null
-    private var retryAttempt: Int = 0
+    private var currentMeinkMode: Int = MEINK_MODE_DISABLED
 
     companion object {
         private const val TAG = "EinkHelper"
         private const val MEINK_SERVICE_NAME = "meink"
+        private const val MEINK_DESCRIPTOR = "android.meink.IMeinkService"
         private const val MEINK_SET_MODE_TRANSACTION = 5
-        const val MEINK_MODE_READING = 1
-        const val MEINK_MODE_GAMMA = 2
-        private const val MEINK_RETRY_DELAY_MS = 1000L
-        private const val MAX_RETRY_ATTEMPTS = 3
-        
-        /**
-         * Check if the device is a Mudita Kompakt.
-         * Returns true if device brand is "Mudita" or model/device/product is "Kompakt".
-         */
-        fun isMuditaKompakt(): Boolean {
-            return Build.BRAND.equals("Mudita", ignoreCase = true) ||
-                   Build.MODEL.equals("Kompakt", ignoreCase = true) ||
-                   Build.DEVICE.equals("Kompakt", ignoreCase = true) ||
-                   Build.PRODUCT.equals("Kompakt", ignoreCase = true)
+        const val MEINK_MODE_DISABLED = 0
+        const val MEINK_MODE_CONTRAST = 1
+        const val MEINK_MODE_CLEAR = 3
+        const val MEINK_MODE_READING = 4
+
+        fun modeName(mode: Int): String = when (mode) {
+            MEINK_MODE_CLEAR -> "Clear"
+            MEINK_MODE_CONTRAST -> "Contrast"
+            MEINK_MODE_READING -> "Reading"
+            else -> "Disabled"
         }
+
+        fun nextMode(current: Int): Int = when (current) {
+            MEINK_MODE_DISABLED -> MEINK_MODE_CLEAR
+            MEINK_MODE_CLEAR -> MEINK_MODE_CONTRAST
+            MEINK_MODE_CONTRAST -> MEINK_MODE_READING
+            else -> MEINK_MODE_DISABLED
+        }
+
+        fun isMuditaKompakt(): Boolean =
+            com.github.gezimos.inkos.helper.device.DeviceHelper.isMuditaKompakt()
     }
 
-    /**
-     * Initialize MeInk service
-     */
+    @SuppressLint("PrivateApi")
     fun initializeMeinkService() {
-        if (isMeinkServiceInitialized) return
+        if (meinkService != null) return
 
         try {
             val serviceManagerClass = Class.forName("android.os.ServiceManager")
@@ -52,120 +54,62 @@ class EinkHelper : LifecycleObserver {
                 serviceManagerClass.getDeclaredMethod("getService", String::class.java)
 
             meinkService = getServiceMethod.invoke(null, MEINK_SERVICE_NAME) as? IBinder
-            isMeinkServiceInitialized = true
 
             if (meinkService != null) {
                 Log.d(TAG, "MeInk service initialized successfully")
                 setMeinkMode(currentMeinkMode)
             } else {
-                Log.w(TAG, "MeInk service not available, will retry")
-                scheduleMeinkRetry()
+                Log.w(TAG, "MeInk service not available")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to initialize MeInk service", e)
-            scheduleMeinkRetry()
         }
     }
 
-    /**
-     * Robust MeInk mode setting with retry logic
-     */
-    fun setMeinkMode(mode: Int, attempt: Int = 1) {
-        if (!isMeinkServiceInitialized || meinkService == null) {
+    fun setMeinkMode(mode: Int) {
+        if (mode == MEINK_MODE_DISABLED) {
+            currentMeinkMode = mode
+            Log.i(TAG, "MeInk disabled, using device default")
+            return
+        }
+        if (meinkService == null) {
             Log.w(TAG, "MeInk service not ready, deferring mode $mode")
             currentMeinkMode = mode
             initializeMeinkService()
             return
         }
 
+        val data = Parcel.obtain()
+        val reply = Parcel.obtain()
         try {
-            val data = Parcel.obtain()
-            val reply = Parcel.obtain()
-
-            try {
-                data.writeInterfaceToken("android.meink.IMeinkService")
-                data.writeInt(mode)
-
-                val success = meinkService!!.transact(MEINK_SET_MODE_TRANSACTION, data, reply, 0)
-
-                if (success) {
-                    reply.readException()
-                    currentMeinkMode = mode
-                    Log.i(TAG, "MeInk mode set to $mode successfully")
-                    handler.removeCallbacksAndMessages(null)
-                    pendingRetryMode = null
-                    retryAttempt = 0
-                } else {
-                    Log.w(TAG, "MeInk setMode($mode) failed, attempt $attempt")
-                    if (attempt < MAX_RETRY_ATTEMPTS) {
-                        scheduleMeinkRetry(mode, attempt + 1)
-                    }
-                }
-            } finally {
-                data.recycle()
-                reply.recycle()
+            data.writeInterfaceToken(MEINK_DESCRIPTOR)
+            data.writeString(packageName)
+            data.writeInt(mode)
+            val success = meinkService!!.transact(MEINK_SET_MODE_TRANSACTION, data, reply, 0)
+            if (success) {
+                reply.readException()
+                currentMeinkMode = mode
+                Log.i(TAG, "MeInk mode set to $mode successfully")
+            } else {
+                Log.w(TAG, "MeInk setMode($mode) transact returned false")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Exception in setMeinkMode($mode), attempt $attempt", e)
-            if (attempt < MAX_RETRY_ATTEMPTS) {
-                scheduleMeinkRetry(mode, attempt + 1)
-            }
+            Log.e(TAG, "Exception in setMeinkMode($mode)", e)
+            meinkService = null
+        } finally {
+            data.recycle()
+            reply.recycle()
         }
     }
 
-    /**
-     * Get current MeInk mode
-     */
-    fun getCurrentMeinkMode(): Int {
-        return currentMeinkMode
-    }
+    fun getCurrentMeinkMode(): Int = currentMeinkMode
 
-    /**
-     * Schedule retry for MeInk service operations
-     */
-    private fun scheduleMeinkRetry(mode: Int? = null, attempt: Int = 1) {
-        handler.removeCallbacksAndMessages(null)
-        val retryDelay = MEINK_RETRY_DELAY_MS * attempt
-
-        pendingRetryMode = mode
-        retryAttempt = attempt
-
-        handler.postDelayed({
-            if (mode != null) {
-                setMeinkMode(mode, attempt)
-            } else {
-                initializeMeinkService()
-            }
-        }, retryDelay)
-
-        Log.d(TAG, "Scheduled MeInk retry in ${retryDelay}ms")
-    }
-
-    /**
-     * Re-initialize MeInk service after configuration changes
-     */
     fun reinitializeMeinkService() {
-        isMeinkServiceInitialized = false
         meinkService = null
         initializeMeinkService()
     }
 
-    /**
-     * Clean up resources
-     */
-    fun cleanup() {
-        handler.removeCallbacksAndMessages(null)
-        pendingRetryMode = null
-        retryAttempt = 0
-    }
-
-    @OnLifecycleEvent(Lifecycle.Event.ON_PAUSE)
-    fun onPause() {
-        handler.removeCallbacksAndMessages(null)
-    }
-
-    @OnLifecycleEvent(Lifecycle.Event.ON_DESTROY)
-    fun onDestroy() {
-        cleanup()
+    override fun onDestroy(owner: LifecycleOwner) {
+        meinkService = null
     }
 }

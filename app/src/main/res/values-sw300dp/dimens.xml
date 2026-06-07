@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Defaults for 300-359dp screens (~0.85x scale) -->
+<resources>
+    <dimen name="default_settings_size">13sp</dimen>
+    <dimen name="default_clock_size">40sp</dimen>
+    <dimen name="default_app_size">22sp</dimen>
+    <dimen name="default_date_size">15sp</dimen>
+    <dimen name="default_quote_size">15sp</dimen>
+    <dimen name="default_notifications_text_size">15sp</dimen>
+    <dimen name="default_letters_text_size">15sp</dimen>
+    <dimen name="default_letters_title_size">30sp</dimen>
+    <dimen name="default_app_drawer_size">20sp</dimen>
+    <dimen name="default_app_gap">8dp</dimen>
+    <dimen name="default_app_drawer_gap">6dp</dimen>
+    <dimen name="default_top_widget_margin">27dp</dimen>
+    <dimen name="default_bottom_widget_margin">27dp</dimen>
+</resources>

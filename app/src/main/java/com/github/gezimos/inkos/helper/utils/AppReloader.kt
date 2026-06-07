@@ -9,7 +9,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 object AppReloader {
-    // GlobalScope: "fire and forget", no lifecycle management
     @OptIn(DelicateCoroutinesApi::class)
     fun restartApp(context: Context) {
         val packageManager = context.packageManager
@@ -17,7 +16,6 @@ object AppReloader {
         val componentName = intent?.component
         val mainIntent = Intent.makeRestartActivityTask(componentName)
 
-        // Delay the restart slightly to ensure all current activities are finished
         GlobalScope.launch(Dispatchers.Main) {
             delay(500) // Suspend function, avoids `Handler`
             context.startActivity(mainIntent)

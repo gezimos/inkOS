@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>inkOS — Changelog</title>
+    <meta name="description" content="Release notes and version history for inkOS, the minimal Android launcher.">
+    <link rel="canonical" href="https://inkos.gez.im/changelog/">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="inkOS — Changelog">
+    <meta property="og:description" content="Release notes and version history for inkOS, the minimal Android launcher.">
+    <meta property="og:url" content="https://inkos.gez.im/changelog/">
+    <meta property="og:image" content="https://inkos.gez.im/img/og.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="inkOS — Changelog">
+    <meta name="twitter:description" content="Release notes and version history for inkOS, the minimal Android launcher.">
+    <meta name="twitter:image" content="https://inkos.gez.im/img/og.jpg">
+    <link rel="icon" href="../img/inkos.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="../stili.css">
+</head>
+<body class="page-fade">
+
+<!-- NAV -->
+<div class="nav-wrapper">
+<nav class="nav">
+    <div class="nav-inner">
+        <a href=".." class="nav-logo"><img src="../img/inkos_logo_w.svg" alt="inkOS"></a>
+        <div class="nav-links">
+            <a href="..">Home</a>
+            <a href="../about/">About</a>
+            <a href="../features/">Features</a>
+            <a href="../presets/">Presets</a>
+            <a href="../changelog/">Changelog</a>
+            <a href="..#faq">FAQ</a>
+            <a href="https://www.buymeacoffee.com/gezimos" target="_blank" class="nav-cta">Support</a>
+        </div>
+    </div>
+</nav>
+</div>
+
+<!-- HERO -->
+<section class="hero hero-features">
+    <h1>What's new.</h1>
+    <p>Everything that changed in the latest release.</p>
+    <div class="hero-count">
+        <span class="material-symbols-outlined" style="font-size:14px;">add</span>
+        8 categories &middot; 150+ settings
+    </div>
+</section>
+
+<!-- v0.5 -->
+<section class="faq-section">
+    <div class="faq-split">
+        <div class="faq-left">
+            <h2 class="faq-head">v0.5</h2>
+            <p class="faq-sub">June 2026 - The biggest update yet. New shortcut system, 4 icon modes, theme presets, Hub notification center, and a lot more settings.</p>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <a href="https://github.com/gezimos/inkOS/blob/main/CHANGELOG.md" target="_blank" class="faq-contact">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                    Full Changelog
+                </a>
+            </div>
+        </div>
+        <div class="faq-right">
+            <div class="faq-item open">
+                <button class="faq-q changelog-q" onclick="this.parentElement.classList.toggle('open')" style="color:#c00;">IMPORTANT: How to Access Settings<span class="faq-plus">+</span></button>
+                <div class="faq-a">
+                    <ul class="changelog-list">
+                        <li><strong>Long-press replaced with pinch.</strong> Long-press was conflicting with page swipes and app opening, so it has been replaced. <strong>Pinch on any empty area of the home screen</strong> to open the quick menu. From there you can access inkOS Settings, Edit Mode, Edit Favorites, System Settings, Wallpaper, and About.</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="faq-item open">
+                <button class="faq-q changelog-q" onclick="this.parentElement.classList.toggle('open')">Settings<span class="faq-plus">+</span></button>
+                <div class="faq-a">
+                    <ul class="changelog-list">
+                        <li><strong>Redesigned settings menu.</strong> The main settings page has been redesigned with icons.</li>
+                        <li><strong>Setting descriptions.</strong> Every setting across all sections now has a description explaining what it does. Edit Mode keeps shorter rows without descriptions to save space.</li>
+                        <li><strong>Settings page swiping optimized.</strong> You can now drag to move across multiple settings pages at once.</li>
+                        <li><strong>UI scale.</strong> 8 scale modes so inkOS adapts to any screen size and preference.</li>
+                        <li><strong>New fonts.</strong> Iosevka and Zalando Sans Expanded added to the font picker.</li>
+                        <li><strong>Reworked onboarding.</strong> New users pick a theme preset during setup, so the launcher looks good from the first launch.</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="faq-item open">
+                <button class="faq-q changelog-q" onclick="this.parentElement.classList.toggle('open')">Edit Mode<span class="faq-plus">+</span></button>
+                <div class="faq-a">
+                    <ul class="changelog-list">
+                        <li><strong>Live editing.</strong> Edit Mode lets you change the look and settings of inkOS while seeing the changes in real time. When you enter Edit Mode, a dashed border appears around the screen to indicate you're editing.</li>
+                        <li><strong>Tap to edit.</strong> Tap directly on the clock, date row, quote, apps, or background and a bottom sheet with the relevant settings will appear. No need to hunt through settings menus.</li>
+                        <li><strong>Works across screens.</strong> You can swipe to other screens like Letters, SimpleTray, Recents, or App Drawer and Edit Mode stays active. Tap on elements or the background to open their settings from any screen.</li>
+                        <li><strong>Exiting Edit Mode.</strong> Press the home button or pinch again to open the quick menu and select Exit Edit Mode.</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="faq-item open">
+                <button class="faq-q changelog-q" onclick="this.parentElement.classList.toggle('open')">Home Screen<span class="faq-plus">+</span></button>
+                <div class="faq-a">
+                    <ul class="changelog-list">
+                        <li><strong>New clock designs.</strong> 9 styles to choose from - Default, Flip, Boxed, Round, Split, Horizontal, Box Outline, Analog, and Stacked. Some combine clock and date into a single element, others separate them for more creative layouts.</li>
+                        <li><strong>Per-element alignment.</strong> Clock, date, apps, and quote can each be aligned independently, so you can create asymmetrical layouts - for example, clock on the left, apps centered, quote on the right.</li>
+                        <li><strong>Bottom widgets.</strong> The area below your apps now supports 7 widget types: Quote, Calendar Events, Android Widget, Shortcuts, Total Usage, Page Dots, or Disabled.</li>
+                        <li><strong>Shortcuts widget.</strong> Two customizable buttons with 11 icon options and configurable tap actions. Quick access to anything without leaving home.</li>
+                        <li><strong>Calendar events widget.</strong> Shows upcoming events from selected calendars with a time range filter (24 hours, 1 week, 2 weeks, or 1 month).</li>
+                        <li><strong>Android widget embedding.</strong> Place any standard Android widget on your home screen with adjustable height and margins.</li>
+                        <li><strong>Notification indicators.</strong> 5 indicator styles to show unread counts next to app names. Choose the source: SimpleTray, Letters, or Hub.</li>
+                        <li><strong>Separators.</strong> Empty Space returns from v0.2 with two new options - Em Dash and Dots. Assign separators to any home slot to visually group your apps.</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="faq-item open">
+                <button class="faq-q changelog-q" onclick="this.parentElement.classList.toggle('open')">Shortcuts<span class="faq-plus">+</span></button>
+                <div class="faq-a">
+                    <ul class="changelog-list">
+                        <li><strong>Redesigned shortcut system.</strong> The entire shortcut architecture has been rebuilt. Migration from v0.4 is automatic - your existing setup carries over.</li>
+                        <li><strong>Pinned shortcuts.</strong> Third-party apps (like Activity Launcher) can now pin shortcuts directly into inkOS using Android's standard API.</li>
+                        <li><strong>App shortcuts.</strong> Apps that define their own shortcuts (e.g., Signal conversations, WhatsApp contacts) can now be launched directly from the home screen or drawer.</li>
+                        <li><strong>Web shortcuts.</strong> Save any website to your home screen as a shortcut, complete with its favicon.</li>
+                        <li><strong>Progressive web app shortcuts.</strong> PWA shortcuts are supported with automatic favicon detection.</li>
+                        <li><strong>Shortcut management.</strong> All shortcuts are managed from Settings/Appdrawer or the App Drawer (via Edit mode).</li>
+                        <li><strong>System shortcuts removed from app list.</strong> Device utilities like Default Apps, Accessibility, and Display Settings are no longer synthetic apps in the drawer. To find them, enable "Search Settings" in App Drawer settings - they'll appear in search results and launch directly to the right Android settings page.</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="faq-item open">
+                <button class="faq-q changelog-q" onclick="this.parentElement.classList.toggle('open')">Icons<span class="faq-plus">+</span></button>
+                <div class="faq-a">
+                    <ul class="changelog-list">
+                        <li><strong>4 icon modes.</strong> Choose how your apps look: Text (periodic-table style acronyms), System (default adaptive icons), inkOS Tinted (system icons with a luminance color filter based on your theme), or Icon Packs (any third-party pack from the Play Store).</li>
+                        <li><strong>Icon shapes.</strong> 3 shape options for icon backgrounds: Pill, Rounded, and Square.</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="faq-item open">
+                <button class="faq-q changelog-q" onclick="this.parentElement.classList.toggle('open')">Themes & Colors<span class="faq-plus">+</span></button>
+                <div class="faq-a">
+                    <ul class="changelog-list">
+                        <li><strong>15 one-tap theme presets.</strong> Each preset configures your entire look - colors, font, icon mode, clock style, layout, and more. Get a polished setup without touching individual settings.</li>
+                        <li><strong>Custom themes.</strong> Start from any preset and tweak it, or build your own from scratch. Every visual setting is exposed.</li>
+                        <li><strong>Theme export/import.</strong> Share your setup or back it up via Settings > Advanced. Includes layout, fonts, alignments, sizes - no private data.</li>
+                        <li><strong>Independent light and dark mode colors.</strong> Each mode has completely separate color settings with dedicated editor tabs.</li>
+                        <li><strong>System theme mode.</strong> Automatically switches between light and dark based on your device setting.</li>
+                        <li><strong>Smart wallpaper opacity.</strong> Background opacity auto-resets to 0 when you set a wallpaper, so it's visible immediately.</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="faq-item open">
+                <button class="faq-q changelog-q" onclick="this.parentElement.classList.toggle('open')">Notifications<span class="faq-plus">+</span></button>
+                <div class="faq-a">
+                    <ul class="changelog-list">
+                        <li><strong>Hub.</strong> A new full notification center. Notifications are grouped into category tabs (Messages, Email, Events, Other) with per-notification actions and a Clear All button.</li>
+                        <li><strong>Letters.</strong> Renamed from Notifications, with a cached conversation view for faster loading.</li>
+                        <li><strong>SimpleTray.</strong> Quick settings panel + live notifications. Fixed brightness slider conflicting with the system brightness slider. Fixed an issue where quick setting toggles (Wi-Fi, Bluetooth, etc.) would not open their settings panels on some devices.</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="faq-item open">
+                <button class="faq-q changelog-q" onclick="this.parentElement.classList.toggle('open')">App Drawer<span class="faq-plus">+</span></button>
+                <div class="faq-a">
+                    <ul class="changelog-list">
+                        <li><strong>Sort order.</strong> Sort your apps by A-Z (default), Most Used, or Last Used.</li>
+                        <li><strong>Drawer icons.</strong> Optionally show icons next to app names in the drawer.</li>
+                        <li><strong>A-Z sidebar.</strong> Now shows the currently active letter instead of the old >_ cursor.</li>
+                        <li><strong>Updated context menu.</strong> Long-press any app in the drawer for a redesigned context menu with options like rename, hide, uninstall, and app info.</li>
+                        <li><strong>Search hidden apps.</strong> Toggle to include hidden apps in drawer search results.</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="faq-item open">
+                <button class="faq-q changelog-q" onclick="this.parentElement.classList.toggle('open')">Search<span class="faq-plus">+</span></button>
+                <div class="faq-a">
+                    <ul class="changelog-list">
+                        <li><strong>Search sources.</strong> Each source can be individually toggled in App Drawer settings. All are off by default except app search.</li>
+                        <li><strong>Contacts.</strong> Search your contact list directly from the drawer. Filter by account type (Google, SIM, etc.) if you have multiple accounts. Requires contact permission.</li>
+                        <li><strong>Device Settings.</strong> Search Android settings like Wi-Fi, Bluetooth, Display, Battery, Accessibility, and more. Results launch directly to the right settings page.</li>
+                        <li><strong>Web.</strong> Type a search query or enter a URL directly. If nothing matches on your device, a "Search web" option appears that opens your default browser.</li>
+                        <li><strong>Music.</strong> Search by song title or artist name. Results open in your default music player. Requires media permission.</li>
+                        <li><strong>Files.</strong> Search files inside folders you choose via a folder picker. Searches up to 3 levels deep.</li>
+                        <li><strong>Hidden apps.</strong> Optionally include hidden apps in search results.</li>
+                        <li><strong>Contact photos.</strong> Search results for contacts show their profile photos.</li>
+                        <li><strong>Search as a gesture.</strong> Assign search to any gesture - opens the drawer with the keyboard ready.</li>
+                        <li><strong>Auto-launch.</strong> When search narrows to a single result, it opens automatically.</li>
+                        <li><strong>Smarter ranking.</strong> Results are ranked by frequency with time decay, so recent apps surface higher.</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="faq-item open">
+                <button class="faq-q changelog-q" onclick="this.parentElement.classList.toggle('open')">Gestures<span class="faq-plus">+</span></button>
+                <div class="faq-a">
+                    <ul class="changelog-list">
+                        <li><strong>Multi-page home.</strong> When using more than one home page, short swipes (up/down) navigate between pages, and long swipes trigger gesture actions like opening an app, search, or settings.</li>
+                        <li><strong>Single-page home.</strong> When using only one home page, short swipes trigger gesture actions directly since there are no pages to navigate.</li>
+                        <li><strong>Configurable thresholds.</strong> Short and long swipe threshold ratios are now adjustable.</li>
+                        <li><strong>New gesture actions.</strong> Search, Hub, Settings, Toggle Work Profile, and Toggle Private Space are now available as gesture targets.</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="faq-item open">
+                <button class="faq-q changelog-q" onclick="this.parentElement.classList.toggle('open')">Recents<span class="faq-plus">+</span></button>
+                <div class="faq-a">
+                    <ul class="changelog-list">
+                        <li><strong>Two modes.</strong> Toggle between a Recent Apps list and a Usage Statistics breakdown.</li>
+                        <li><strong>Usage filters.</strong> Filter stats by Today, This Week, This Month, or All Time.</li>
+                        <li><strong>Usage units.</strong> Display usage as Time, Money (with configurable currency), or Coffee equivalent.</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="faq-item open">
+                <button class="faq-q changelog-q" onclick="this.parentElement.classList.toggle('open')">Private Space & Work Profile<span class="faq-plus">+</span></button>
+                <div class="faq-a">
+                    <ul class="changelog-list">
+                        <li><strong>Private Space.</strong> Full support for Android 15+ Private Space. Requires inkOS as the default launcher. Private apps are completely separated from your main app list.</li>
+                        <li><strong>Toggle Private Space gesture.</strong> Assign Toggle Private Space to any gesture to quickly activate or lock your private space. Once activated, your private apps and shortcuts become accessible.</li>
+                        <li><strong>Accessing private apps.</strong> In the App Drawer, swipe down while on the first page or tap the shield icon in the A-Z sidebar to view your private apps.</li>
+                        <li><strong>Profile indicators.</strong> Private and work profile apps are marked with ^ on the home screen and in the drawer, so you always know which profile an app belongs to.</li>
+                        <li><strong>Work Profile controls.</strong> Pause and resume your Work Profile directly from inkOS.</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="faq-item open">
+                <button class="faq-q changelog-q" onclick="this.parentElement.classList.toggle('open')">Other<span class="faq-plus">+</span></button>
+                <div class="faq-a">
+                    <ul class="changelog-list">
+                        <li><strong>E-ink modes.</strong> Reworked from a simple toggle to 4 distinct modes: Disabled, Contrast, Clear, and Reading.</li>
+                        <li><strong>Wallpaper.</strong> inkOS's own wallpaper system is back, running alongside Android's native wallpaper.</li>
+                        <li><strong>Audio widget.</strong> Improved detection. Spotify's persistent notification is now ignored after stop, so the widget properly hides.</li>
+                        <li><strong>Android widgets.</strong> Two new widgets for your lockscreen or home: Notification (top 5 sources with counts) and Quote.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="site-footer">
+    <div class="footer-inner">
+        <div class="footer-top">
+            <div class="footer-brand">
+                <div class="footer-brand-logo">
+                    <img src="../img/inkos_logo_w.svg" alt="inkOS">
+                </div>
+                <p>A free, open-source Android launcher for people who'd rather use their phone less.</p>
+                <div class="footer-btns">
+                    <a href="https://play.google.com/store/apps/details?id=app.inkos" class="footer-btn footer-btn-fill">Google Play</a>
+                    <a href="https://github.com/gezimos/inkOS" class="footer-btn">Source Code</a>
+                </div>
+            </div>
+            <div class="footer-col">
+                <h3>Product</h3>
+                <a href="..">Home</a>
+                <a href="../about/">About</a>
+                <a href="../features/">Features</a>
+                <a href="../presets/">Presets</a>
+                <a href="../changelog/">Changelog</a>
+                <a href="..#faq">FAQ</a>
+                <a href="https://youtube.com/@gezimos" target="_blank">YouTube</a>
+            </div>
+            <div class="footer-col">
+                <h3>Legal</h3>
+                <a href="../privacy/">Privacy Policy</a>
+                <a href="../permissions/">Permissions</a>
+                <a href="https://github.com/gezimos/inkOS/blob/main/LICENSE">License</a>
+            </div>
+            <div class="footer-col">
+                <h3>Support</h3>
+                <p style="font-size:14px; color:#aaa; line-height:1.6; margin-bottom:16px;">This project required a lot of beans. Coffee is appreciated.</p>
+                <a href="https://www.buymeacoffee.com/gezimos" target="_blank" class="footer-btn" style="padding:6px 12px; background:#FFDD00; color:#000; border-color:#FFDD00; align-self:flex-start; width:fit-content;">
+                    <img src="../img/bmc.svg" alt="Buy me a coffee" style="height:24px; display:block;">
+                </a>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <span class="footer-copy">&copy; 2026 inkOS. All rights reserved.</span>
+            <div class="footer-bottom-links">
+                <a href="../privacy/">Privacy</a>
+                <a href="../permissions/">Permissions</a>
+                <a href="https://github.com/gezimos/inkOS">GitHub</a>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<script src="../script.js"></script>
+
+</body>
+</html>

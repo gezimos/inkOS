@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url>
+        <loc>https://inkos.gez.im/</loc>
+        <priority>1.0</priority>
+    </url>
+    <url>
+        <loc>https://inkos.gez.im/about/</loc>
+        <priority>0.8</priority>
+    </url>
+    <url>
+        <loc>https://inkos.gez.im/features/</loc>
+        <priority>0.8</priority>
+    </url>
+    <url>
+        <loc>https://inkos.gez.im/presets/</loc>
+        <priority>0.8</priority>
+    </url>
+    <url>
+        <loc>https://inkos.gez.im/changelog/</loc>
+        <priority>0.6</priority>
+    </url>
+    <url>
+        <loc>https://inkos.gez.im/privacy/</loc>
+        <priority>0.4</priority>
+    </url>
+    <url>
+        <loc>https://inkos.gez.im/permissions/</loc>
+        <priority>0.4</priority>
+    </url>
+</urlset>

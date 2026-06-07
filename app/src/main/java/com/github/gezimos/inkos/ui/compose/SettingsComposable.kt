@@ -10,15 +10,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.focusable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -27,12 +24,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.Text
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalContext
-import com.github.gezimos.inkos.data.Prefs
 import com.github.gezimos.inkos.helper.utils.VibrationHelper
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.graphicsLayer
@@ -52,39 +47,44 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.sp
 import com.github.gezimos.inkos.helper.ShapeHelper
+import com.github.gezimos.inkos.style.LocalPrefs
 import com.github.gezimos.inkos.style.SettingsTheme
 import com.github.gezimos.inkos.style.Theme
+import com.github.gezimos.inkos.style.rememberScreenScale
+import com.github.gezimos.inkos.style.scaled
 
 object SettingsComposable {
 
     @Composable
-    private fun Modifier.pillFocusHighlight(
-        isFocused: Boolean,
+    fun tuToDp(textUnit: TextUnit): Dp {
+        val density = LocalDensity.current.density
+        val scaledDensity = LocalDensity.current.fontScale
+        val dpValue = textUnit.value * (density / scaledDensity)
+        return dpValue.dp
+    }
+
+    @Composable
+    fun Modifier.pillHighlight(
+        isHighlighted: Boolean,
         inset: Dp = 6.dp,
         color: Color,
         outerHorizontal: Dp = 16.dp,
-        outerVertical: Dp = 16.dp
+        outerVertical: Dp = 16.dp,
+        textIslandsShape: Int = LocalPrefs.current?.textIslandsShape ?: 0
     ): Modifier {
         val density = LocalDensity.current
-        val context = LocalContext.current
-        val prefs = Prefs(context)
-        val textIslandsShape = prefs.textIslandsShape
-        
+
         val insetPx = with(density) { inset.toPx() }
         val outerPxH = with(density) { outerHorizontal.toPx() }
         val outerPxV = with(density) { outerVertical.toPx() }
         return this
             .graphicsLayer(clip = false)
             .drawBehind {
-                if (isFocused) {
-                    // Draw a shape that extends outerHorizontal/outerVertical outside the element bounds,
-                    // and keeps an inner inset from the element edges.
-                    // Shape is determined by textIslandsShape preference: 0=Pill, 1=Rounded, 2=Square
+                if (isHighlighted) {
                     val drawH = (size.height + outerPxV * 2 - insetPx * 2).coerceAtLeast(0f)
                     val drawW = (size.width + outerPxH * 2 - insetPx * 2).coerceAtLeast(0f)
                     val topLeft = Offset(-outerPxH + insetPx, -outerPxV + insetPx)
                     
-                    // Calculate corner radius based on textIslandsShape preference
                     val cornerRadius = ShapeHelper.getCornerRadius(
                         textIslandsShape = textIslandsShape,
                         height = drawH,
@@ -108,6 +108,7 @@ object SettingsComposable {
         modifier: Modifier = Modifier
     ) {
         val tintColor = SettingsTheme.color.settings
+        val screenScale = rememberScreenScale()
         Row(
             modifier = modifier,
             verticalAlignment = Alignment.CenterVertically,
@@ -119,8 +120,8 @@ object SettingsComposable {
                     contentDescription = null,
                     colorFilter = ColorFilter.tint(tintColor),
                     modifier = Modifier
-                        .padding(horizontal = 2.dp)
-                        .size(if (i == currentPage) 12.dp else 10.dp)
+                        .padding(horizontal = 2.dp.scaled(screenScale))
+                        .size(if (i == currentPage) 12.dp.scaled(screenScale) else 10.dp.scaled(screenScale))
                 )
             }
         }
@@ -135,47 +136,49 @@ object SettingsComposable {
         showStatusBar: Boolean = false,
         modifier: Modifier = Modifier,
         pageIndicator: (@Composable () -> Unit)? = null,
-        titleFontSize: TextUnit = TextUnit.Unspecified // Use titleFontSize
+        titleFontSize: TextUnit = TextUnit.Unspecified,
+        backHighlighted: Boolean = false
     ) {
+        val prefTextColor = Theme.colors.text
+        val prefBackgroundColor = Theme.colors.background
+        val screenScale = rememberScreenScale()
         Row(
             modifier = modifier
                 .fillMaxWidth()
-                .padding(top = if (showStatusBar) 36.dp else 12.dp)
+                .padding(top = 12.dp)
                 .padding(horizontal = SettingsTheme.color.horizontalPadding),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Back icon: make focusable and highlight like other rows. Request focus on composition
-            val prefs = Prefs(LocalContext.current)
-            val prefTextColor = Theme.colors.text
-            val prefBackgroundColor = Theme.colors.background
             val backFocusRequester = remember { FocusRequester() }
-            var backFocused by remember { mutableStateOf(false) }
             Image(
                 painter = painterResource(id = iconRes),
                 contentDescription = title,
-                // Do NOT invert/tint the icon when focused; keep consistent icon color
-                colorFilter = ColorFilter.tint(SettingsTheme.color.image),
+                colorFilter = ColorFilter.tint(if (backHighlighted) prefBackgroundColor else SettingsTheme.color.image),
                 modifier = Modifier
                     .focusRequester(backFocusRequester)
-                        .onFocusChanged { backFocused = it.isFocused }
-                        .focusable()
+                    .focusable()
+                    .pillHighlight(
+                        isHighlighted = backHighlighted,
+                        color = prefTextColor,
+                        outerHorizontal = 8.dp,
+                        outerVertical = 8.dp
+                    )
                     .clickable(onClick = {
                         try { VibrationHelper.trigger(VibrationHelper.Effect.CLICK) } catch (_: Exception) {}
                         onClick()
                     })
-                    .size(iconSize)
+                    .size(iconSize.scaled(screenScale))
             )
             LaunchedEffect(Unit) {
-                // Request focus for the header back icon so DPAD navigation lands here immediately
                 backFocusRequester.requestFocus()
             }
 
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(16.dp.scaled(screenScale)))
 
-            // Title centered
+            // Title left-aligned to match setting items
             Box(
                 modifier = Modifier.weight(1f),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.CenterStart
             ) {
                 SettingsHeaderTitle(
                     text = title,
@@ -194,20 +197,27 @@ object SettingsComposable {
     fun SettingsHomeItem(
         title: String,
         imageVector: ImageVector? = null,
+        @DrawableRes iconRes: Int? = null,
+        description: String? = null,
         onClick: () -> Unit = {},
         titleFontSize: TextUnit = TextUnit.Unspecified,
+        horizontalPadding: Dp = SettingsTheme.color.horizontalPadding,
+        verticalPadding: Dp = 10.dp.scaled(rememberScreenScale()),
+        focusVerticalPadding: Dp = 12.dp.scaled(rememberScreenScale()),
+        iconPadding: Dp = 0.dp
     ) {
         val interactionSource = remember { MutableInteractionSource() }
         val isFocused = interactionSource.collectIsFocusedAsState().value
-        val prefs = Prefs(LocalContext.current)
+        val isHighlighted = isFocused
         val prefTextColor = Theme.colors.text
         val prefBackgroundColor = Theme.colors.background
+        val screenScale = rememberScreenScale()
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = SettingsTheme.color.horizontalPadding)
-                .padding(vertical = 16.dp)
-                .pillFocusHighlight(isFocused, 6.dp, prefTextColor)
+                .padding(horizontal = horizontalPadding)
+                .padding(vertical = verticalPadding)
+                .pillHighlight(isHighlighted, 6.dp, prefTextColor, outerVertical = focusVerticalPadding)
                 .clickable(
                     onClick = {
                         try { VibrationHelper.trigger(VibrationHelper.Effect.CLICK) } catch (_: Exception) {}
@@ -218,34 +228,48 @@ object SettingsComposable {
                 ),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            val iconBoxSize = 24.dp.scaled(screenScale)
             if (imageVector != null) {
                 Image(
                     imageVector,
                     contentDescription = title,
-                    colorFilter = ColorFilter.tint(SettingsTheme.color.image),
+                    colorFilter = ColorFilter.tint(if (isHighlighted) prefBackgroundColor else SettingsTheme.color.image),
                     modifier = Modifier
-                        .size(24.dp)
+                        .size(iconBoxSize)
+                        .padding(iconPadding)
                 )
                 Spacer(
                     modifier = Modifier
-                        .width(16.dp)
+                        .width(16.dp.scaled(screenScale))
                 )
+            } else if (iconRes != null) {
+                Image(
+                    painter = painterResource(id = iconRes),
+                    contentDescription = title,
+                    colorFilter = ColorFilter.tint(if (isHighlighted) prefBackgroundColor else SettingsTheme.color.image),
+                    modifier = Modifier
+                        .size(iconBoxSize)
+                        .padding(iconPadding)
+                )
+                Spacer(modifier = Modifier.width(16.dp.scaled(screenScale)))
             }
-            Text(
-                text = title,
-                style = SettingsTheme.typography.title,
-                fontSize = titleFontSize,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f),
-                color = if (isFocused) prefBackgroundColor else SettingsTheme.typography.title.color
-            )
-            // Chevron right icon
-            Image(
-                painter = painterResource(id = com.github.gezimos.inkos.R.drawable.ic_chevron_right),
-                contentDescription = null,
-                colorFilter = ColorFilter.tint(if (isFocused) prefBackgroundColor else SettingsTheme.color.image),
-                modifier = Modifier.size(16.dp)
-            )
+            Column {
+                Text(
+                    text = title,
+                    style = SettingsTheme.typography.title,
+                    fontSize = titleFontSize,
+                    color = if (isHighlighted) prefBackgroundColor else SettingsTheme.typography.title.color
+                )
+                if (description != null) {
+                    val descFontSize = if (titleFontSize.isSpecified) (titleFontSize.value * 0.65f).sp else (SettingsTheme.typography.title.fontSize.value * 0.65f).sp
+                    Text(
+                        text = description,
+                        style = SettingsTheme.typography.title,
+                        fontSize = descFontSize,
+                        color = if (isHighlighted) prefBackgroundColor else SettingsTheme.typography.title.color
+                    )
+                }
+            }
         }
     }
 
@@ -253,18 +277,19 @@ object SettingsComposable {
     fun SettingsTitle(
         text: String,
         modifier: Modifier = Modifier,
-        fontSize: TextUnit = TextUnit.Unspecified
+        fontSize: TextUnit = TextUnit.Unspecified,
+        horizontalPadding: Dp = SettingsTheme.color.horizontalPadding,
+        verticalPadding: Dp = 8.dp.scaled(rememberScreenScale())
     ) {
-        // Make SettingsTitle same height as SettingsSwitch/Select and capitalize text
         val effectiveFontSize = if (fontSize.isSpecified) {
             (fontSize.value * 0.8).sp
         } else {
-            14.sp // fallback to a small size
+            SettingsTheme.typography.header.fontSize
         }
         Row(
             modifier = modifier
                 .fillMaxWidth()
-                .padding(vertical = 16.dp), // changed from 24.dp to 16.dp
+                .padding(vertical = verticalPadding),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
@@ -272,10 +297,9 @@ object SettingsComposable {
                 style = SettingsTheme.typography.header,
                 fontSize = effectiveFontSize,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(start = SettingsTheme.color.horizontalPadding)
+                modifier = Modifier.padding(start = horizontalPadding)
             )
 
-            // Dashed separator to the right of the title that fills remaining space
             Box(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
                 DashedSeparator()
             }
@@ -288,16 +312,16 @@ object SettingsComposable {
         modifier: Modifier = Modifier,
         fontSize: TextUnit = TextUnit.Unspecified
     ) {
-        // Same height as SettingsSwitch/Select but without the bullet prefix
+        val screenScale = rememberScreenScale()
         val effectiveFontSize = if (fontSize.isSpecified) {
             (fontSize.value * 0.8).sp
         } else {
-            14.sp // fallback to a small size
+            14.sp.scaled(screenScale)
         }
         Row(
             modifier = modifier
                 .fillMaxWidth()
-                .padding(vertical = 16.dp),
+                .padding(vertical = 16.dp.scaled(screenScale)),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
@@ -305,31 +329,10 @@ object SettingsComposable {
                 style = SettingsTheme.typography.header,
                 fontSize = effectiveFontSize,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(start = SettingsTheme.color.horizontalPadding)
             )
         }
     }
 
-
-
-    @Composable
-    fun SettingsItem(
-        text: String,
-        modifier: Modifier = Modifier,
-        fontSize: TextUnit = TextUnit.Unspecified,
-        fontColor: Color = SettingsTheme.typography.title.color
-    ) {
-        Text(
-            text = text,
-            style = SettingsTheme.typography.title,
-            fontSize = if (fontSize.isSpecified) fontSize else SettingsTheme.typography.title.fontSize,
-            color = fontColor,
-            modifier = modifier
-                .fillMaxWidth()
-                .padding(horizontal = SettingsTheme.color.horizontalPadding)
-                .padding(vertical = 12.dp)
-        )
-    }
 
     @Composable
     fun CustomToggleSwitch(
@@ -337,20 +340,20 @@ object SettingsComposable {
         onCheckedChange: (Boolean) -> Unit,
         tint: Color = SettingsTheme.typography.title.color
     ) {
-        val circleDiameter = 9.8.dp
-        val circleBorder = 2.5.dp
-        val lineWidth = 14.5.dp
-        val lineHeight = 2.22.dp
+        val screenScale = rememberScreenScale()
+        val circleDiameter = 12.dp.scaled(screenScale)
+        val circleBorder = 2.5.dp.scaled(screenScale)
+        val lineWidth = 12.dp.scaled(screenScale)
+        val lineHeight = 2.5.dp.scaled(screenScale)
 
         val switchColor = tint
 
         Row(
             modifier = Modifier
                 .clickable {
-                    try { VibrationHelper.trigger(VibrationHelper.Effect.SELECT) } catch (_: Exception) {}
+                    try { VibrationHelper.trigger(VibrationHelper.Effect.CLICK) } catch (_: Exception) {}
                     onCheckedChange(!checked)
-                }
-                .padding(horizontal = 8.dp),
+                },
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (!checked) {
@@ -380,6 +383,34 @@ object SettingsComposable {
             }
         }
     }
+    @Composable
+    fun AlignmentIcon(alignment: Int, tint: Color = Theme.colors.text, size: Dp = 18.dp) {
+        val screenScale = rememberScreenScale()
+        val s = size.scaled(screenScale)
+        val lineH = 2.5.dp.scaled(screenScale)
+        val gap = 3.dp.scaled(screenScale)
+        val widths = listOf(1f, 0.5f, 0.85f)
+        val hAlign = when (alignment) {
+            0 -> Alignment.Start
+            2 -> Alignment.End
+            else -> Alignment.CenterHorizontally
+        }
+        Box(modifier = Modifier.size(s), contentAlignment = Alignment.Center) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(gap),
+                horizontalAlignment = hAlign
+            ) {
+                widths.forEach { fraction ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(fraction)
+                            .height(lineH)
+                            .background(tint)
+                    )
+                }
+            }
+        }
+    }
 
     @Composable
     fun SettingsSwitch(
@@ -388,19 +419,22 @@ object SettingsComposable {
         defaultState: Boolean = false,
         enabled: Boolean = true,
         modifier: Modifier = Modifier,
+        description: String? = null,
+        horizontalPadding: Dp = SettingsTheme.color.horizontalPadding,
+        verticalPadding: Dp = 10.dp.scaled(rememberScreenScale()),
         onCheckedChange: (Boolean) -> Unit
     ) {
         val interactionSource = remember { MutableInteractionSource() }
         val isFocused = interactionSource.collectIsFocusedAsState().value
-        val prefs = Prefs(LocalContext.current)
+        val isHighlighted = isFocused
         val prefTextColor = Theme.colors.text
         val prefBackgroundColor = Theme.colors.background
-        Row(
+        Column(
             modifier = modifier
                 .fillMaxWidth()
-                .padding(horizontal = SettingsTheme.color.horizontalPadding)
-                .padding(vertical = 16.dp)
-                .pillFocusHighlight(isFocused, 6.dp, prefTextColor)
+                .padding(horizontal = horizontalPadding)
+                .padding(vertical = verticalPadding)
+                .pillHighlight(isHighlighted, 6.dp, prefTextColor)
                 .clickable(
                     enabled = enabled,
                     onClick = {
@@ -409,24 +443,37 @@ object SettingsComposable {
                     },
                     interactionSource = interactionSource,
                     indication = null
-                ),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                )
         ) {
-            Text(
-                text = text,
-                style = if (fontSize.isSpecified) {
-                    SettingsTheme.typography.title.copy(fontSize = fontSize)
-                } else SettingsTheme.typography.title,
-                modifier = Modifier
-                    .weight(1f),
-                color = if (!enabled) prefTextColor.copy(alpha = 0.25f) else if (isFocused) prefBackgroundColor else SettingsTheme.typography.title.color
-            )
-            CustomToggleSwitch(
-                checked = defaultState,
-                onCheckedChange = { onCheckedChange(it) },
-                tint = if (isFocused) prefBackgroundColor else SettingsTheme.typography.title.color
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = text,
+                        style = if (fontSize.isSpecified) {
+                            SettingsTheme.typography.title.copy(fontSize = fontSize)
+                        } else SettingsTheme.typography.title,
+                        color = if (!enabled) prefTextColor.copy(alpha = 0.4f) else if (isHighlighted) prefBackgroundColor else SettingsTheme.typography.title.color
+                    )
+                    if (description != null) {
+                        val descFontSize = if (fontSize.isSpecified) (fontSize.value * 0.65f).sp else (SettingsTheme.typography.title.fontSize.value * 0.65f).sp
+                        Text(
+                            text = description,
+                            style = SettingsTheme.typography.title,
+                            fontSize = descFontSize,
+                            color = if (!enabled) prefTextColor.copy(alpha = 0.4f) else if (isHighlighted) prefBackgroundColor else SettingsTheme.typography.title.color
+                        )
+                    }
+                }
+                CustomToggleSwitch(
+                    checked = defaultState,
+                    onCheckedChange = { if (enabled) onCheckedChange(it) },
+                    tint = if (!enabled) prefTextColor.copy(alpha = 0.4f) else if (isHighlighted) prefBackgroundColor else SettingsTheme.typography.title.color
+                )
+            }
         }
     }
 
@@ -434,70 +481,26 @@ object SettingsComposable {
     fun SettingsSelect(
         title: String,
         option: String,
-        fontSize: TextUnit = 24.sp, // Default font size for the title
+        fontSize: TextUnit = TextUnit.Unspecified, // Default font size for the title
         fontColor: Color = SettingsTheme.typography.title.color,
         enabled: Boolean = true,
+        description: String? = null,
+        optionAlignment: Int? = null,
+        horizontalPadding: Dp = SettingsTheme.color.horizontalPadding,
+        verticalPadding: Dp = 10.dp.scaled(rememberScreenScale()),
         onClick: () -> Unit = {},
     ) {
         val interactionSource = remember { MutableInteractionSource() }
         val isFocused = interactionSource.collectIsFocusedAsState().value
-        val prefs = Prefs(LocalContext.current)
+        val isHighlighted = isFocused
         val prefTextColor = Theme.colors.text
         val prefBackgroundColor = Theme.colors.background
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = SettingsTheme.color.horizontalPadding)
-                .padding(vertical = 16.dp)
-                .pillFocusHighlight(isFocused, 6.dp, prefTextColor)
-                .clickable(
-                    enabled = enabled,
-                    onClick = {
-                        try { VibrationHelper.trigger(VibrationHelper.Effect.CLICK) } catch (_: Exception) {}
-                        onClick()
-                    },
-                    interactionSource = interactionSource,
-                    indication = null
-                ),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = title,
-                style = SettingsTheme.typography.title,
-                fontSize = fontSize,
-                modifier = Modifier.weight(1f),
-                color = if (isFocused) prefBackgroundColor else SettingsTheme.typography.title.color
-            )
-
-            Text(
-                text = option,
-                style = SettingsTheme.typography.title,
-                fontSize = fontSize,
-                color = if (!enabled) prefTextColor.copy(alpha = 0.25f) else if (isFocused) prefBackgroundColor else fontColor
-            )
-        }
-    }
-
-    @Composable
-    fun SettingsSelectWithColorPreview(
-        title: String,
-        hexColor: String,
-        previewColor: Color,
-        fontSize: TextUnit = 24.sp,
-        enabled: Boolean = true,
-        onClick: () -> Unit = {},
-    ) {
-        val interactionSource = remember { MutableInteractionSource() }
-        val isFocused = interactionSource.collectIsFocusedAsState().value
-        val prefs = Prefs(LocalContext.current)
-        val prefTextColor = Theme.colors.text
-        val prefBackgroundColor = Theme.colors.background
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = SettingsTheme.color.horizontalPadding)
-                .padding(vertical = 12.dp)
-                .pillFocusHighlight(isFocused, 6.dp, prefTextColor)
+                .padding(horizontal = horizontalPadding)
+                .padding(vertical = verticalPadding)
+                .pillHighlight(isHighlighted, 6.dp, prefTextColor)
                 .clickable(
                     enabled = enabled,
                     onClick = {
@@ -507,53 +510,125 @@ object SettingsComposable {
                     interactionSource = interactionSource,
                     indication = null
                 )
-            ,
-            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = title,
-                style = SettingsTheme.typography.title,
-                fontSize = fontSize,
-                modifier = Modifier.weight(1f),
-                color = if (!enabled) prefTextColor.copy(alpha = 0.25f) else if (isFocused) prefBackgroundColor else SettingsTheme.typography.title.color
-            )
-
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.clickable(enabled = enabled, onClick = onClick)
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = hexColor,
-                    style = SettingsTheme.typography.title,
-                    fontSize = fontSize,
-                    color = if (!enabled) prefTextColor.copy(alpha = 0.25f) else if (isFocused) prefBackgroundColor else SettingsTheme.typography.title.color
-                )
-
-                Canvas(
-                    modifier = Modifier
-                        .size(24.dp)
-                        .border(
-                            width = 1.dp,
-                            color = SettingsTheme.color.border,
-                            shape = CircleShape
+                val textColor = if (!enabled) prefTextColor.copy(alpha = 0.4f) else if (isHighlighted) prefBackgroundColor else SettingsTheme.typography.title.color
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = title,
+                        style = SettingsTheme.typography.title,
+                        fontSize = fontSize,
+                        color = textColor
+                    )
+                    if (description != null) {
+                        val descFontSize = if (fontSize.isSpecified) (fontSize.value * 0.65f).sp else (SettingsTheme.typography.title.fontSize.value * 0.65f).sp
+                        Text(
+                            text = description,
+                            style = SettingsTheme.typography.title,
+                            fontSize = descFontSize,
+                            color = textColor
                         )
-                ) {
-                    drawCircle(color = previewColor)
+                    }
+                }
+
+                if (optionAlignment != null) {
+                    AlignmentIcon(
+                        alignment = optionAlignment,
+                        tint = if (!enabled) prefTextColor.copy(alpha = 0.4f) else if (isHighlighted) prefBackgroundColor else prefTextColor
+                    )
+                } else {
+                    Text(
+                        text = option,
+                        style = SettingsTheme.typography.item,
+                        fontSize = fontSize,
+                        color = if (!enabled) prefTextColor.copy(alpha = 0.4f) else if (isHighlighted) prefBackgroundColor else fontColor
+                    )
                 }
             }
         }
     }
 
     @Composable
-    fun SolidSeparator() {
-        val borderColor = SettingsTheme.color.border
-        androidx.compose.material.Divider(
+    fun SettingsSelectWithDualColorPreview(
+        title: String,
+        color1: Color,
+        color2: Color,
+        fontSize: TextUnit = TextUnit.Unspecified,
+        enabled: Boolean = true,
+        description: String? = null,
+        horizontalPadding: Dp = SettingsTheme.color.horizontalPadding,
+        verticalPadding: Dp = 10.dp.scaled(rememberScreenScale()),
+        onClick: () -> Unit = {},
+    ) {
+        val interactionSource = remember { MutableInteractionSource() }
+        val isFocused = interactionSource.collectIsFocusedAsState().value
+        val isHighlighted = isFocused
+        val prefTextColor = Theme.colors.text
+        val prefBackgroundColor = Theme.colors.background
+        Column(
             modifier = Modifier
-                .fillMaxWidth(),
-            color = borderColor,
-            thickness = 3.dp
-        )
+                .fillMaxWidth()
+                .padding(horizontal = horizontalPadding)
+                .padding(vertical = verticalPadding)
+                .pillHighlight(isHighlighted, 6.dp, prefTextColor)
+                .clickable(
+                    enabled = enabled,
+                    onClick = {
+                        try { VibrationHelper.trigger(VibrationHelper.Effect.CLICK) } catch (_: Exception) {}
+                        onClick()
+                    },
+                    interactionSource = interactionSource,
+                    indication = null
+                )
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = title,
+                        style = SettingsTheme.typography.title,
+                        fontSize = fontSize,
+                        color = if (!enabled) prefTextColor.copy(alpha = 0.4f) else if (isHighlighted) prefBackgroundColor else SettingsTheme.typography.title.color
+                    )
+                    if (description != null) {
+                        val descFontSize = if (fontSize.isSpecified) (fontSize.value * 0.65f).sp else (SettingsTheme.typography.title.fontSize.value * 0.65f).sp
+                        Text(
+                            text = description,
+                            style = SettingsTheme.typography.title,
+                            fontSize = descFontSize,
+                            color = if (isHighlighted) prefBackgroundColor else SettingsTheme.typography.title.color
+                        )
+                    }
+                }
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(16.dp)
+                            .border(1.5.dp, if (isHighlighted) prefBackgroundColor else prefTextColor, CircleShape)
+                            .padding(1.5.dp)
+                            .border(1.dp, Color.White, CircleShape)
+                            .background(color1, CircleShape)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(16.dp)
+                            .border(1.5.dp, if (isHighlighted) prefBackgroundColor else prefTextColor, CircleShape)
+                            .padding(1.5.dp)
+                            .border(1.dp, Color.White, CircleShape)
+                            .background(color2, CircleShape)
+                    )
+                }
+            }
+        }
     }
 
     @Composable

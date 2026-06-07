@@ -7,7 +7,6 @@ import androidx.core.net.toUri
 
 object BrightnessHelper {
     fun toggleBrightness(context: Context, prefs: Prefs, window: android.view.Window) {
-        // Check if we have permission to modify system settings
         if (!android.provider.Settings.System.canWrite(context)) {
             val intent = android.content.Intent(android.provider.Settings.ACTION_MANAGE_WRITE_SETTINGS)
             intent.data = ("package:${context.packageName}").toUri()
@@ -30,11 +29,9 @@ object BrightnessHelper {
                 android.provider.Settings.System.SCREEN_BRIGHTNESS
             )
 
-            // Determine if we're currently dimmed (brightness is 0 or very low)
             val isDimmed = currentSystemBrightness <= 1
 
             if (isDimmed) {
-                // Restore brightness to the last saved value (use lastBrightnessLevel if available)
                 val savedBrightness = if (prefs.brightnessLevel > 0) {
                     prefs.brightnessLevel.coerceIn(0, 255)
                 } else {
@@ -58,7 +55,6 @@ object BrightnessHelper {
 
                 Toast.makeText(context, "Brightness restored to $savedBrightness", Toast.LENGTH_SHORT).show()
             } else {
-                // ALWAYS save current brightness before dimming (this fixes the caching issue)
                 if (currentSystemBrightness > 0) {
                     prefs.lastBrightnessLevel = currentSystemBrightness
                 }
@@ -86,11 +82,6 @@ object BrightnessHelper {
             Toast.makeText(context, "Permission required for brightness control", Toast.LENGTH_SHORT).show()
         }
     }
-    
-    /**
-     * Set brightness level (0-255). If 0, writes 1 to system but stores 0 in prefs.
-     * This maintains user intent while working around vendor driver limitations.
-     */
     fun setBrightness(context: Context, prefs: Prefs, level: Int): Boolean {
         if (!android.provider.Settings.System.canWrite(context)) {
             return false
@@ -98,7 +89,6 @@ object BrightnessHelper {
         
         val clampedLevel = level.coerceIn(0, 255)
         return try {
-            // Some vendor drivers don't accept 0. Write 1 to system but keep prefs/UI as 0.
             val writeVal = if (clampedLevel == 0) 1 else clampedLevel
             val success = android.provider.Settings.System.putInt(
                 context.contentResolver,
@@ -106,9 +96,7 @@ object BrightnessHelper {
                 writeVal
             )
             if (success) {
-                // Save the user's intention: prefs stores the actual value (including 0)
                 prefs.brightnessLevel = clampedLevel
-                // Save non-zero values to lastBrightnessLevel for restoration
                 if (clampedLevel > 0) {
                     prefs.lastBrightnessLevel = clampedLevel
                 }

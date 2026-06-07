@@ -1,0 +1,19 @@
+<svg viewBox="0 0 220 555" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <!-- Body -->
+    <rect x="1" y="1" width="218" height="553" rx="10" stroke="white" stroke-width="1.5"/>
+    <!-- Grid outer border -->
+    <rect x="6" y="289" width="208" height="259" rx="5" stroke="white" stroke-width="1.5"/>
+    <!-- Vertical dividers (all rows) -->
+    <line x1="75" y1="289" x2="75" y2="548" stroke="white" stroke-width="1.5"/>
+    <line x1="145" y1="289" x2="145" y2="548" stroke="white" stroke-width="1.5"/>
+    <!-- Horizontal dividers (break around circle) -->
+    <line x1="6" y1="332" x2="82" y2="332" stroke="white" stroke-width="1.5"/>
+    <line x1="138" y1="332" x2="214" y2="332" stroke="white" stroke-width="1.5"/>
+    <line x1="6" y1="375" x2="214" y2="375" stroke="white" stroke-width="1.5"/>
+    <line x1="6" y1="418" x2="214" y2="418" stroke="white" stroke-width="1.5"/>
+    <line x1="6" y1="461" x2="214" y2="461" stroke="white" stroke-width="1.5"/>
+    <line x1="6" y1="504" x2="214" y2="504" stroke="white" stroke-width="1.5"/>
+    <!-- D-pad circle (center column, spans 2 rows vertically) -->
+    <circle cx="110" cy="332" r="28" stroke="white" stroke-width="1.5"/>
+    <circle cx="110" cy="332" r="19" stroke="white" stroke-width="1.5"/>
+</svg>

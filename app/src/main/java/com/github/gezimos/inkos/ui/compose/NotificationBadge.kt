@@ -48,10 +48,17 @@ fun buildNotificationBadgeDisplay(
         )
     }
 
-    val title = sanitize(notificationInfo.title).takeIf { it.isNotBlank() }
-    val text = sanitize(notificationInfo.text).takeIf { it.isNotBlank() }
-    val isMedia = notificationInfo.category == Notification.CATEGORY_TRANSPORT
-    val isPlaying = isMedia && mediaInfo?.packageName == packageName && mediaInfo.isPlaying
+    val hasActiveMedia = mediaInfo?.packageName == packageName && mediaInfo.isPlaying
+    val title = if (hasActiveMedia && !mediaInfo?.title.isNullOrBlank())
+        sanitize(mediaInfo!!.title)
+    else
+        sanitize(notificationInfo.title).takeIf { it.isNotBlank() }
+    val text = if (hasActiveMedia && !mediaInfo?.artist.isNullOrBlank())
+        sanitize(mediaInfo!!.artist)
+    else
+        sanitize(notificationInfo.text).takeIf { it.isNotBlank() }
+    val isMedia = hasActiveMedia || notificationInfo.category == Notification.CATEGORY_TRANSPORT
+    val isPlaying = hasActiveMedia
     val indicator = when {
         isMedia && isPlaying && config.showMediaIndicator -> true
         !isMedia && notificationInfo.count > 0 -> true

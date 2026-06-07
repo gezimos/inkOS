@@ -21,27 +21,29 @@ class NotificationService : NotificationListenerService() {
         audioWidgetHelper = AudioWidgetHelper.getInstance(applicationContext)
         notificationManager.restoreConversationNotifications()
 
-        // Seed sbn state with current active notifications if available
         _sbnState.value = activeNotifications?.toList() ?: emptyList()
     }
 
     override fun onListenerConnected() {
         super.onListenerConnected()
-        
-        // Initialize AudioWidgetHelper with our component name for MediaSessionManager access
+
         val componentName = ComponentName(this, NotificationService::class.java)
         audioWidgetHelper.initialize(componentName)
-        
-        // Process existing notifications for badges/conversations
-        activeNotifications?.forEach { sbn ->
-            updateBadgeNotification(sbn)
-            if (shouldShowNotification(sbn.packageName)) {
-                updateConversationNotifications(sbn)
+
+        try {
+            activeNotifications?.forEach { sbn ->
+                updateBadgeNotification(sbn)
+                if (shouldShowNotification(sbn.packageName)) {
+                    updateConversationNotifications(sbn)
+                }
             }
+
+            _sbnState.value = activeNotifications?.toList() ?: emptyList()
+        } catch (e: SecurityException) {
+            android.util.Log.w("NotificationService", "Listener not yet authorized", e)
         }
 
-        // Refresh the shared StatusBarNotification state for observers
-        _sbnState.value = activeNotifications?.toList() ?: emptyList()
+        com.github.gezimos.inkos.widget.NotificationWidget.requestUpdate(applicationContext)
     }
 
     override fun onDestroy() {
@@ -53,38 +55,33 @@ class NotificationService : NotificationListenerService() {
     private fun shouldShowNotification(packageName: String): Boolean {
         val prefs = com.github.gezimos.inkos.data.Prefs(this)
         val allowed = prefs.allowedNotificationApps
-        // If allowlist is empty, allow all. Otherwise, only allow if in allowlist.
         return allowed.isEmpty() || allowed.contains(packageName)
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
-        // Always update badge notification, let NotificationManager filter by allowlist
         updateBadgeNotification(sbn)
 
-        // Only update conversation notifications if allowed in notification allowlist
         if (shouldShowNotification(sbn.packageName)) {
             updateConversationNotifications(sbn)
         }
 
-        // Emit updated active notifications for UI consumers that observe the service directly
         try {
             _sbnState.value = activeNotifications?.toList() ?: emptyList()
-        } catch (_: Exception) { }
+        } catch (e: Exception) { android.util.Log.w("NotificationService", "sbnState update failed", e) }
+
+        // Update notification widget synchronously
+        com.github.gezimos.inkos.widget.NotificationWidget.requestUpdate(applicationContext)
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
-        // Fixed: Properly handle badge clearing when system removes notifications
-        // Check if there are any remaining active notifications for this package
         val activeNotifications = getActiveNotifications()
         val remainingForPackage = activeNotifications.filter { 
             it.packageName == sbn.packageName && it.key != sbn.key 
         }
         
         if (remainingForPackage.isEmpty()) {
-            // No more notifications for this package, clear the badge completely
             notificationManager.updateBadgeNotification(sbn.packageName, null)
         } else {
-            // There are remaining notifications, update badge with the most recent one
             val prefs = com.github.gezimos.inkos.data.Prefs(applicationContext)
             val notificationInfo = notificationManager.buildNotificationInfoForRemaining(
                 sbn.packageName, prefs, activeNotifications
@@ -92,19 +89,18 @@ class NotificationService : NotificationListenerService() {
             notificationManager.updateBadgeNotification(sbn.packageName, notificationInfo)
         }
 
-        // Emit updated active notifications for UI consumers that observe the service directly
         try {
             _sbnState.value = getActiveNotifications()?.toList() ?: emptyList()
-        } catch (_: Exception) { }
+        } catch (e: Exception) { android.util.Log.w("NotificationService", "sbnState update failed", e) }
+
+        // Update notification widget synchronously
+        com.github.gezimos.inkos.widget.NotificationWidget.requestUpdate(applicationContext)
     }
 
     companion object {
-        // Expose a read-only StateFlow of the current active StatusBarNotification list
-        // Consumers in the same process can observe this to get live posted/removed events
         private val _sbnState = MutableStateFlow<List<StatusBarNotification>>(emptyList())
         val sbnState: StateFlow<List<StatusBarNotification>> get() = _sbnState
         private val mainScope = MainScope()
-        // Helper to offer updates from other contexts (if needed)
         fun offerActiveNotifications(list: List<StatusBarNotification>?) {
             mainScope.launch {
                 _sbnState.value = list ?: emptyList()
@@ -129,10 +125,27 @@ class NotificationService : NotificationListenerService() {
                 return service.sendConversationIntent(packageName, notificationKey)
             }
             
-            // Fallback: service not available, return false to trigger app launch
             return false
         }
         
+        /**
+         * Execute a notification action by index. Returns false if the action requires
+         * RemoteInput (reply) or if it fails, so the caller can fall back to opening the app.
+         */
+        fun executeNotificationAction(notificationKey: String, actionIndex: Int): Boolean {
+            val service = instance ?: return false
+            return try {
+                val sbn = service.activeNotifications?.find { it.key == notificationKey } ?: return false
+                val action = sbn.notification.actions?.getOrNull(actionIndex) ?: return false
+                if (action.remoteInputs?.isNotEmpty() == true) return false
+                action.actionIntent.send()
+                true
+            } catch (e: Exception) {
+                android.util.Log.e("NotificationService", "Failed to execute action", e)
+                false
+            }
+        }
+
         /**
          * Dismiss a notification from the system notification tray by its key.
          * This acts like "mark as read" or "snooze" - it removes the notification from the system tray.
@@ -144,14 +157,12 @@ class NotificationService : NotificationListenerService() {
             val service = instance
             if (service != null) {
                 return try {
-                    // First verify the notification exists in active notifications
                     val activeNotifications = service.activeNotifications
                     val notification = activeNotifications?.find { it.key == notificationKey }
                     
                     if (notification != null) {
                         val notificationGroup = notification.notification.group
                         
-                        // If this notification is part of a group, dismiss all notifications in that group
                         if (!notificationGroup.isNullOrBlank()) {
                             val notificationsInGroup = activeNotifications?.filter { 
                                 it.notification.group == notificationGroup && 
@@ -167,8 +178,6 @@ class NotificationService : NotificationListenerService() {
                                 }
                             }
                             
-                            // Also try to dismiss the group summary notification if it exists
-                            // Group summaries typically have FLAG_GROUP_SUMMARY set
                             val groupSummary = activeNotifications?.find {
                                 it.packageName == notification.packageName &&
                                 it.notification.group == notificationGroup &&
@@ -185,7 +194,6 @@ class NotificationService : NotificationListenerService() {
                             
                             true
                         } else {
-                            // Not a grouped notification, just dismiss this one
                             service.cancelNotification(notificationKey)
                             true
                         }
@@ -204,10 +212,13 @@ class NotificationService : NotificationListenerService() {
     }
 
     private fun updateBadgeNotification(sbn: StatusBarNotification) {
-        val activeNotifications = getActiveNotifications()
+        val activeNotifications = try {
+            getActiveNotifications()
+        } catch (_: SecurityException) {
+            return
+        }
         val prefs = com.github.gezimos.inkos.data.Prefs(applicationContext)
 
-        // Use the original buildNotificationInfo logic from NotificationManager
         val notificationInfo =
             notificationManager.buildNotificationInfo(sbn, prefs, activeNotifications)
         notificationManager.updateBadgeNotification(sbn.packageName, notificationInfo)
@@ -217,12 +228,10 @@ class NotificationService : NotificationListenerService() {
         val packageName = sbn.packageName
         val extras = sbn.notification.extras
         
-        // Filter out summary notifications early to prevent them from appearing in NotificationsFragment
         if (notificationManager.isNotificationSummary(sbn)) {
             return
         }
         
-        // Filter out media notifications - handled separately by AudioWidgetHelper
         if (sbn.notification.category == android.app.Notification.CATEGORY_TRANSPORT) {
             return
         }
@@ -237,7 +246,6 @@ class NotificationService : NotificationListenerService() {
             ?: extras.getCharSequence("android.subText")?.toString()
             ?: extras.getString("android.subText")
         
-        // Extract message - try multiple fields in priority order
         val messageRaw = when {
             extras.getCharSequence("android.bigText") != null -> 
                 extras.getCharSequence("android.bigText")?.toString()
@@ -257,23 +265,18 @@ class NotificationService : NotificationListenerService() {
             extras.getCharSequence("android.infoText") != null -> 
                 extras.getCharSequence("android.infoText")?.toString()
             
-            // Ticker text (deprecated but still used by some apps)
             sbn.notification.tickerText != null -> 
                 sbn.notification.tickerText?.toString()
 
             else -> null
         }
         
-        // Improved conversation ID logic for better SMS threading and group chat support
         val notificationGroup = sbn.notification.group
         val conversationId = when {
-            // First priority: Use notification group key if available
             !notificationGroup.isNullOrBlank() -> "group_${packageName}_$notificationGroup"
             
-            // Second priority: Use conversation title if available (group chats)
             !conversationTitleRaw.isNullOrBlank() -> conversationTitleRaw
             
-            // For SMS apps, try to extract phone number or contact from various fields
             sbn.notification.category == android.app.Notification.CATEGORY_MESSAGE -> {
                 val phoneNumber = extras.getString("android.people")?.firstOrNull()?.toString()
                     ?: extras.getString("android.subText")
@@ -283,7 +286,6 @@ class NotificationService : NotificationListenerService() {
                 phoneNumber?.let { "sms_$it" } ?: senderRaw ?: "default"
             }
             
-            // For other messaging apps, use sender as conversation ID (last resort)
             !senderRaw.isNullOrBlank() -> senderRaw
             
             // Fallback
@@ -292,14 +294,12 @@ class NotificationService : NotificationListenerService() {
         
         var conversationTitle = conversationTitleRaw
         var sender = senderRaw
-        // Normalize whitespace and cap message to 300 characters
         var message = messageRaw?.replace("\n", " ")
             ?.replace("\r", " ")
             ?.trim()
             ?.replace(Regex("\\s+"), " ")
             ?.take(300)
         
-        // Fallback: if both sender/title and message are missing, use app label
         if ((conversationTitle.isNullOrBlank() && sender.isNullOrBlank()) && (message.isNullOrBlank())) {
             val pm = applicationContext.packageManager
             val appLabel = try {
@@ -359,7 +359,6 @@ class NotificationService : NotificationListenerService() {
             }
             
             notification?.notification?.contentIntent?.let { pendingIntent ->
-                // Create ActivityOptions to allow background activity launch
                 val options = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                     android.app.ActivityOptions.makeBasic().apply {
                         setPendingIntentBackgroundActivityStartMode(
@@ -370,7 +369,6 @@ class NotificationService : NotificationListenerService() {
                     null
                 }
                 
-                // Send with proper context, options, and FLAG_ACTIVITY_NEW_TASK
                 val fillInIntent = android.content.Intent().apply {
                     addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
                 }

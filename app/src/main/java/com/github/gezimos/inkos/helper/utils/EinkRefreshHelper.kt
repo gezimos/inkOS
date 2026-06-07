@@ -9,14 +9,6 @@ import com.github.gezimos.inkos.data.Constants
 import com.github.gezimos.inkos.data.Prefs
 
 object EinkRefreshHelper {
-    /**
-     * Triggers an E-Ink refresh by flashing an overlay on the given ViewGroup.
-     * @param context Context for theme and color resolution
-     * @param prefs Prefs instance for theme and refresh settings
-     * @param rootView The ViewGroup to add the overlay to
-     * @param delayMs How long the overlay should be visible (ms)
-     * @param useActivityRoot If true, will try to add overlay to activity decorView (for fragments with Compose root)
-     */
     fun refreshEink(
         context: Context,
         prefs: Prefs,
@@ -26,7 +18,6 @@ object EinkRefreshHelper {
     ) {
         if (!prefs.einkRefreshEnabled) return
 
-        // Ensure UI operations are performed on the main thread
         Handler(Looper.getMainLooper()).post {
             val isDark = prefs.appTheme == Constants.Theme.Dark
             val overlayColor =
@@ -49,16 +40,6 @@ object EinkRefreshHelper {
             }, delayMs.toLong())
         }
     }
-
-    /**
-     * Forces an E-Ink refresh by flashing an overlay, bypassing the einkRefreshEnabled preference.
-     * This is useful for gesture-triggered refreshes that should work independently of the global setting.
-     * @param context Context for theme and color resolution
-     * @param prefs Prefs instance for theme resolution
-     * @param rootView The ViewGroup to add the overlay to
-     * @param delayMs How long the overlay should be visible (ms)
-     * @param useActivityRoot If true, will try to add overlay to activity decorView (for fragments with Compose root)
-     */
     fun refreshEinkForced(
         context: Context,
         prefs: Prefs,
@@ -66,7 +47,6 @@ object EinkRefreshHelper {
         delayMs: Int = 100,
         useActivityRoot: Boolean = false
     ) {
-        // Ensure UI operations are performed on the main thread
         Handler(Looper.getMainLooper()).post {
             val isDark = prefs.appTheme == Constants.Theme.Dark
             val overlayColor =

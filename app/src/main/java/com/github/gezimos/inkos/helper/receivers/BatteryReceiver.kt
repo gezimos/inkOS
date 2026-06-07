@@ -1,15 +1,9 @@
 package com.github.gezimos.inkos.helper.receivers
 
-import android.app.Activity
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.BatteryManager
-import android.view.View
-import android.widget.ImageView
-import androidx.appcompat.widget.AppCompatTextView
-import androidx.core.widget.ImageViewCompat
-import com.github.gezimos.inkos.R
 import com.github.gezimos.inkos.data.Prefs
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -30,24 +24,19 @@ class BatteryReceiver(private val onBatteryUpdate: (String, String, Boolean) -> 
         val batteryLevel = level * 100 / scale.toFloat()
         val batteryLevelInt = batteryLevel.toInt()
 
-        // Compute date text (without battery)
-        val dateFormat = SimpleDateFormat("EEE, d MMM", Locale.getDefault())
+        val datePattern = when (prefs.dateFormatStyle) {
+            1 -> "EEE, MMM d"
+            2 -> "MMM d"
+            3 -> "d MMM"
+            4 -> "EEEE"
+            else -> "EEE, d MMM"
+        }
+        val dateFormat = SimpleDateFormat(datePattern, Locale.getDefault())
         val currentDate = dateFormat.format(Date())
-        val newDateText = if (prefs.showDate) {
-            currentDate
-        } else {
-            ""
-        }
 
-        // Compute battery text (independent of date)
-        val newBatteryText = if (prefs.showDateBatteryCombo) {
-            "$batteryLevelInt%"
-        } else {
-            ""
-        }
+        val newBatteryText = "$batteryLevelInt%"
 
-        // Call the callback with date text, battery text, and charging status
-        onBatteryUpdate(newDateText, newBatteryText, isCharging)
+        onBatteryUpdate(currentDate, newBatteryText, isCharging)
     }
 }
 

@@ -65,7 +65,6 @@ class SimpleEmailSender {
                     }
 
                     altAttachmentIntent.resolveActivity(pm) != null -> {
-                        // Use default email client with alternative attachment type
                         context.startActivity(altAttachmentIntent)
                     }
 

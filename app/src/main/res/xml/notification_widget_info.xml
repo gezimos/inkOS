@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="250dp"
+    android:minHeight="40dp"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen|keyguard"
+    android:initialLayout="@layout/notification_widget"
+    android:description="@string/notification_widget_description"
+    android:previewLayout="@layout/notification_widget_preview"
+    android:targetCellWidth="4"
+    android:targetCellHeight="1" />

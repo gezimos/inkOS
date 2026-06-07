@@ -5,6 +5,7 @@ import android.app.SearchManager
 import android.content.ActivityNotFoundException
 import android.content.ComponentName
 import android.content.Context
+import android.content.ContentUris
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.LauncherApps
@@ -97,6 +98,13 @@ fun Context.launchCalendar() {
         }
     }
     CrashHandler.logUserAction("Calendar App Launched")
+}
+
+fun Context.launchCalendarEvent(eventId: Long) {
+    try {
+        val uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventId)
+        startActivity(Intent(Intent.ACTION_VIEW).setData(uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    } catch (_: Exception) {}
 }
 
 fun Context.openDialerApp() {

@@ -1,6 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Defaults for smallest screens (<300dp wide, ~0.70x scale) -->
 <resources>
-    <dimen name="home_apps_default_padding">20dp</dimen>
-    <dimen name="app_drawer_item_height">56dp</dimen>
-    <dimen name="app_drawer_vertical_padding">32dp</dimen>
+    <dimen name="default_settings_size">11sp</dimen>
+    <dimen name="default_clock_size">33sp</dimen>
+    <dimen name="default_app_size">18sp</dimen>
+    <dimen name="default_date_size">12sp</dimen>
+    <dimen name="default_quote_size">12sp</dimen>
+    <dimen name="default_notifications_text_size">12sp</dimen>
+    <dimen name="default_letters_text_size">12sp</dimen>
+    <dimen name="default_letters_title_size">25sp</dimen>
+    <dimen name="default_app_drawer_size">16sp</dimen>
+    <dimen name="default_app_gap">7dp</dimen>
+    <dimen name="default_app_drawer_gap">5dp</dimen>
+    <dimen name="default_top_widget_margin">22dp</dimen>
+    <dimen name="default_bottom_widget_margin">22dp</dimen>
 </resources>

@@ -4,8 +4,12 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import com.github.gezimos.inkos.ui.compose.inkOsSafeDrawingPadding
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
@@ -18,11 +22,15 @@ import com.github.gezimos.inkos.data.Prefs
 import com.github.gezimos.inkos.helper.getHexForOpacity
 import com.github.gezimos.inkos.style.SettingsTheme
 import com.github.gezimos.inkos.ui.compose.WallpaperUI
+import com.github.gezimos.inkos.ui.dialogs.ComposeDialogManager
 
 class WallpaperFragment : Fragment() {
 
     private lateinit var prefs: Prefs
     private lateinit var viewModel: MainViewModel
+    private val dialogManager: ComposeDialogManager by lazy {
+        ComposeDialogManager(requireContext(), requireActivity())
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -50,27 +58,30 @@ class WallpaperFragment : Fragment() {
         val composeView = ComposeView(context).apply {
             setContent {
                 SettingsTheme(isDark) {
-                    // Observe settingsSize from ViewModel inside Compose
-                    val homeUiStateValue by viewModel.homeUiState.collectAsState()
-                    val settingsSize = (homeUiStateValue.settingsSize - 3)
-                    
-                    WallpaperUI(
-                        onBackClick = { findNavController().popBackStack() },
-                        fontSize = if (settingsSize > 0) settingsSize.sp else TextUnit.Unspecified,
-                        isDark = isDark,
-                        showStatusBar = homeUiStateValue.showStatusBar,
-                        onExternalWallpaperClick = {
-                            try {
-                                val intent = android.content.Intent(android.content.Intent.ACTION_SET_WALLPAPER)
-                                startActivity(intent)
-                            } catch (e: Exception) {
-                                android.widget.Toast.makeText(context, "Wallpaper settings not available", android.widget.Toast.LENGTH_SHORT).show()
+                    Box(Modifier.fillMaxSize().inkOsSafeDrawingPadding()) {
+                        val homeUiStateValue by viewModel.homeUiState.collectAsState()
+                        val settingsSize = (homeUiStateValue.settingsSize - 3)
+
+                        WallpaperUI(
+                            onBackClick = { findNavController().popBackStack() },
+                            showSheet = { content -> dialogManager.showSheet(content) },
+                            dismissSheet = { dialogManager.dismissAll() },
+                            fontSize = if (settingsSize > 0) settingsSize.sp else TextUnit.Unspecified,
+                            isDark = isDark,
+                            showStatusBar = homeUiStateValue.showStatusBar,
+                            onExternalWallpaperClick = {
+                                try {
+                                    val intent = android.content.Intent(android.content.Intent.ACTION_SET_WALLPAPER)
+                                    startActivity(intent)
+                                } catch (e: Exception) {
+                                    android.widget.Toast.makeText(context, "Wallpaper settings not available", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            onWallpaperSet = {
+                                findNavController().popBackStack(com.github.gezimos.inkos.R.id.mainFragment, false)
                             }
-                        },
-                        onWallpaperSet = {
-                            findNavController().popBackStack(com.github.gezimos.inkos.R.id.mainFragment, false)
-                        }
-                    )
+                        )
+                    }
                 }
             }
         }

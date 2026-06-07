@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>inkOS — Permissions</title>
+    <meta name="description" content="Every permission inkOS uses and why. Only notification access is requested up front; everything else is optional and on-demand.">
+    <link rel="canonical" href="https://inkos.gez.im/permissions/">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="inkOS — Permissions">
+    <meta property="og:description" content="Every permission inkOS uses and why. Only notification access is requested up front; everything else is optional and on-demand.">
+    <meta property="og:url" content="https://inkos.gez.im/permissions/">
+    <meta property="og:image" content="https://inkos.gez.im/img/og.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="inkOS — Permissions">
+    <meta name="twitter:description" content="Every permission inkOS uses and why. Only notification access is requested up front; everything else is optional and on-demand.">
+    <meta name="twitter:image" content="https://inkos.gez.im/img/og.jpg">
+    <link rel="icon" href="../img/inkos.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="../stili.css">
+</head>
+<body class="page-fade">
+
+<!-- NAV -->
+<div class="nav-wrapper">
+<nav class="nav">
+    <div class="nav-inner">
+        <a href=".." class="nav-logo"><img src="../img/inkos_logo_w.svg" alt="inkOS"></a>
+        <div class="nav-links">
+            <a href="..">Home</a>
+            <a href="../about/">About</a>
+            <a href="../features/">Features</a>
+            <a href="../presets/">Presets</a>
+            <a href="../changelog/">Changelog</a>
+            <a href="..#faq">FAQ</a>
+            <a href="https://www.buymeacoffee.com/gezimos" target="_blank" class="nav-cta">Support</a>
+        </div>
+    </div>
+</nav>
+</div>
+
+<!-- HERO -->
+<section class="hero hero-features">
+    <h1>Permissions</h1>
+    <p>All permissions are used locally. No data is transmitted externally.</p>
+    <div class="hero-count">
+        <span class="material-symbols-outlined" style="font-size:14px;">add</span>
+        8 categories &middot; 150+ settings
+    </div>
+</section>
+
+<section class="faq-section">
+    <div class="faq-split">
+        <div class="faq-left">
+            <h2 class="faq-head">Android Permissions</h2>
+            <p class="faq-sub">inkOS uses the following permissions to provide its features. All are used locally on your device.</p>
+        </div>
+        <div class="faq-right">
+            <div class="faq-item open">
+                <div class="faq-q"><span class="material-symbols-outlined faq-icon">apps</span>QUERY_ALL_PACKAGES</div>
+                <div class="faq-a">A launcher needs to know which apps are installed so it can display them. This is a standard requirement for any home screen replacement -- without it, your app list would be empty. This list is never uploaded, shared, or transmitted anywhere. There is no internet permission.</div>
+            </div>
+            <div class="faq-item open">
+                <div class="faq-q"><span class="material-symbols-outlined faq-icon">contacts</span>READ_CONTACTS</div>
+                <div class="faq-a">Only used if you enable contact search in the app drawer. When you type a name, your local contact list is searched to show matching results. Contacts are never read in the background, never cached, and never leave your device. This can be left disabled -- everything else works without it.</div>
+            </div>
+            <div class="faq-item open">
+                <div class="faq-q"><span class="material-symbols-outlined faq-icon">calendar_month</span>READ_CALENDAR</div>
+                <div class="faq-a">Only used if you enable the calendar events widget on your home screen. Upcoming events from calendars you select are displayed on screen. No calendar data is stored, cached, or transmitted. If you don't use the calendar widget, this permission is never accessed.</div>
+            </div>
+            <div class="faq-item open">
+                <div class="faq-q"><span class="material-symbols-outlined faq-icon">photo_camera</span>CAMERA</div>
+                <div class="faq-a">No photos are taken and no video is recorded. This permission exists solely to toggle the flashlight on and off from the Simple Tray quick settings panel. Android requires camera access to control the flash LED. If you don't use the flashlight toggle, the camera is never accessed.</div>
+            </div>
+            <div class="faq-item open">
+                <div class="faq-q"><span class="material-symbols-outlined faq-icon">phone</span>READ_PHONE_STATE</div>
+                <div class="faq-a">No call history, phone number, or personal telephony data is read. This permission is used in Simple Tray to open the Android panel for toggling mobile data, airplane mode, and viewing your operator. Android requires this permission to access any telephony-related panels.</div>
+            </div>
+            <div class="faq-item open">
+                <div class="faq-q"><span class="material-symbols-outlined faq-icon">bar_chart</span>PACKAGE_USAGE_STATS</div>
+                <div class="faq-a">Used for the Recents screen to show your recently used apps and screen time statistics. This data stays entirely on your device -- there is no internet permission, so it cannot be sent anywhere. You grant this manually in Android settings, and can revoke it at any time.</div>
+            </div>
+            <div class="faq-item open">
+                <div class="faq-q"><span class="material-symbols-outlined faq-icon">bluetooth</span>BLUETOOTH / BLUETOOTH_ADMIN / BLUETOOTH_CONNECT</div>
+                <div class="faq-a">Used for the Bluetooth toggle in Simple Tray and to display connected device status. No scanning for nearby devices or Bluetooth-based tracking occurs. The BLUETOOTH and BLUETOOTH_ADMIN permissions are only requested on Android 11 and below. On Android 12+, only BLUETOOTH_CONNECT is used, with the "neverForLocation" flag set so it cannot be used for location tracking.</div>
+            </div>
+            <div class="faq-item open">
+                <div class="faq-q"><span class="material-symbols-outlined faq-icon">widgets</span>BIND_APPWIDGET</div>
+                <div class="faq-a">Required to embed standard Android widgets (clock, weather, etc.) on your home screen. This is a protected system permission -- Android shows a confirmation dialog each time you add a widget. Widgets cannot be silently added without your approval.</div>
+            </div>
+            <div class="faq-item open">
+                <div class="faq-q"><span class="material-symbols-outlined faq-icon">shield</span>ACCESS_HIDDEN_PROFILES</div>
+                <div class="faq-a">Required for Android 15+ Private Space support. Allows displaying and launching apps in your Private Space when you unlock it. Private Space cannot be accessed without your explicit unlock action.</div>
+            </div>
+            <div class="faq-item open">
+                <div class="faq-q"><span class="material-symbols-outlined faq-icon">publish</span>EXPAND_STATUS_BAR</div>
+                <div class="faq-a">Used to expand or collapse the Android status bar.</div>
+            </div>
+            <div class="faq-item open">
+                <div class="faq-q"><span class="material-symbols-outlined faq-icon">delete</span>REQUEST_DELETE_PACKAGES</div>
+                <div class="faq-a">Lets you uninstall apps from the app drawer context menu. Android always shows a confirmation dialog -- apps cannot be silently removed.</div>
+            </div>
+            <div class="faq-item open">
+                <div class="faq-q"><span class="material-symbols-outlined faq-icon">fingerprint</span>USE_BIOMETRIC</div>
+                <div class="faq-a">Enables PIN or fingerprint lock for individual apps or the settings screen.</div>
+            </div>
+            <div class="faq-item open">
+                <div class="faq-q"><span class="material-symbols-outlined faq-icon">vibration</span>VIBRATE</div>
+                <div class="faq-a">Provides haptic feedback when interacting with certain UI elements.</div>
+            </div>
+            <div class="faq-item open">
+                <div class="faq-q"><span class="material-symbols-outlined faq-icon">brightness_medium</span>WRITE_SETTINGS</div>
+                <div class="faq-a">Used for the brightness slider in Simple Tray. You grant this manually in Android settings.</div>
+            </div>
+            <div class="faq-item open">
+                <div class="faq-q"><span class="material-symbols-outlined faq-icon">wifi</span>ACCESS_WIFI_STATE / CHANGE_WIFI_STATE</div>
+                <div class="faq-a">Used for the Wi-Fi status indicator and toggle in Simple Tray.</div>
+            </div>
+            <div class="faq-item open">
+                <div class="faq-q"><span class="material-symbols-outlined faq-icon">volume_up</span>MODIFY_AUDIO_SETTINGS</div>
+                <div class="faq-a">Used for the volume slider in Simple Tray.</div>
+            </div>
+            <div class="faq-item open">
+                <div class="faq-q"><span class="material-symbols-outlined faq-icon">image</span>READ_MEDIA_AUDIO / READ_EXTERNAL_STORAGE</div>
+                <div class="faq-a">READ_MEDIA_AUDIO is used if you enable music search in the app drawer. READ_EXTERNAL_STORAGE is the equivalent permission for Android 12 and below. Wallpaper selection uses the system picker and needs no media permission. Your files are never browsed or indexed in the background.</div>
+            </div>
+            <div class="faq-item open">
+                <div class="faq-q"><span class="material-symbols-outlined faq-icon">wallpaper</span>SET_WALLPAPER</div>
+                <div class="faq-a">Used to set wallpapers via the built-in wallpaper picker.</div>
+            </div>
+            <div class="faq-item open">
+                <div class="faq-q"><span class="material-symbols-outlined faq-icon">notifications</span>NOTIFICATION_LISTENER_SERVICE</div>
+                <div class="faq-a">For home screen notification badges, Letters, Hub, or Simple Tray to work, Android notifications need to be read and forwarded to these screens. This is how the launcher displays your messages, calls, and alerts without you opening each app. Nothing is stored, logged, or transmitted -- notifications are shown and then discarded. You grant this manually in Android settings under "Notification access" and can revoke it at any time.</div>
+            </div>
+            <div class="faq-item open">
+                <div class="faq-q"><span class="material-symbols-outlined faq-icon">link</span>INSTALL_SHORTCUT</div>
+                <div class="faq-a">Allows third-party apps to pin shortcuts into inkOS, the same way they would pin to any other launcher.</div>
+            </div>
+            <div class="faq-item open">
+                <div class="faq-q"><span class="material-symbols-outlined faq-icon">accessibility</span>ACCESSIBILITY_SERVICE</div>
+                <div class="faq-a">Used for the optional accessibility service that enables actions like locking the screen, opening recents, or going back -- things Android only allows through accessibility APIs. No screen content is read, no keystrokes are monitored, and no activity is observed. The service only performs the specific action you trigger. You enable this manually in Android settings and can revoke it at any time.</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="site-footer">
+    <div class="footer-inner">
+        <div class="footer-top">
+            <div class="footer-brand">
+                <div class="footer-brand-logo">
+                    <img src="../img/inkos_logo_w.svg" alt="inkOS">
+                </div>
+                <p>A free, open-source Android launcher for people who'd rather use their phone less.</p>
+                <div class="footer-btns">
+                    <a href="https://play.google.com/store/apps/details?id=app.inkos" class="footer-btn footer-btn-fill">Google Play</a>
+                    <a href="https://github.com/gezimos/inkOS" class="footer-btn">Source Code</a>
+                </div>
+            </div>
+            <div class="footer-col">
+                <h3>Product</h3>
+                <a href="..">Home</a>
+                <a href="../about/">About</a>
+                <a href="../features/">Features</a>
+                <a href="../presets/">Presets</a>
+                <a href="../changelog/">Changelog</a>
+                <a href="..#faq">FAQ</a>
+                <a href="https://youtube.com/@gezimos" target="_blank">YouTube</a>
+            </div>
+            <div class="footer-col">
+                <h3>Legal</h3>
+                <a href="../privacy/">Privacy Policy</a>
+                <a href="../permissions/">Permissions</a>
+                <a href="https://github.com/gezimos/inkOS/blob/main/LICENSE">License</a>
+            </div>
+            <div class="footer-col">
+                <h3>Support</h3>
+                <p style="font-size:14px; color:#aaa; line-height:1.6; margin-bottom:16px;">This project required a lot of beans. Coffee is appreciated.</p>
+                <a href="https://www.buymeacoffee.com/gezimos" target="_blank" class="footer-btn" style="padding:6px 12px; background:#FFDD00; color:#000; border-color:#FFDD00; align-self:flex-start; width:fit-content;">
+                    <img src="../img/bmc.svg" alt="Buy me a coffee" style="height:24px; display:block;">
+                </a>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <span class="footer-copy">&copy; 2026 inkOS. All rights reserved.</span>
+            <div class="footer-bottom-links">
+                <a href="../privacy/">Privacy</a>
+                <a href="../permissions/">Permissions</a>
+                <a href="https://github.com/gezimos/inkOS">GitHub</a>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<script src="../script.js"></script>
+
+</body>
+</html>

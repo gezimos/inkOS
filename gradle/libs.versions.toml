@@ -5,50 +5,53 @@ agp = "8.10.1"
 kotlin = "2.1.20"
 
 # AndroidX Core and AppCompat
-core-ktx = "1.16.0"
-appcompat = "1.7.0"
+core-ktx = "1.17.0"
+appcompat = "1.7.1"
 recyclerview = "1.4.0"
 paletteKtx = "1.0.0"
 
 # Android Lifecycle
-lifecycle-extensions = "2.2.0"
-lifecycle-viewmodel-ktx = "2.8.7"
+lifecycle-viewmodel-ktx = "2.10.0"
 
 # Navigation
-navigation-fragment-ktx = "2.8.9"
-navigation-ui-ktx = "2.8.9"
-navigation-testing = "2.8.9"
+navigation-fragment-ktx = "2.9.7"
+navigation-ui-ktx = "2.9.7"
+navigation-testing = "2.9.7"
 
 # Work Manager
-work-runtime-ktx = "2.10.1"
+work-runtime-ktx = "2.11.1"
 
 # ConstraintLayout
 constraintlayout = "2.2.1"
 constraintlayout-compose = "1.1.1"
 
 # Compose Versions
-activity-compose = "1.10.1"
-compose-android = "1.8.0"
-compose-material = "1.8.0"
-compose-animation = "1.8.0"
-compose-ui = "1.8.0"
-compose-foundation = "1.8.0"
-compose-ui-tooling = "1.8.0"
+activity-compose = "1.12.4"
+compose-android = "1.10.4"
+compose-material3 = "1.4.0"
+compose-animation = "1.10.4"
+compose-ui = "1.10.4"
+compose-foundation = "1.10.4"
+compose-ui-tooling = "1.10.4"
+
+# Glance (AppWidgets)
+glance-appwidget = "1.1.1"
 
 # Other Libraries
-commons-text = "1.13.1"
-gson = "2.13.1"
-biometric-ktx = "1.4.0-alpha02"
+commons-text = "1.15.0"
+gson = "2.13.2"
+biometric = "1.1.0"
+material-icons-extended = "1.7.8"
+glide = "4.16.0"
 
 # AndroidX Test Libraries
-espresso = "3.6.1"
-test-core-ktx = "1.6.1"
-test-runner = "1.6.2"
-test-rules = "1.6.1"
-fragment-testing = "1.8.6"
-ui-test-junit4 = "1.8.0"
-ui-test-manifest = "1.8.0"
-foundation = "1.9.5"
+espresso = "3.7.0"
+test-core-ktx = "1.7.0"
+test-runner = "1.7.0"
+test-rules = "1.7.0"
+fragment-testing = "1.8.9"
+ui-test-junit4 = "1.10.4"
+ui-test-manifest = "1.10.4"
 
 [libraries]
 # Core Libraries
@@ -58,7 +61,6 @@ recyclerview = { group = "androidx.recyclerview", name = "recyclerview", version
 palette-ktx = { group = "androidx.palette", name = "palette-ktx", version.ref = "paletteKtx" }
 
 # Android Lifecycle
-lifecycle-extensions = { group = "androidx.lifecycle", name = "lifecycle-extensions", version.ref = "lifecycle-extensions" }
 lifecycle-viewmodel-ktx = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-ktx", version.ref = "lifecycle-viewmodel-ktx" }
 
 # Navigation
@@ -76,16 +78,21 @@ constraintlayout-compose = { group = "androidx.constraintlayout", name = "constr
 # Compose
 activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activity-compose" }
 compose-android = { group = "androidx.compose.runtime", name = "runtime-android", version.ref = "compose-android" }
-compose-material = { group = "androidx.compose.material", name = "material", version.ref = "compose-material" }
+compose-material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "compose-material3" }
 compose-animation = { group = "androidx.compose.animation", name = "animation", version.ref = "compose-animation" }
 compose-ui = { group = "androidx.compose.ui", name = "ui", version.ref = "compose-ui" }
 compose-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "compose-foundation" }
 compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling", version.ref = "compose-ui-tooling" }
 
+# Glance (AppWidgets)
+glance-appwidget = { group = "androidx.glance", name = "glance-appwidget", version.ref = "glance-appwidget" }
+
 # Miscellaneous Libraries
 commons-text = { group = "org.apache.commons", name = "commons-text", version.ref = "commons-text" }
 gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
-biometric-ktx = { group = "androidx.biometric", name = "biometric-ktx", version.ref = "biometric-ktx" }
+biometric = { group = "androidx.biometric", name = "biometric", version.ref = "biometric" }
+material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended", version.ref = "material-icons-extended" }
+glide = { group = "com.github.bumptech.glide", name = "glide", version.ref = "glide" }
 
 # Testing Libraries
 espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espresso" }
@@ -97,7 +104,6 @@ test-rules = { group = "androidx.test", name = "rules", version.ref = "test-rule
 fragment-testing = { group = "androidx.fragment", name = "fragment-testing", version.ref = "fragment-testing" }
 ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4", version.ref = "ui-test-junit4" }
 ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest", version.ref = "ui-test-manifest" }
-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundation" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

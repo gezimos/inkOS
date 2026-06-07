@@ -1,134 +1,79 @@
 package com.github.gezimos.inkos
 
-import com.github.gezimos.inkos.ui.dialogs.LockedBottomSheetDialog
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.view.ViewGroup
+import android.widget.FrameLayout
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import com.github.gezimos.common.CrashHandler
+import com.github.gezimos.inkos.style.SettingsTheme
+import com.github.gezimos.inkos.style.Theme
+import com.github.gezimos.inkos.ui.dialogs.SheetTitle
 import com.github.gezimos.inkos.helper.utils.SimpleEmailSender
+import com.github.gezimos.inkos.ui.dialogs.ComposeBottomSheetHost
 
 class CrashReportActivity : AppCompatActivity() {
     private var pkgName: String = ""
     private var pkgVersion: String = ""
-    private var crashDialog: LockedBottomSheetDialog? = null
+    private var crashSheet: ComposeBottomSheetHost? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        setContentView(FrameLayout(this).apply {
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        })
 
         pkgName = getString(R.string.app_name)
-        pkgVersion = this.packageManager.getPackageInfo(
-            this.packageName,
-            0
-        ).versionName.toString()
+        pkgVersion = this.packageManager.getPackageInfo(this.packageName, 0).versionName.toString()
 
-        // Show a bottom-sheet dialog to ask if the user wants to report the crash
-        val content = android.widget.LinearLayout(this).apply {
-            orientation = android.widget.LinearLayout.VERTICAL
-            val pad = (12 * resources.displayMetrics.density).toInt()
-            setPadding(pad, pad, pad, pad)
-
-            val titleView = android.widget.TextView(context).apply {
-                text = getString(R.string.acra_crash)
-                gravity = android.view.Gravity.CENTER
-                textSize = 18f
-            }
-            addView(titleView)
-
-            val msg = android.widget.TextView(context).apply {
-                text = getString(R.string.acra_dialog_text).format(pkgName)
-                gravity = android.view.Gravity.CENTER
-                textSize = 14f
-                val mPad = (8 * resources.displayMetrics.density).toInt()
-                setPadding(mPad, mPad, mPad, mPad)
-            }
-            addView(msg)
-
-            val btnRow = android.widget.LinearLayout(context).apply {
-                orientation = android.widget.LinearLayout.HORIZONTAL
-                gravity = android.view.Gravity.END
-                val params = android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.MATCH_PARENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT).apply {
-                    topMargin = (12 * resources.displayMetrics.density).toInt()
-                }
-                layoutParams = params
-
-                val btnPadding = (8 * resources.displayMetrics.density).toInt()
-
-                val dontSend = android.widget.Button(context).apply {
-                    text = getString(R.string.acra_dont_send)
-                    setPadding(btnPadding, btnPadding, btnPadding, btnPadding)
-                    minWidth = 0
-                    minimumWidth = 0
-                    minHeight = 0
-                    minimumHeight = 0
-                }
-
-                val send = android.widget.Button(context).apply {
-                    text = getString(R.string.acra_send_report)
-                    setPadding(btnPadding, btnPadding, btnPadding, btnPadding)
-                    minWidth = 0
-                    minimumWidth = 0
-                    minHeight = 0
-                    minimumHeight = 0
-                }
-
-                // Style buttons using Prefs if available (best-effort)
-                try {
-                    val p = com.github.gezimos.inkos.data.Prefs(this@CrashReportActivity)
-                    val density = resources.displayMetrics.density
-                    val radius = (6 * density)
-                    val strokeWidth = (3f * density).toInt()
-                    val (resolvedTextColor, resolvedBg) = try {
-                        com.github.gezimos.inkos.style.resolveThemeColors(this@CrashReportActivity)
-                    } catch (_: Exception) {
-                        Pair(p.textColor, p.backgroundColor)
+        crashSheet = ComposeBottomSheetHost(this)
+        crashSheet?.show {
+            val prefs = com.github.gezimos.inkos.data.Prefs(this@CrashReportActivity)
+            val isDark = prefs.appTheme == com.github.gezimos.inkos.data.Constants.Theme.Dark
+            SettingsTheme(isDark) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    SheetTitle(getString(R.string.acra_crash))
+                    Text(
+                        text = getString(R.string.acra_dialog_text).format(pkgName),
+                        style = SettingsTheme.typography.item,
+                        color = Theme.colors.text,
+                        textAlign = TextAlign.Start,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+                    )
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        TextButton(onClick = { restartApp(); crashSheet?.dismiss() }) {
+                            Text(getString(R.string.acra_dont_send), color = Theme.colors.text)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        TextButton(onClick = { sendCrashReport(this@CrashReportActivity); crashSheet?.dismiss() }) {
+                            Text(getString(R.string.acra_send_report), color = Theme.colors.text)
+                        }
                     }
-                    val bgDrawable = android.graphics.drawable.GradientDrawable().apply {
-                        shape = android.graphics.drawable.GradientDrawable.RECTANGLE
-                        cornerRadius = radius
-                        setColor(resolvedBg)
-                        setStroke(strokeWidth, resolvedTextColor)
-                    }
-                    dontSend.background = bgDrawable
-                    send.background = bgDrawable.constantState?.newDrawable()?.mutate()
-                    dontSend.setTextColor(resolvedTextColor)
-                    send.setTextColor(resolvedTextColor)
-                } catch (_: Exception) {}
-
-                val spacing = (8 * resources.displayMetrics.density).toInt()
-                dontSend.layoutParams = android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = spacing }
-                send.layoutParams = android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = spacing }
-
-                addView(dontSend)
-                addView(send)
-
-                dontSend.setOnClickListener {
-                    restartApp()
-                    crashDialog?.dismiss()
-                }
-                send.setOnClickListener {
-                    sendCrashReport(this@CrashReportActivity)
-                    crashDialog?.dismiss()
                 }
             }
-
-            addView(btnRow)
         }
-
-        val dialog = LockedBottomSheetDialog(this)
-        dialog.setContentView(content)
-        try {
-            val bg = try { com.github.gezimos.inkos.style.resolveThemeColors(this).second } catch (_: Exception) { com.github.gezimos.inkos.data.Prefs(this).backgroundColor }
-            content.setBackgroundColor(bg)
-            dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
-        } catch (_: Exception) {}
-        dialog.setLocked(true)
-        dialog.show()
-        crashDialog = dialog
     }
 
     override fun onDestroy() {
-        crashDialog?.dismiss()
+        crashSheet?.dismiss()
         super.onDestroy()
     }
 
@@ -136,16 +81,20 @@ class CrashReportActivity : AppCompatActivity() {
         val crashFileUri: Uri? = CrashHandler.customReportSender(applicationContext)
         val crashFileUris: List<Uri> = crashFileUri?.let { listOf(it) } ?: emptyList()
 
-        val emailSender = SimpleEmailSender() // Create an instance
+        val emailSender = SimpleEmailSender()
         val crashReportContent = getString(R.string.acra_mail_body)
         val subject = String.format("Crash Report %s - %s", pkgName, pkgVersion)
-        val recipient = getString(R.string.acra_email) // Replace with your email
+        val recipient = getString(R.string.acra_email)
 
         emailSender.sendCrashReport(context, crashReportContent, crashFileUris, subject, recipient)
     }
 
-
     private fun restartApp() {
+        try {
+            getSharedPreferences(CrashHandler.CRASH_LOOP_PREFS, MODE_PRIVATE)
+                .edit().clear().apply()
+        } catch (_: Exception) {}
+
         val intent = Intent(this, MainActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
         }

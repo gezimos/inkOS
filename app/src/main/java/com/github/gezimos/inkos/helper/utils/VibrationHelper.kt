@@ -41,7 +41,6 @@ object VibrationHelper {
         val p = prefs ?: return false
         // Respect global haptic toggle first
         if (!p.hapticFeedback) return false
-        // Paging now follows the global haptic setting; no separate paging pref.
         return true
     }
 
@@ -50,47 +49,47 @@ object VibrationHelper {
         if (!enabled) return
         if (!shouldAllowEffect(effect)) return
 
+        val scale = (p.vibrationScale.coerceIn(0, 500)) / 100f
+        if (scale <= 0f) return
+
         val now = System.currentTimeMillis()
         val last = lastTrigger[effect] ?: 0L
         val wait = throttleMs(effect)
         if (now - last < wait) return
         lastTrigger[effect] = now
 
+        fun scaledAmp(base: Int): Int = (base * scale).toInt().coerceIn(1, 255)
+        fun scaledDur(base: Long): Long = (base * scale).toLong().coerceAtLeast(1L)
+        val isDefaultScale = scale == 1.0f
+
         try {
             val ve = when (effect) {
-                Effect.CLICK -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK)
-                                else VibrationEffect.createOneShot(30, VibrationEffect.DEFAULT_AMPLITUDE)
-                Effect.PAGE -> VibrationEffect.createOneShot(30, VibrationEffect.DEFAULT_AMPLITUDE)
-                Effect.SOFT -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) VibrationEffect.createOneShot(8, 20) else VibrationEffect.createOneShot(8, VibrationEffect.DEFAULT_AMPLITUDE)
-                Effect.AZ_FILTER -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                Effect.CLICK -> if (isDefaultScale && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK)
+                } else {
+                    VibrationEffect.createOneShot(scaledDur(30), scaledAmp(180))
+                }
+                Effect.PAGE -> VibrationEffect.createOneShot(scaledDur(30), scaledAmp(180))
+                Effect.SOFT -> VibrationEffect.createOneShot(scaledDur(8), scaledAmp(40))
+                Effect.AZ_FILTER -> if (isDefaultScale && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     try {
                         VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK)
                     } catch (_: Exception) {
-                        // Fallback: stronger than SOFT but not as strong as LONG_PRESS
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            VibrationEffect.createOneShot(45, 180)
-                        } else {
-                            VibrationEffect.createOneShot(45, VibrationEffect.DEFAULT_AMPLITUDE)
-                        }
+                        VibrationEffect.createOneShot(scaledDur(45), scaledAmp(180))
                     }
-                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    // Stronger vibration for AZ filtering: 45ms duration, 180 amplitude (more noticeable than SOFT)
-                    VibrationEffect.createOneShot(45, 180)
                 } else {
-                    VibrationEffect.createOneShot(45, VibrationEffect.DEFAULT_AMPLITUDE)
+                    VibrationEffect.createOneShot(scaledDur(45), scaledAmp(180))
                 }
-                Effect.LONG_PRESS -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                Effect.LONG_PRESS -> if (isDefaultScale && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     try {
                         VibrationEffect.createPredefined(VibrationEffect.EFFECT_HEAVY_CLICK)
                     } catch (_: Exception) {
-                        VibrationEffect.createOneShot(70, VibrationEffect.DEFAULT_AMPLITUDE)
+                        VibrationEffect.createOneShot(scaledDur(70), scaledAmp(200))
                     }
-                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    VibrationEffect.createOneShot(70, 255)
                 } else {
-                    VibrationEffect.createOneShot(70, VibrationEffect.DEFAULT_AMPLITUDE)
+                    VibrationEffect.createOneShot(scaledDur(70), scaledAmp(200))
                 }
-                else -> VibrationEffect.createOneShot(30, VibrationEffect.DEFAULT_AMPLITUDE)
+                else -> VibrationEffect.createOneShot(scaledDur(30), scaledAmp(180))
             }
             vibrator?.vibrate(ve)
         } catch (_: Exception) {

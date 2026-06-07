@@ -3,8 +3,6 @@
     android:accessibilityEventTypes="typeViewClicked"
     android:accessibilityFeedbackType="feedbackGeneric"
     android:accessibilityFlags="flagDefault"
-    android:canRetrieveWindowContent="true"
+    android:canRetrieveWindowContent="false"
     android:description="@string/accessibility_service_description"
-    android:notificationTimeout="100"
-    android:packageNames="com.github.gezimos.inkos.debug, com.github.gezimos.inkos"
-    android:settingsActivity="com.example.android.accessibility.ServiceSettingsActivity" />
+    android:notificationTimeout="100" />

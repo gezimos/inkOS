@@ -6,10 +6,6 @@ import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
-
-/**
- * Tracks key press duration to detect long-press gestures.
- */
 class KeyPressTracker {
     private var keyDownTime: Long = 0L
     private var trackedKey: Key? = null
@@ -41,11 +37,8 @@ class KeyPressTracker {
             val duration = System.currentTimeMillis() - keyDownTime
             val wasTracking = true
             reset()
-            // Return duration, or 1 if duration is 0 but we were tracking this key
-            // This handles edge cases where KeyUp comes immediately after KeyDown
             return if (duration > 0) duration else if (wasTracking) 1L else 0L
         }
-        // Even if key doesn't match, reset to avoid stuck state
         reset()
         return 0L
     }
@@ -57,17 +50,9 @@ class KeyPressTracker {
         longPressHandled = false
     }
 }
-
-/**
- * Focus zones for Home screen navigation
- */
 enum class FocusZone {
     CLOCK, DATE, APPS, MEDIA_WIDGET, QUOTE
 }
-
-/**
- * Focus zones for SimpleTray navigation
- */
 enum class SimpleTrayFocusZone {
     QUICK_SETTINGS,
     BRIGHTNESS_SLIDER,
@@ -76,13 +61,27 @@ enum class SimpleTrayFocusZone {
     BOTTOM_NAV
 }
 
+enum class HubFocusZone {
+    CATEGORY_TABS,
+    CLEAR_ALL,
+    NOTIFICATIONS
+}
+
+enum class ThemePresetFocusZone {
+    HEADER,
+    CARD,
+    SKIP_ROW,
+    BOTTOM_ROW
+}
+
+enum class ColorEditorFocusZone {
+    HEADER,      // back(0), save(1)
+    TABS,        // light(0), dark(1)
+    COLOR_ROWS   // background(0), text(1)
+}
+
 object NavHelper {
-    // Increase DPAD long-press threshold to match touch long-press behaviour
     const val LONG_PRESS_THRESHOLD_MS = 700L
-    /**
-     * Handle DPAD/key events for Home screen with multi-zone navigation.
-     * Returns true if the event was handled.
-     */
     fun handleHomeKeyEvent(
         keyEvent: KeyEvent,
         keyPressTracker: KeyPressTracker,
@@ -109,13 +108,13 @@ object NavHelper {
         onClockClick: (() -> Unit)? = null,
         onDateClick: (() -> Unit)? = null,
         onMediaAction: ((Int) -> Unit)? = null,
-        onQuoteClick: (() -> Unit)? = null
+        onQuoteClick: (() -> Unit)? = null,
+        onSwipeUp: (() -> Unit)? = null,
+        onSwipeDown: (() -> Unit)? = null
     ): Boolean {
-        // Handle activation keys (Enter, DPAD Center) with zone-aware activation
         if (keyEvent.key == Key.DirectionCenter || keyEvent.key == Key.Enter) {
             if (keyEvent.type == KeyEventType.KeyDown && keyEvent.nativeKeyEvent.repeatCount == 0) {
                 dpadMode.value = true
-                // For zones other than APPS, activate immediately on KeyDown
                 if (focusZone != null && focusZone.value != FocusZone.APPS) {
                     when (focusZone.value) {
                         FocusZone.CLOCK -> onClockClick?.invoke()
@@ -159,8 +158,6 @@ object NavHelper {
             return true
         }
         
-        // For other keys, only handle on KeyDown and only treat navigation/selection
-        // keys as DPAD input. This avoids turning on DPAD mode for Back/Swipe inputs.
         if (keyEvent.type != KeyEventType.KeyDown) return false
 
         return when (keyEvent.key) {
@@ -183,12 +180,13 @@ object NavHelper {
                                     adjustPageBy(1)
                                     selectedIndex.value = 0
                                 } else {
-                                    // At last app on last page - try to move to media or quote
                                     if (showMediaWidget) {
                                         focusZone.value = FocusZone.MEDIA_WIDGET
                                         selectedMediaButton?.value = 0
                                     } else if (showQuote) {
                                         focusZone.value = FocusZone.QUOTE
+                                    } else {
+                                        onSwipeDown?.invoke()
                                     }
                                 }
                             }
@@ -201,13 +199,16 @@ object NavHelper {
                                 } else if (showQuote) {
                                     // Move to quote from last button
                                     focusZone.value = FocusZone.QUOTE
+                                } else {
+                                    onSwipeDown?.invoke()
                                 }
                             } else if (showQuote) {
                                 focusZone.value = FocusZone.QUOTE
                             }
                         }
                         FocusZone.QUOTE -> {
-                            // Stay at quote (boundary)
+                            // At bottom boundary - trigger swipe down action
+                            onSwipeDown?.invoke()
                         }
                     }
                 } else {
@@ -228,10 +229,12 @@ object NavHelper {
                 if (focusZone != null) {
                     when (focusZone.value) {
                         FocusZone.CLOCK -> {
-                            // Stay at clock (boundary)
+                            // At top boundary - trigger swipe up action
+                            onSwipeUp?.invoke()
                         }
                         FocusZone.DATE -> {
                             if (showClock) focusZone.value = FocusZone.CLOCK
+                            else onSwipeUp?.invoke()
                         }
                         FocusZone.APPS -> {
                             if (appsOnPageSize > 0) {
@@ -241,11 +244,12 @@ object NavHelper {
                                     adjustPageBy(-1)
                                     selectedIndex.value = appsPerPage - 1
                                 } else {
-                                    // At first app on first page - try to move to date or clock
                                     if (showDate) {
                                         focusZone.value = FocusZone.DATE
                                     } else if (showClock) {
                                         focusZone.value = FocusZone.CLOCK
+                                    } else {
+                                        onSwipeUp?.invoke()
                                     }
                                 }
                             }
@@ -284,7 +288,6 @@ object NavHelper {
             }
             Key.DirectionLeft -> {
                 dpadMode.value = true
-                // Left/Right no longer navigate media buttons - they trigger gestures
                 if (!disableSwipeGestures) {
                     try { onSwipeLeft?.invoke() } catch (_: Exception) {}
                 }
@@ -292,7 +295,6 @@ object NavHelper {
             }
             Key.DirectionRight -> {
                 dpadMode.value = true
-                // Left/Right no longer navigate media buttons - they trigger gestures
                 if (!disableSwipeGestures) {
                     try { onSwipeRight?.invoke() } catch (_: Exception) {}
                 }
@@ -355,7 +357,6 @@ object NavHelper {
         if (event.action != android.view.KeyEvent.ACTION_DOWN) return AppDrawerKeyAction.None
 
         return when (keyCode) {
-            // Standard navigation keys for item-by-item movement
             android.view.KeyEvent.KEYCODE_DPAD_UP -> AppDrawerKeyAction.MoveSelectionUp
             android.view.KeyEvent.KEYCODE_DPAD_DOWN -> AppDrawerKeyAction.MoveSelectionDown
 
@@ -375,10 +376,6 @@ object NavHelper {
             else -> AppDrawerKeyAction.None
         }
     }
-
-    /**
-     * Handle DPAD/key events for Apps drawer with A-Z filter and search support.
-     */
     fun handleAppsKeyEvent(
         keyEvent: KeyEvent,
         keyPressTracker: KeyPressTracker,
@@ -402,10 +399,63 @@ object NavHelper {
         azFilterSize: Int = 27,
         onAzFilterActivate: (() -> Unit)? = null,
         showSearch: Boolean = false,
-        onSearchFocus: (() -> Unit)? = null
+        onSearchFocus: (() -> Unit)? = null,
+        // Edit Favorites parameters
+        isEditFavoritesMode: Boolean = false,
+        allowDragReorder: Boolean = false,
+        titleFocusable: Boolean = false,
+        hasDoneButton: Boolean = false,
+        doneFocused: Boolean = false,
+        onDoneFocusChange: ((Boolean) -> Unit)? = null,
+        onDoneActivate: (() -> Unit)? = null,
+        onFavoriteToggle: ((index: Int) -> Unit)? = null,
+        // Edit Favorites title focus
+        titleFocused: Boolean = false,
+        onTitleFocusChange: ((Boolean) -> Unit)? = null,
+        onTitleActivate: (() -> Unit)? = null,
+        // DPAD drag reorder parameters
+        dragHandleFocused: Boolean = false,
+        onDragHandleFocusChange: ((Boolean) -> Unit)? = null,
+        dpadGrabbedIndex: Int? = null,
+        onDpadGrab: (() -> Unit)? = null,
+        onDpadDrop: (() -> Unit)? = null,
+        onDpadMoveUp: (() -> Unit)? = null,
+        onDpadMoveDown: (() -> Unit)? = null,
+        isItemChecked: ((Int) -> Boolean)? = null
     ): Boolean {
-        // Handle activation keys (Enter, DPAD Center) with long-press detection
-        // When A-Z filter is focused, ENTER activates the selected filter letter
+        if (keyEvent.key == Key.DirectionCenter || keyEvent.key == Key.Enter) {
+            if (dpadGrabbedIndex != null) {
+                if (keyEvent.type == KeyEventType.KeyDown) {
+                    isDpadModeSetter(true)
+                    onDpadDrop?.invoke()
+                }
+                return true
+            }
+            if (dragHandleFocused) {
+                if (keyEvent.type == KeyEventType.KeyDown) {
+                    isDpadModeSetter(true)
+                    onDpadGrab?.invoke()
+                }
+                return true
+            }
+            // Done button in edit favorites mode
+            if (doneFocused) {
+                if (keyEvent.type == KeyEventType.KeyDown) {
+                    isDpadModeSetter(true)
+                    onDoneActivate?.invoke()
+                }
+                return true
+            }
+            // Title in edit favorites mode
+            if (titleFocused) {
+                if (keyEvent.type == KeyEventType.KeyDown) {
+                    isDpadModeSetter(true)
+                    onTitleActivate?.invoke()
+                }
+                return true
+            }
+        }
+
         if (keyEvent.key == Key.DirectionCenter || keyEvent.key == Key.Enter) {
             if (azFilterFocused) {
                 // Activate the A-Z filter selection
@@ -428,7 +478,6 @@ object NavHelper {
                                 keyPressTracker.longPressHandled = true
                             }
                         }
-                        // Return true to consume the event and prevent default action
                         true
                     }
                     KeyEventType.KeyUp -> {
@@ -437,7 +486,11 @@ object NavHelper {
                         } else {
                             val duration = keyPressTracker.onKeyUp(keyEvent.key)
                             if (duration > 0) {
-                                onAppClick(selectedIndexGetter())
+                                if (isEditFavoritesMode && onFavoriteToggle != null) {
+                                    onFavoriteToggle(selectedIndexGetter())
+                                } else {
+                                    onAppClick(selectedIndexGetter())
+                                }
                             }
                         }
                         true
@@ -446,16 +499,18 @@ object NavHelper {
                 }
             }
         }
-        
-        // For other keys, only handle on KeyDown and only treat navigation/selection
-        // keys as DPAD input to avoid enabling DPAD mode for Back/Swipe keys.
+
         if (keyEvent.type != KeyEventType.KeyDown) return false
 
         return when (keyEvent.key) {
             Key.DirectionUp -> {
                 isDpadModeSetter(true)
-                
-                if (azFilterFocused) {
+
+                if (dpadGrabbedIndex != null) {
+                    onDpadMoveUp?.invoke()
+                } else if (doneFocused || titleFocused) {
+                    // Already at header row, nowhere to go up
+                } else if (azFilterFocused) {
                     // Navigate up in A-Z filter
                     val newIndex = (azFilterSelectedIndex - 1).coerceAtLeast(0)
                     onAzFilterIndexChange?.invoke(newIndex)
@@ -467,21 +522,35 @@ object NavHelper {
                     } else if (currentPage > 0) {
                         onPreviousPage()
                         selectedIndexSetter(displayAppsSize - 1)
+                    } else if (isEditFavoritesMode || titleFocusable) {
+                        // At first item on first page — focus the title/header action
+                        onTitleFocusChange?.invoke(true)
+                    } else if (showSearch) {
+                        onSearchFocus?.invoke()
                     }
                 }
                 true
             }
             Key.DirectionDown -> {
                 isDpadModeSetter(true)
-                
-                if (azFilterFocused) {
+
+                if (dpadGrabbedIndex != null) {
+                    onDpadMoveDown?.invoke()
+                } else if (doneFocused) {
+                    // Move from Done button back to app list
+                    onDoneFocusChange?.invoke(false)
+                    selectedIndexSetter(0)
+                } else if (titleFocused) {
+                    // Move from title back to app list
+                    onTitleFocusChange?.invoke(false)
+                    selectedIndexSetter(0)
+                } else if (azFilterFocused) {
                     // Navigate down in A-Z filter
                     val newIndex = (azFilterSelectedIndex + 1).coerceAtMost(azFilterSize - 1)
                     onAzFilterIndexChange?.invoke(newIndex)
                 } else {
                     // If in search field, move back to app list
-                    // This will be handled by the fragment when search field loses focus
-                    
+
                     val selected = selectedIndexGetter()
                     if (selected < displayAppsSize - 1) {
                         selectedIndexSetter(selected + 1)
@@ -494,44 +563,77 @@ object NavHelper {
             }
             Key.DirectionLeft -> {
                 isDpadModeSetter(true)
-                // Move from A-Z filter back to app list
-                if (azFilterFocused) {
+                if (dpadGrabbedIndex != null) {
+                    // Block Left while grabbed
+                } else if (titleFocused && hasDoneButton) {
+                    // Move from title to Done button
+                    onTitleFocusChange?.invoke(false)
+                    onDoneFocusChange?.invoke(true)
+                } else if (doneFocused) {
+                    // Move from Done to title
+                    onDoneFocusChange?.invoke(false)
+                    onTitleFocusChange?.invoke(true)
+                } else if (dragHandleFocused) {
+                    // Move focus back from drag handle to app label
+                    onDragHandleFocusChange?.invoke(false)
+                } else if (azFilterFocused) {
+                    // Move from A-Z filter back to app list
                     onAzFilterFocusChange?.invoke(false)
                 }
                 true
             }
             Key.DirectionRight -> {
                 isDpadModeSetter(true)
-                // Move from app list to A-Z filter (if visible and not already focused)
-                if (!azFilterFocused && showAzFilter) {
+                if (dpadGrabbedIndex != null) {
+                    // Block Right while grabbed
+                } else if (titleFocused && hasDoneButton) {
+                    // Move from title to Done button
+                    onTitleFocusChange?.invoke(false)
+                    onDoneFocusChange?.invoke(true)
+                } else if (doneFocused) {
+                    // Move from Done to title
+                    onDoneFocusChange?.invoke(false)
+                    onTitleFocusChange?.invoke(true)
+                } else if (isEditFavoritesMode && allowDragReorder && !dragHandleFocused && !doneFocused) {
+                    val idx = selectedIndexGetter()
+                    if (isItemChecked?.invoke(idx) == true) {
+                        onDragHandleFocusChange?.invoke(true)
+                    }
+                } else if (!azFilterFocused && showAzFilter) {
                     onAzFilterFocusChange?.invoke(true)
                 }
                 true
             }
             Key.PageUp -> {
                 isDpadModeSetter(true)
-                onPreviousPage()
-                selectedIndexSetter(0)
+                if (dpadGrabbedIndex == null) {
+                    onPreviousPage()
+                    selectedIndexSetter(0)
+                }
                 true
             }
             Key.PageDown -> {
                 isDpadModeSetter(true)
-                onNextPage()
-                selectedIndexSetter(0)
+                if (dpadGrabbedIndex == null) {
+                    onNextPage()
+                    selectedIndexSetter(0)
+                }
                 true
             }
+            Key.Escape, Key.Back -> {
+                // Cancel grab if active
+                if (dpadGrabbedIndex != null) {
+                    onDpadDrop?.invoke()
+                    return true
+                }
+                false
+            }
             Key.Backspace, Key.Delete -> {
-                // Let caller handle search focus/backspace behavior; return false to let existing logic act.
                 false
             }
             else -> false
         }
     }
-
-    /**
-     * Handle DPAD/key events for SimpleTray with multi-zone navigation.
-     * Returns true if the event was handled.
-     */
     fun handleSimpleTrayKeyEvent(
         keyEvent: KeyEvent,
         keyPressTracker: KeyPressTracker,
@@ -636,14 +738,11 @@ object NavHelper {
                             focusZone.value = SimpleTrayFocusZone.NOTIFICATIONS
                             selectedNotificationIndex.value = 0
                         } else if (bottomNavEnabled) {
-                            // Skip to bottom nav if no notifications and bottom nav is enabled
                             focusZone.value = SimpleTrayFocusZone.BOTTOM_NAV
                             selectedBottomNavIndex.value = 0
                         }
-                        // If no notifications and bottom nav disabled, stay in CLEAR_ALL
                     }
                     SimpleTrayFocusZone.NOTIFICATIONS -> {
-                        // Move to next notification, change page at boundary
                         if (notificationsOnPageSize > 0) {
                             if (selectedNotificationIndex.value < notificationsOnPageSize - 1) {
                                 selectedNotificationIndex.value = selectedNotificationIndex.value + 1
@@ -652,11 +751,9 @@ object NavHelper {
                                 onNextPage()
                                 selectedNotificationIndex.value = 0
                             } else if (bottomNavEnabled) {
-                                // At last notification on last page, move to bottom nav if enabled
                                 focusZone.value = SimpleTrayFocusZone.BOTTOM_NAV
                                 selectedBottomNavIndex.value = 0
                             }
-                            // If bottom nav disabled, stay at last notification
                         }
                     }
                     SimpleTrayFocusZone.BOTTOM_NAV -> {
@@ -689,16 +786,13 @@ object NavHelper {
                         focusZone.value = SimpleTrayFocusZone.BRIGHTNESS_SLIDER
                     }
                     SimpleTrayFocusZone.NOTIFICATIONS -> {
-                        // Move to previous notification, change page at boundary
                         if (notificationsOnPageSize > 0) {
                             if (selectedNotificationIndex.value > 0) {
                                 selectedNotificationIndex.value = selectedNotificationIndex.value - 1
                             } else if (currentPage > 0) {
-                                // At first notification on page, go to previous page
                                 onPreviousPage()
                                 selectedNotificationIndex.value = pageSize - 1 // Will be clamped by UI
                             } else {
-                                // At first notification on first page, move to clear all
                                 focusZone.value = SimpleTrayFocusZone.CLEAR_ALL
                             }
                         }
@@ -708,7 +802,6 @@ object NavHelper {
                         if (selectedBottomNavIndex.value > 0) {
                             selectedBottomNavIndex.value = selectedBottomNavIndex.value - 1
                         } else {
-                            // At first button, move back to notifications or clear all
                             if (notificationsOnPageSize > 0) {
                                 focusZone.value = SimpleTrayFocusZone.NOTIFICATIONS
                                 selectedNotificationIndex.value = notificationsOnPageSize - 1
@@ -724,7 +817,6 @@ object NavHelper {
                 isDpadModeSetter(true)
                 when (focusZone.value) {
                     SimpleTrayFocusZone.QUICK_SETTINGS -> {
-                        // Navigate within quick settings (5 buttons) - left
                         if (selectedQuickSettingIndex.value > 0) {
                             selectedQuickSettingIndex.value = selectedQuickSettingIndex.value - 1
                         }
@@ -743,7 +835,6 @@ object NavHelper {
                 isDpadModeSetter(true)
                 when (focusZone.value) {
                     SimpleTrayFocusZone.QUICK_SETTINGS -> {
-                        // Navigate within quick settings (5 buttons) - right
                         if (selectedQuickSettingIndex.value < 4) {
                             selectedQuickSettingIndex.value = selectedQuickSettingIndex.value + 1
                         }
@@ -771,6 +862,401 @@ object NavHelper {
                 if (currentPage < totalPages - 1) {
                     onNextPage()
                     selectedNotificationIndex.value = 0
+                }
+                true
+            }
+            else -> false
+        }
+    }
+    fun handleHubKeyEvent(
+        keyEvent: KeyEvent,
+        keyPressTracker: KeyPressTracker,
+        isDpadModeSetter: (Boolean) -> Unit,
+        focusZone: MutableState<HubFocusZone>,
+        // Category Tabs
+        selectedCategoryIndex: MutableState<Int>,
+        categoryTabCount: Int,
+        onCategorySelected: (Int) -> Unit,
+        // Clear All
+        onClearAll: () -> Unit,
+        // Notifications
+        selectedNotificationIndex: MutableState<Int>,
+        notificationsOnPageSize: Int,
+        pageSize: Int,
+        currentPage: Int,
+        totalPages: Int,
+        onNextPage: () -> Unit,
+        onPreviousPage: () -> Unit,
+        onNotificationClick: (index: Int) -> Unit,
+        onNotificationLongClick: (index: Int) -> Unit,
+        // Bottom Nav (kept for API compat, ignored)
+        bottomNavEnabled: Boolean = false
+    ): Boolean {
+        // Handle activation keys (Enter, DPAD Center)
+        if (keyEvent.key == Key.DirectionCenter || keyEvent.key == Key.Enter) {
+            if (keyEvent.type == KeyEventType.KeyDown && keyEvent.nativeKeyEvent.repeatCount == 0) {
+                isDpadModeSetter(true)
+                if (focusZone.value == HubFocusZone.NOTIFICATIONS) {
+                    keyPressTracker.onKeyDown(keyEvent.key)
+                    return true
+                } else {
+                    when (focusZone.value) {
+                        HubFocusZone.CATEGORY_TABS -> onCategorySelected(selectedCategoryIndex.value)
+                        HubFocusZone.CLEAR_ALL -> onClearAll()
+                        else -> {}
+                    }
+                    return true
+                }
+            }
+
+            // Handle long-press for notifications zone
+            if (focusZone.value == HubFocusZone.NOTIFICATIONS) {
+                return when (keyEvent.type) {
+                    KeyEventType.KeyDown -> {
+                        isDpadModeSetter(true)
+                        if (keyEvent.nativeKeyEvent.repeatCount > 0) {
+                            if (!keyPressTracker.longPressHandled && keyPressTracker.getDuration(keyEvent.key) >= LONG_PRESS_THRESHOLD_MS) {
+                                onNotificationLongClick(selectedNotificationIndex.value)
+                                keyPressTracker.longPressHandled = true
+                            }
+                        }
+                        true
+                    }
+                    KeyEventType.KeyUp -> {
+                        if (keyPressTracker.longPressHandled) {
+                            keyPressTracker.reset()
+                        } else {
+                            val duration = keyPressTracker.onKeyUp(keyEvent.key)
+                            if (duration > 0) {
+                                onNotificationClick(selectedNotificationIndex.value)
+                            }
+                        }
+                        true
+                    }
+                    else -> false
+                }
+            }
+            return true
+        }
+
+        // For other keys, only handle on KeyDown
+        if (keyEvent.type != KeyEventType.KeyDown) return false
+
+        return when (keyEvent.key) {
+            Key.DirectionDown -> {
+                isDpadModeSetter(true)
+                when (focusZone.value) {
+                    HubFocusZone.CATEGORY_TABS -> {
+                        if (notificationsOnPageSize > 0) {
+                            focusZone.value = HubFocusZone.CLEAR_ALL
+                        }
+                    }
+                    HubFocusZone.CLEAR_ALL -> {
+                        if (notificationsOnPageSize > 0) {
+                            focusZone.value = HubFocusZone.NOTIFICATIONS
+                            selectedNotificationIndex.value = 0
+                        }
+                    }
+                    HubFocusZone.NOTIFICATIONS -> {
+                        if (notificationsOnPageSize > 0) {
+                            if (selectedNotificationIndex.value < notificationsOnPageSize - 1) {
+                                selectedNotificationIndex.value = selectedNotificationIndex.value + 1
+                            } else if (currentPage < totalPages - 1) {
+                                onNextPage()
+                                selectedNotificationIndex.value = 0
+                            }
+                            // At bottom of last page — stay put
+                        }
+                    }
+                }
+                true
+            }
+            Key.DirectionUp -> {
+                isDpadModeSetter(true)
+                when (focusZone.value) {
+                    HubFocusZone.CATEGORY_TABS -> {
+                        // At top — do nothing
+                    }
+                    HubFocusZone.CLEAR_ALL -> {
+                        focusZone.value = HubFocusZone.CATEGORY_TABS
+                    }
+                    HubFocusZone.NOTIFICATIONS -> {
+                        if (notificationsOnPageSize > 0) {
+                            if (selectedNotificationIndex.value > 0) {
+                                selectedNotificationIndex.value = selectedNotificationIndex.value - 1
+                            } else if (currentPage > 0) {
+                                onPreviousPage()
+                                selectedNotificationIndex.value = pageSize - 1
+                            } else {
+                                focusZone.value = HubFocusZone.CLEAR_ALL
+                            }
+                        }
+                    }
+                }
+                true
+            }
+            Key.DirectionLeft -> {
+                isDpadModeSetter(true)
+                when (focusZone.value) {
+                    HubFocusZone.CATEGORY_TABS -> {
+                        if (selectedCategoryIndex.value > 0) {
+                            selectedCategoryIndex.value = selectedCategoryIndex.value - 1
+                            onCategorySelected(selectedCategoryIndex.value)
+                        }
+                    }
+                    else -> {}
+                }
+                true
+            }
+            Key.DirectionRight -> {
+                isDpadModeSetter(true)
+                when (focusZone.value) {
+                    HubFocusZone.CATEGORY_TABS -> {
+                        if (selectedCategoryIndex.value < categoryTabCount - 1) {
+                            selectedCategoryIndex.value = selectedCategoryIndex.value + 1
+                            onCategorySelected(selectedCategoryIndex.value)
+                        }
+                    }
+                    else -> {}
+                }
+                true
+            }
+            Key.PageUp -> {
+                isDpadModeSetter(true)
+                if (currentPage > 0) {
+                    onPreviousPage()
+                    selectedNotificationIndex.value = 0
+                }
+                true
+            }
+            Key.PageDown -> {
+                isDpadModeSetter(true)
+                if (currentPage < totalPages - 1) {
+                    onNextPage()
+                    selectedNotificationIndex.value = 0
+                }
+                true
+            }
+            else -> false
+        }
+    }
+    fun handleColorEditorKeyEvent(
+        keyEvent: KeyEvent,
+        isDpadModeSetter: (Boolean) -> Unit,
+        focusZone: MutableState<ColorEditorFocusZone>,
+        headerIndex: MutableState<Int>,
+        tabIndex: MutableState<Int>,
+        colorRowIndex: MutableState<Int>,
+        onBackClick: () -> Unit,
+        onSave: () -> Unit,
+        onTabSelect: (Int) -> Unit,
+        onColorRowClick: (Int) -> Unit
+    ): Boolean {
+        if (keyEvent.key == Key.DirectionCenter || keyEvent.key == Key.Enter) {
+            if (keyEvent.type == KeyEventType.KeyDown) {
+                isDpadModeSetter(true)
+                when (focusZone.value) {
+                    ColorEditorFocusZone.HEADER -> {
+                        when (headerIndex.value) {
+                            0 -> onBackClick()
+                            1 -> onSave()
+                        }
+                    }
+                    ColorEditorFocusZone.TABS -> {
+                        onTabSelect(tabIndex.value)
+                    }
+                    ColorEditorFocusZone.COLOR_ROWS -> {
+                        onColorRowClick(colorRowIndex.value)
+                    }
+                }
+                return true
+            }
+            return true
+        }
+
+        if (keyEvent.type != KeyEventType.KeyDown) return false
+
+        return when (keyEvent.key) {
+            Key.DirectionLeft -> {
+                isDpadModeSetter(true)
+                when (focusZone.value) {
+                    ColorEditorFocusZone.HEADER -> {
+                        if (headerIndex.value > 0) headerIndex.value--
+                    }
+                    ColorEditorFocusZone.TABS -> {
+                        if (tabIndex.value > 0) tabIndex.value--
+                    }
+                    ColorEditorFocusZone.COLOR_ROWS -> {
+                        // no left/right in color rows
+                    }
+                }
+                true
+            }
+            Key.DirectionRight -> {
+                isDpadModeSetter(true)
+                when (focusZone.value) {
+                    ColorEditorFocusZone.HEADER -> {
+                        if (headerIndex.value < 1) headerIndex.value++
+                    }
+                    ColorEditorFocusZone.TABS -> {
+                        if (tabIndex.value < 1) tabIndex.value++
+                    }
+                    ColorEditorFocusZone.COLOR_ROWS -> {
+                        // no left/right in color rows
+                    }
+                }
+                true
+            }
+            Key.DirectionDown -> {
+                isDpadModeSetter(true)
+                when (focusZone.value) {
+                    ColorEditorFocusZone.HEADER -> {
+                        focusZone.value = ColorEditorFocusZone.TABS
+                    }
+                    ColorEditorFocusZone.TABS -> {
+                        focusZone.value = ColorEditorFocusZone.COLOR_ROWS
+                        colorRowIndex.value = 0
+                    }
+                    ColorEditorFocusZone.COLOR_ROWS -> {
+                        if (colorRowIndex.value < 1) colorRowIndex.value++
+                    }
+                }
+                true
+            }
+            Key.DirectionUp -> {
+                isDpadModeSetter(true)
+                when (focusZone.value) {
+                    ColorEditorFocusZone.COLOR_ROWS -> {
+                        if (colorRowIndex.value > 0) {
+                            colorRowIndex.value--
+                        } else {
+                            focusZone.value = ColorEditorFocusZone.TABS
+                        }
+                    }
+                    ColorEditorFocusZone.TABS -> {
+                        focusZone.value = ColorEditorFocusZone.HEADER
+                    }
+                    ColorEditorFocusZone.HEADER -> { /* at top */ }
+                }
+                true
+            }
+            else -> false
+        }
+    }
+
+    fun handleThemePresetKeyEvent(
+        keyEvent: KeyEvent,
+        isDpadModeSetter: (Boolean) -> Unit,
+        focusZone: MutableState<ThemePresetFocusZone>,
+        headerIndex: MutableState<Int>,
+        bottomRowIndex: MutableState<Int>,
+        currentIndex: MutableState<Int>,
+        presetsLastIndex: Int,
+        hasSelectButton: Boolean,
+        headerMaxIndex: Int = 0,
+        onBackClick: () -> Unit,
+        onHeaderAction: (Int) -> Unit = {},
+        onModeToggle: () -> Unit,
+        onSelect: () -> Unit,
+        skipRowIndex: MutableState<Int>? = null,
+        skipRowCount: Int = 0,
+        onSkipToggle: (Int) -> Unit = {}
+    ): Boolean {
+        if (keyEvent.key == Key.DirectionCenter || keyEvent.key == Key.Enter) {
+            if (keyEvent.type == KeyEventType.KeyDown) {
+                isDpadModeSetter(true)
+                when (focusZone.value) {
+                    ThemePresetFocusZone.HEADER -> {
+                        if (headerIndex.value == 0) onBackClick()
+                        else onHeaderAction(headerIndex.value)
+                    }
+                    ThemePresetFocusZone.BOTTOM_ROW -> {
+                        when (bottomRowIndex.value) {
+                            0 -> onModeToggle()
+                            1 -> onSelect()
+                        }
+                    }
+                    ThemePresetFocusZone.CARD -> {
+                        if (hasSelectButton) onSelect() else onModeToggle()
+                    }
+                    ThemePresetFocusZone.SKIP_ROW -> {
+                        onSkipToggle(skipRowIndex?.value ?: 0)
+                    }
+                }
+                return true
+            }
+            return true
+        }
+
+        if (keyEvent.type != KeyEventType.KeyDown) return false
+
+        return when (keyEvent.key) {
+            Key.DirectionLeft -> {
+                isDpadModeSetter(true)
+                when (focusZone.value) {
+                    ThemePresetFocusZone.HEADER -> {
+                        if (headerIndex.value > 0) headerIndex.value--
+                    }
+                    ThemePresetFocusZone.CARD -> {
+                        if (currentIndex.value > 0) currentIndex.value--
+                    }
+                    ThemePresetFocusZone.BOTTOM_ROW -> {
+                        if (bottomRowIndex.value > 0) bottomRowIndex.value--
+                    }
+                    ThemePresetFocusZone.SKIP_ROW -> {
+                        if ((skipRowIndex?.value ?: 0) > 0) skipRowIndex?.let { it.value-- }
+                    }
+                }
+                true
+            }
+            Key.DirectionRight -> {
+                isDpadModeSetter(true)
+                when (focusZone.value) {
+                    ThemePresetFocusZone.HEADER -> {
+                        if (headerIndex.value < headerMaxIndex) headerIndex.value++
+                    }
+                    ThemePresetFocusZone.CARD -> {
+                        if (currentIndex.value < presetsLastIndex) currentIndex.value++
+                    }
+                    ThemePresetFocusZone.BOTTOM_ROW -> {
+                        val maxIndex = if (hasSelectButton) 1 else 0
+                        if (bottomRowIndex.value < maxIndex) bottomRowIndex.value++
+                    }
+                    ThemePresetFocusZone.SKIP_ROW -> {
+                        if ((skipRowIndex?.value ?: 0) < skipRowCount - 1) skipRowIndex?.let { it.value++ }
+                    }
+                }
+                true
+            }
+            Key.DirectionDown -> {
+                isDpadModeSetter(true)
+                when (focusZone.value) {
+                    ThemePresetFocusZone.HEADER -> {
+                        focusZone.value = ThemePresetFocusZone.CARD
+                    }
+                    ThemePresetFocusZone.CARD -> {
+                        focusZone.value = if (skipRowCount > 0) ThemePresetFocusZone.SKIP_ROW else ThemePresetFocusZone.BOTTOM_ROW
+                    }
+                    ThemePresetFocusZone.SKIP_ROW -> {
+                        focusZone.value = ThemePresetFocusZone.BOTTOM_ROW
+                    }
+                    ThemePresetFocusZone.BOTTOM_ROW -> { /* at bottom */ }
+                }
+                true
+            }
+            Key.DirectionUp -> {
+                isDpadModeSetter(true)
+                when (focusZone.value) {
+                    ThemePresetFocusZone.BOTTOM_ROW -> {
+                        focusZone.value = if (skipRowCount > 0) ThemePresetFocusZone.SKIP_ROW else ThemePresetFocusZone.CARD
+                    }
+                    ThemePresetFocusZone.SKIP_ROW -> {
+                        focusZone.value = ThemePresetFocusZone.CARD
+                    }
+                    ThemePresetFocusZone.CARD -> {
+                        focusZone.value = ThemePresetFocusZone.HEADER
+                    }
+                    ThemePresetFocusZone.HEADER -> { /* at top */ }
                 }
                 true
             }

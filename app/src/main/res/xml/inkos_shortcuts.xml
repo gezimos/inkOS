@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <shortcut
+        android:shortcutId="inkos_app_drawer"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_app_drawer_short"
+        android:shortcutLongLabel="@string/shortcut_app_drawer_short">
+        <intent
+            android:action="com.github.gezimos.inkos.action.OPEN_APP_DRAWER"
+            android:targetPackage="${applicationId}"
+            android:targetClass="com.github.gezimos.inkos.MainActivity" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="inkos_notifications"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_letters_short"
+        android:shortcutLongLabel="@string/shortcut_letters_short">
+        <intent
+            android:action="com.github.gezimos.inkos.action.OPEN_NOTIFICATIONS"
+            android:targetPackage="${applicationId}"
+            android:targetClass="com.github.gezimos.inkos.MainActivity" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="inkos_simple_tray"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_simple_tray_short"
+        android:shortcutLongLabel="@string/shortcut_simple_tray_short">
+        <intent
+            android:action="com.github.gezimos.inkos.action.OPEN_SIMPLE_TRAY"
+            android:targetPackage="${applicationId}"
+            android:targetClass="com.github.gezimos.inkos.MainActivity" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="inkos_hub"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_hub_short"
+        android:shortcutLongLabel="@string/shortcut_hub_short">
+        <intent
+            android:action="com.github.gezimos.inkos.action.OPEN_HUB"
+            android:targetPackage="${applicationId}"
+            android:targetClass="com.github.gezimos.inkos.MainActivity" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="inkos_recents"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_recents_short"
+        android:shortcutLongLabel="@string/shortcut_recents_short">
+        <intent
+            android:action="com.github.gezimos.inkos.action.OPEN_RECENTS"
+            android:targetPackage="${applicationId}"
+            android:targetClass="com.github.gezimos.inkos.MainActivity" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="inkos_settings"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_settings_short"
+        android:shortcutLongLabel="@string/shortcut_settings_short">
+        <intent
+            android:action="com.github.gezimos.inkos.action.OPEN_SETTINGS"
+            android:targetPackage="${applicationId}"
+            android:targetClass="com.github.gezimos.inkos.MainActivity" />
+    </shortcut>
+
+</shortcuts>

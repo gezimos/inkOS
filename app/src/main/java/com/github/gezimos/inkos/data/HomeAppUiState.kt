@@ -1,18 +1,18 @@
 package com.github.gezimos.inkos.data
 
 import android.graphics.Typeface
+import android.os.UserHandle
 import androidx.annotation.ColorInt
 import com.github.gezimos.inkos.services.NotificationManager
-
-/**
- * UI state for a home screen app button, including label, font, color, and notification badge info.
- */
 data class HomeAppUiState(
-    val id: Int, // position on home screen
+    val id: Int,
     val label: String,
     val font: Typeface?,
     @ColorInt val color: Int,
     val notificationInfo: NotificationManager.NotificationInfo? = null,
-    val activityPackage: String // Add unique identifier for the app
+    val activityPackage: String,
+    val activityClass: String = "",
+    val user: UserHandle? = null,
+    val shortcutId: String? = null
 )
 

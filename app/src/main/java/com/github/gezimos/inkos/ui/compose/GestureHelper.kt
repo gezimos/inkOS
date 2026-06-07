@@ -3,8 +3,16 @@ package com.github.gezimos.inkos.ui.compose
 import android.content.Context
 import android.view.GestureDetector
 import android.view.MotionEvent
+import androidx.core.os.bundleOf
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.exclude
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -19,7 +27,6 @@ import com.github.gezimos.common.launchCalendar
 import com.github.gezimos.common.openAlarmApp
 import com.github.gezimos.common.openCameraApp
 import com.github.gezimos.common.openDialerApp
-import com.github.gezimos.common.showShortToast
 import com.github.gezimos.inkos.MainViewModel
 import com.github.gezimos.inkos.R
 import com.github.gezimos.inkos.data.AppListItem
@@ -27,22 +34,26 @@ import com.github.gezimos.inkos.data.Constants
 import com.github.gezimos.inkos.data.Constants.Action
 import com.github.gezimos.inkos.data.Prefs
 import com.github.gezimos.inkos.helper.initActionService
+import com.github.gezimos.inkos.data.repository.AppsRepository
 import com.github.gezimos.inkos.helper.utils.AppReloader
 import com.github.gezimos.inkos.helper.utils.BrightnessHelper
 import com.github.gezimos.inkos.helper.utils.EinkRefreshHelper
-import com.github.gezimos.inkos.helper.utils.PrivateSpaceManager
+import com.github.gezimos.inkos.helper.utils.ProfileManager
 import com.github.gezimos.inkos.helper.utils.VibrationHelper
 import kotlin.math.abs
 
-/**
- * Centralized gesture handling logic for the entire app.
- * Provides both low-level gesture detection (swipes, taps) and high-level action execution.
- */
 object GestureHelper {
-    
-    /**
-     * Execute a configured action (from user preferences).
-     */
+
+    @Volatile
+    var lastElementClickTime = 0L
+        private set
+
+    @Volatile var exclusionY = 0f
+    @Volatile var exclusionHeight = 0f
+
+    fun notifyElementClicked() {
+        lastElementClickTime = System.currentTimeMillis()
+    }
     fun executeAction(
         context: Context,
         fragment: Fragment?,
@@ -56,20 +67,36 @@ object GestureHelper {
             }
             Action.OpenApp -> {
                 if (gestureApp != null && gestureApp.activityPackage.isNotEmpty()) {
+                    val appsRepo = AppsRepository.getInstance(
+                        context.applicationContext as android.app.Application
+                    )
+                    if (fragment != null &&
+                        appsRepo.launchSyntheticOrSystemApp(
+                            context, gestureApp.activityPackage, fragment, gestureApp.shortcutId
+                        )
+                    ) {
+                        return
+                    }
                     viewModel?.launchApp(gestureApp)
                 }
             }
             Action.OpenAppDrawer -> {
                 fragment?.findNavController()?.navigate(R.id.appListFragment)
             }
-            Action.OpenNotificationsScreen -> {
-                fragment?.findNavController()?.navigate(R.id.notificationsFragment)
+            Action.OpenLettersScreen -> {
+                fragment?.findNavController()?.navigate(R.id.lettersFragment)
             }
             Action.OpenRecentsScreen -> {
                 fragment?.findNavController()?.navigate(R.id.recentsFragment)
             }
             Action.OpenSimpleTray -> {
                 fragment?.findNavController()?.navigate(R.id.simpleTrayFragment)
+            }
+            Action.OpenHub -> {
+                fragment?.findNavController()?.navigate(R.id.hubFragment)
+            }
+            Action.OpenSettings -> {
+                fragment?.findNavController()?.navigate(R.id.settingsFragment)
             }
             Action.EinkRefresh -> {
                 try {
@@ -84,19 +111,19 @@ object GestureHelper {
                 } catch (_: Exception) {}
             }
             Action.LockScreen -> {
-                try {
-                    initActionService(context)?.lockScreen()
-                } catch (_: Exception) {}
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                    try { initActionService(context)?.lockScreen() } catch (_: Exception) {}
+                }
             }
             Action.ShowRecents -> {
-                try {
-                    initActionService(context)?.showRecents()
-                } catch (_: Exception) {}
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                    try { initActionService(context)?.showRecents() } catch (_: Exception) {}
+                }
             }
             Action.OpenQuickSettings -> {
-                try {
-                    initActionService(context)?.openQuickSettings()
-                } catch (_: Exception) {}
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                    try { initActionService(context)?.openQuickSettings() } catch (_: Exception) {}
+                }
             }
             Action.OpenPowerDialog -> {
                 try {
@@ -113,7 +140,12 @@ object GestureHelper {
             }
             Action.TogglePrivateSpace -> {
                 try {
-                    PrivateSpaceManager(context).togglePrivateSpaceLock(showToast = true, launchSettings = true)
+                    ProfileManager(context).togglePrivateSpaceLock(showToast = true, launchSettings = true)
+                } catch (_: Exception) {}
+            }
+            Action.ToggleWorkProfile -> {
+                try {
+                    ProfileManager(context).toggleWorkProfile(showToast = true)
                 } catch (_: Exception) {}
             }
             Action.Brightness -> {
@@ -124,12 +156,27 @@ object GestureHelper {
                     }
                 } catch (_: Exception) {}
             }
+            Action.Search -> {
+                val bundle = bundleOf(
+                    "flag" to Constants.AppDrawerFlag.LaunchApp.toString(),
+                    "n" to 0,
+                    "showSearch" to true,
+                    "searchMode" to 0
+                )
+                try {
+                    fragment?.findNavController()?.navigate(R.id.appsFragment, bundle)
+                } catch (_: Exception) {
+                    try {
+                        fragment?.findNavController()?.navigate(R.id.action_mainFragment_to_appListFragment, bundle)
+                    } catch (_: Exception) {
+                        try {
+                            fragment?.findNavController()?.navigate(R.id.appListFragment, bundle)
+                        } catch (_: Exception) {}
+                    }
+                }
+            }
         }
     }
-
-    /**
-     * Handle swipe left gesture based on user preferences.
-     */
     fun handleSwipeLeft(
         context: Context,
         fragment: Fragment?,
@@ -142,7 +189,7 @@ object GestureHelper {
         try { VibrationHelper.trigger(VibrationHelper.Effect.CLICK) } catch (_: Exception) {}
         if (action == Action.OpenApp) {
             if (app.activityPackage.isNotEmpty()) {
-                viewModel?.launchApp(app)
+                executeAction(context, fragment, viewModel, action, app)
             } else {
                 context.openCameraApp()
             }
@@ -150,10 +197,6 @@ object GestureHelper {
             executeAction(context, fragment, viewModel, action)
         }
     }
-
-    /**
-     * Handle swipe right gesture based on user preferences.
-     */
     fun handleSwipeRight(
         context: Context,
         fragment: Fragment?,
@@ -166,7 +209,7 @@ object GestureHelper {
         try { VibrationHelper.trigger(VibrationHelper.Effect.CLICK) } catch (_: Exception) {}
         if (action == Action.OpenApp) {
             if (app.activityPackage.isNotEmpty()) {
-                viewModel?.launchApp(app)
+                executeAction(context, fragment, viewModel, action, app)
             } else {
                 context.openDialerApp()
             }
@@ -174,10 +217,6 @@ object GestureHelper {
             executeAction(context, fragment, viewModel, action)
         }
     }
-
-    /**
-     * Handle swipe up gesture based on user preferences.
-     */
     fun handleSwipeUp(
         context: Context,
         fragment: Fragment?,
@@ -190,16 +229,12 @@ object GestureHelper {
         try { VibrationHelper.trigger(VibrationHelper.Effect.CLICK) } catch (_: Exception) {}
         if (action == Action.OpenApp) {
             if (app.activityPackage.isNotEmpty()) {
-                viewModel?.launchApp(app)
+                executeAction(context, fragment, viewModel, action, app)
             }
         } else {
             executeAction(context, fragment, viewModel, action)
         }
     }
-
-    /**
-     * Handle swipe down gesture based on user preferences.
-     */
     fun handleSwipeDown(
         context: Context,
         fragment: Fragment?,
@@ -212,16 +247,12 @@ object GestureHelper {
         try { VibrationHelper.trigger(VibrationHelper.Effect.CLICK) } catch (_: Exception) {}
         if (action == Action.OpenApp) {
             if (app.activityPackage.isNotEmpty()) {
-                viewModel?.launchApp(app)
+                executeAction(context, fragment, viewModel, action, app)
             }
         } else {
             executeAction(context, fragment, viewModel, action)
         }
     }
-
-    /**
-     * Handle clock click gesture based on user preferences.
-     */
     fun handleClockClick(
         context: Context,
         fragment: Fragment?,
@@ -235,20 +266,14 @@ object GestureHelper {
         try { VibrationHelper.trigger(VibrationHelper.Effect.CLICK) } catch (_: Exception) {}
         if (action == Action.OpenApp) {
             if (app.activityPackage.isNotEmpty()) {
-                viewModel?.launchApp(app)
+                executeAction(context, fragment, viewModel, action, app)
             } else {
                 context.openAlarmApp()
             }
-        } else if (action == Action.Disabled) {
-            context.showShortToast(context.getString(R.string.edit_gestures_settings_toast))
-        } else {
+        } else if (action != Action.Disabled) {
             executeAction(context, fragment, viewModel, action)
         }
     }
-
-    /**
-     * Handle date click gesture based on user preferences.
-     */
     fun handleDateClick(
         context: Context,
         fragment: Fragment?,
@@ -262,20 +287,14 @@ object GestureHelper {
         try { VibrationHelper.trigger(VibrationHelper.Effect.CLICK) } catch (_: Exception) {}
         if (action == Action.OpenApp) {
             if (app.activityPackage.isNotEmpty()) {
-                viewModel?.launchApp(app)
+                executeAction(context, fragment, viewModel, action, app)
             } else {
                 context.launchCalendar()
             }
-        } else if (action == Action.Disabled) {
-            context.showShortToast(context.getString(R.string.edit_gestures_settings_toast))
-        } else {
+        } else if (action != Action.Disabled) {
             executeAction(context, fragment, viewModel, action)
         }
     }
-
-    /**
-     * Handle quote click gesture based on user preferences.
-     */
     fun handleQuoteClick(
         context: Context,
         fragment: Fragment?,
@@ -289,18 +308,12 @@ object GestureHelper {
         try { VibrationHelper.trigger(VibrationHelper.Effect.CLICK) } catch (_: Exception) {}
         if (action == Action.OpenApp) {
             if (app.activityPackage.isNotEmpty()) {
-                viewModel?.launchApp(app)
+                executeAction(context, fragment, viewModel, action, app)
             }
-        } else if (action == Action.Disabled) {
-            context.showShortToast(context.getString(R.string.edit_gestures_settings_toast))
-        } else {
+        } else if (action != Action.Disabled) {
             executeAction(context, fragment, viewModel, action)
         }
     }
-
-    /**
-     * Handle double tap gesture based on user preferences.
-     */
     fun handleDoubleTap(
         context: Context,
         fragment: Fragment?,
@@ -314,7 +327,7 @@ object GestureHelper {
         try { VibrationHelper.trigger(VibrationHelper.Effect.SELECT) } catch (_: Exception) {}
         if (action == Action.OpenApp) {
             if (app.activityPackage.isNotEmpty()) {
-                viewModel?.launchApp(app)
+                executeAction(context, fragment, viewModel, action, app)
             }
         } else {
             executeAction(context, fragment, viewModel, action)
@@ -332,8 +345,11 @@ fun Modifier.gestureHelper(
     onSwipeRight: (() -> Unit)? = null,
     onSwipeUp: (() -> Unit)? = null,
     onSwipeDown: (() -> Unit)? = null,
+    onLongSwipeDown: (() -> Unit)? = null,
     onVerticalPageMove: ((deltaPages: Int) -> Unit)? = null,
-    onAnyTouch: (() -> Unit)? = null
+    onAnyTouch: (() -> Unit)? = null,
+    scrollPageMoveMultiplier: Float = 3.0f,
+    useShortSwipeForActions: Boolean = false
 ): Modifier {
     val context = LocalContext.current
     val density = LocalDensity.current
@@ -342,23 +358,70 @@ fun Modifier.gestureHelper(
     
     val lastPageMove = remember { androidx.compose.runtime.mutableStateOf(0L) }
     
-    // PERFORMANCE FIX: Use rememberUpdatedState for callbacks to avoid stale closure captures
     val currentOnAnyTouch = androidx.compose.runtime.rememberUpdatedState(onAnyTouch)
     val currentOnDoubleTap = androidx.compose.runtime.rememberUpdatedState(onDoubleTap)
     val currentOnSwipeLeft = androidx.compose.runtime.rememberUpdatedState(onSwipeLeft)
     val currentOnSwipeRight = androidx.compose.runtime.rememberUpdatedState(onSwipeRight)
     val currentOnSwipeUp = androidx.compose.runtime.rememberUpdatedState(onSwipeUp)
     val currentOnSwipeDown = androidx.compose.runtime.rememberUpdatedState(onSwipeDown)
+    val currentOnLongSwipeDown = androidx.compose.runtime.rememberUpdatedState(onLongSwipeDown)
     val currentOnVerticalPageMove = androidx.compose.runtime.rememberUpdatedState(onVerticalPageMove)
-    
+    val currentUseShortSwipeForActions = androidx.compose.runtime.rememberUpdatedState(useShortSwipeForActions)
+
+    val currentPageMoveThresholdPx = androidx.compose.runtime.rememberUpdatedState(
+        (thresholdPx * shortSwipeRatio * scrollPageMoveMultiplier).toInt().coerceAtLeast(8)
+    )
+
     val gestureDetector = remember(thresholdPx, shortSwipeRatio, longSwipeRatio) {
         GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
+            var lastPageMoveY = 0f
+            var scrollPageMoveTriggered = false
+
             override fun onDown(e: MotionEvent): Boolean {
+                lastPageMoveY = e.y
+                scrollPageMoveTriggered = false
                 try { currentOnAnyTouch.value?.invoke() } catch (_: Exception) {}
                 return true
             }
+
+            override fun onScroll(
+                e1: MotionEvent?,
+                e2: MotionEvent,
+                distanceX: Float,
+                distanceY: Float
+            ): Boolean {
+                if (e1 == null) return false
+                val callback = currentOnVerticalPageMove.value ?: return false
+
+                if (currentOnSwipeUp.value != null || currentOnSwipeDown.value != null) return false
+
+                val totalDiffX = e2.x - e1.x
+                val totalDiffY = e2.y - e1.y
+
+                // Vertical-dominant check
+                if (abs(totalDiffX) > abs(totalDiffY)) return false
+
+                val diffFromLastPageMove = e2.y - lastPageMoveY
+                if (abs(diffFromLastPageMove) > currentPageMoveThresholdPx.value) {
+                    val now = System.currentTimeMillis()
+                    if (now - lastPageMove.value >= pageMoveCooldownMs) {
+                        val delta = if (diffFromLastPageMove < 0) 1 else -1
+                        try {
+                            callback(delta)
+                            lastPageMove.value = now
+                            lastPageMoveY = e2.y
+                            scrollPageMoveTriggered = true
+                            return true
+                        } catch (_: Exception) {}
+                    }
+                }
+                return false
+            }
             
             override fun onDoubleTap(e: MotionEvent): Boolean {
+                if (System.currentTimeMillis() - GestureHelper.lastElementClickTime < 350) return false
+                val exH = GestureHelper.exclusionHeight
+                if (exH > 0f && e.y >= GestureHelper.exclusionY && e.y <= GestureHelper.exclusionY + exH) return false
                 try { currentOnDoubleTap.value?.invoke() } catch (_: Exception) {}
                 return super.onDoubleTap(e)
             }
@@ -377,6 +440,10 @@ fun Modifier.gestureHelper(
 
                     // Directional locking from OnSwipeTouchListener
                     if (abs(diffX) > abs(diffY)) {
+                        val exH = GestureHelper.exclusionHeight
+                        if (exH > 0f && event1.y >= GestureHelper.exclusionY && event1.y <= GestureHelper.exclusionY + exH) {
+                            return false
+                        }
                         // Horizontal swipe dominates
                         if (abs(diffX) > thresholdPx && abs(velocityX) > velocityThreshold) {
                             if (diffX > 0) {
@@ -388,61 +455,59 @@ fun Modifier.gestureHelper(
                         }
                     } else {
                         // Vertical swipe dominates
-                        val hasLongSwipeCallbacks = currentOnSwipeUp.value != null || currentOnSwipeDown.value != null
-                        
-                        if (hasLongSwipeCallbacks) {
-                            // Check long swipe first to avoid conflicts
-                            val longSwipeThresholdPx = (thresholdPx * longSwipeRatio).toInt().coerceAtLeast(thresholdPx)
-                            val longVelocityThreshold = (velocityThreshold * 1.8f).coerceAtLeast(velocityThreshold.toFloat())
-                            val isLongSwipe = abs(diffY) > longSwipeThresholdPx && abs(velocityY) > longVelocityThreshold
-                            
-                            if (isLongSwipe) {
-                                val handled = if (diffY < 0) {
-                                    try {
-                                        currentOnSwipeUp.value?.invoke()
-                                        true
-                                    } catch (_: Exception) {
-                                        false
-                                    }
-                                } else {
-                                    try {
-                                        currentOnSwipeDown.value?.invoke()
-                                        true
-                                    } catch (_: Exception) {
-                                        false
-                                    }
+                        val hasAnyLongSwipeCallbacks =
+                            currentOnSwipeUp.value != null ||
+                            currentOnSwipeDown.value != null ||
+                            currentOnLongSwipeDown.value != null
+
+                        // Check long swipe first to avoid conflicts
+                        val longSwipeThresholdPx = (thresholdPx * longSwipeRatio).toInt().coerceAtLeast(thresholdPx)
+                        val longVelocityThreshold = (velocityThreshold * 1.8f).coerceAtLeast(velocityThreshold.toFloat())
+                        val isLongSwipe = abs(diffY) > longSwipeThresholdPx && abs(velocityY) > longVelocityThreshold
+
+                        if (isLongSwipe) {
+                            val handled = if (diffY < 0) {
+                                try {
+                                    currentOnSwipeUp.value?.invoke()
+                                    true
+                                } catch (_: Exception) {
+                                    false
                                 }
-                                if (handled) return true
-                            }
-                            
-                            // If long swipe callbacks exist, only treat short swipes as page moves
-                            val shortSwipeThresholdPx = (thresholdPx * shortSwipeRatio * 0.7f).toInt().coerceAtLeast(8)
-                            val shortVelocityThreshold = (velocityThreshold * 0.3f).coerceAtLeast(1f)
-                            val isShortSwipe = abs(diffY) > shortSwipeThresholdPx && abs(velocityY) > shortVelocityThreshold
-                            
-                            if (isShortSwipe && !isLongSwipe) {
-                                val deltaPages = if (diffY < 0) 1 else -1
-                                val now = System.currentTimeMillis()
-                                
-                                val callback = currentOnVerticalPageMove.value
-                                if (callback != null && now - lastPageMove.value >= pageMoveCooldownMs) {
-                                    try {
-                                        callback(deltaPages)
-                                        lastPageMove.value = now
-                                        return true
-                                    } catch (_: Exception) {}
+                            } else {
+                                try {
+                                    val downCallback = currentOnLongSwipeDown.value ?: currentOnSwipeDown.value
+                                    downCallback?.invoke()
+                                    true
+                                } catch (_: Exception) {
+                                    false
                                 }
                             }
-                        } else {
-                            // No long swipe callbacks - treat ALL vertical swipes as page moves (short or long)
-                            val pageMoveThresholdPx = (thresholdPx * shortSwipeRatio * 0.7f).toInt().coerceAtLeast(8)
+                            if (handled) return true
+                        }
+
+                        if (!scrollPageMoveTriggered) {
+                            // Fallback for fast flicks not caught by onScroll
+                            val pageMoveThresholdPx = if (hasAnyLongSwipeCallbacks) {
+                                (thresholdPx * shortSwipeRatio * 0.7f).toInt().coerceAtLeast(8)
+                            } else {
+                                currentPageMoveThresholdPx.value
+                            }
                             val pageMoveVelocityThreshold = (velocityThreshold * 0.3f).coerceAtLeast(1f)
                             val isVerticalSwipe = abs(diffY) > pageMoveThresholdPx && abs(velocityY) > pageMoveVelocityThreshold
-                            
-                            if (isVerticalSwipe) {
+
+                            if (isVerticalSwipe && !isLongSwipe) {
+                                if (currentUseShortSwipeForActions.value) {
+                                    val handled = if (diffY < 0) {
+                                        try { currentOnSwipeUp.value?.invoke(); currentOnSwipeUp.value != null } catch (_: Exception) { false }
+                                    } else {
+                                        try { currentOnSwipeDown.value?.invoke(); currentOnSwipeDown.value != null } catch (_: Exception) { false }
+                                    }
+                                    if (handled) return true
+                                }
+
                                 val deltaPages = if (diffY < 0) 1 else -1
                                 val now = System.currentTimeMillis()
-                                
+
                                 val callback = currentOnVerticalPageMove.value
                                 if (callback != null && now - lastPageMove.value >= pageMoveCooldownMs) {
                                     try {
@@ -461,8 +526,7 @@ fun Modifier.gestureHelper(
             }
         })
     }
-    
-    // PERFORMANCE FIX: Reuse and properly recycle MotionEvent objects
+
     return this.pointerInput(Unit) {
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false)
@@ -477,9 +541,32 @@ fun Modifier.gestureHelper(
             gestureDetector.onTouchEvent(motionEvent)
             motionEvent.recycle()
             
+            var multiTouchActive = false
             do {
                 val event = awaitPointerEvent()
-                // Only process the first change to reduce allocations
+                val pressedCount = event.changes.count { it.pressed }
+
+                if (pressedCount >= 2) {
+                    if (!multiTouchActive) {
+                        multiTouchActive = true
+                        val first = event.changes.firstOrNull()
+                        if (first != null) {
+                            val cancelEvent = MotionEvent.obtain(
+                                first.uptimeMillis,
+                                first.uptimeMillis,
+                                MotionEvent.ACTION_CANCEL,
+                                first.position.x,
+                                first.position.y,
+                                0
+                            )
+                            gestureDetector.onTouchEvent(cancelEvent)
+                            cancelEvent.recycle()
+                        }
+                    }
+                    continue
+                }
+                if (multiTouchActive) continue
+
                 val change = event.changes.firstOrNull() ?: break
                 motionEvent = MotionEvent.obtain(
                     change.uptimeMillis,
@@ -497,4 +584,15 @@ fun Modifier.gestureHelper(
             } while (event.changes.any { it.pressed })
         }
     }
+}
+
+@Composable
+fun Modifier.inkOsSafeDrawingPadding(): Modifier {
+    val context = LocalContext.current
+    val prefs = remember { com.github.gezimos.inkos.data.Prefs(context) }
+    var insets = WindowInsets.safeDrawing
+    if (!prefs.showStatusBar) insets = insets.exclude(WindowInsets.statusBars)
+    if (!prefs.showNavigationBar) insets = insets.exclude(WindowInsets.navigationBars)
+    insets = insets.exclude(WindowInsets.ime)
+    return windowInsetsPadding(insets)
 }
