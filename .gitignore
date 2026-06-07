@@ -2,6 +2,7 @@
 .kotlin
 .idea
 .cursor
+.claude/
 git-cliff*
 bin/*
 local.properties
