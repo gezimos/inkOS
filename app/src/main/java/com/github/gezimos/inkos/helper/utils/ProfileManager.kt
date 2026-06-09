@@ -96,8 +96,13 @@ class ProfileManager(private val context: Context) {
         val userManager = context.getSystemService(Context.USER_SERVICE) as UserManager
         val launcherApps = context.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
         return userManager.userProfiles.firstOrNull { u ->
-            u != Process.myUserHandle() &&
-            launcherApps.getLauncherUserInfo(u)?.userType == UserManager.USER_TYPE_PROFILE_MANAGED
+            if (u == Process.myUserHandle()) return@firstOrNull false
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+                launcherApps.getLauncherUserInfo(u)?.userType == UserManager.USER_TYPE_PROFILE_MANAGED
+            } else {
+                // getLauncherUserInfo is API 35+; older versions: non-main profile is the work profile
+                true
+            }
         }
     }
 

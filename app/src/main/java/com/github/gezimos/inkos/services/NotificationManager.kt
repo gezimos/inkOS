@@ -203,8 +203,11 @@ class NotificationManager private constructor(private val context: Context) {
             val restored: Map<String, List<ConversationNotification>> = Gson().fromJson(json, type)
             conversationNotifications.clear()
             restored.forEach { (pkg, list) ->
-                conversationNotifications[pkg] =
-                    list.associateBy { it.conversationId }.toMutableMap()
+                val valid = list.filter { (it.conversationId as String?) != null }
+                if (valid.isNotEmpty()) {
+                    conversationNotifications[pkg] =
+                        valid.associateBy { it.conversationId }.toMutableMap()
+                }
             }
             _conversationNotificationsState.value = getConversationNotifications()
         } catch (e: Exception) {

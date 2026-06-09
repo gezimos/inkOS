@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.6 - June 2026
+
+### Fixes
+- **Fixed crash when tapping apps on the home screen.** Apps with saved message notifications (Signal, WhatsApp, Phone, etc.) could crash the launcher when opened from the home screen. Corrupted leftover notification data is now cleaned up automatically.
+- **Fixed crash opening Settings on Android 12-14.** Work-profile detection used an API that only exists on Android 15+, crashing Settings on older versions. It now falls back to the older detection method below Android 15.
+
 ## v0.5 - April 2026
 
 ### IMPORTANT: How to Access Settings

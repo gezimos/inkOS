@@ -713,7 +713,9 @@ class HomeFragmentCompose : Fragment() {
             if (prefs.clearConversationOnAppOpen) {
                 val conversations = notificationManager.conversationNotificationsState.value
                 conversations[homeApp.activityPackage]?.forEach { conversation ->
-                    notificationManager.removeConversationNotification(homeApp.activityPackage, conversation.conversationId)
+                    (conversation.conversationId as String?)?.let { id ->
+                        notificationManager.removeConversationNotification(homeApp.activityPackage, id)
+                    }
                 }
             }
         }
