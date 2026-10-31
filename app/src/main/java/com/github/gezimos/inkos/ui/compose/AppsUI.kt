@@ -38,6 +38,7 @@ import androidx.compose.material.icons.rounded.DriveFileRenameOutline
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.CheckBox
 import androidx.compose.material.icons.rounded.CheckBoxOutlineBlank
+import androidx.compose.material.icons.rounded.HourglassBottom
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.LockOpen
@@ -91,6 +92,9 @@ import com.github.gezimos.common.isSystemApp
 import com.github.gezimos.inkos.AppsDrawerUiState
 import com.github.gezimos.inkos.data.AppListItem
 import com.github.gezimos.inkos.data.Constants
+import android.os.Process
+import com.github.gezimos.inkos.data.Prefs
+import com.github.gezimos.inkos.data.screentime.ScreenTimeCategory
 import com.github.gezimos.inkos.helper.IconUtility
 import com.github.gezimos.inkos.helper.IconShape
 import androidx.compose.ui.res.stringResource
@@ -1419,6 +1423,22 @@ fun AppContextMenuSheet(
         )
     }
 
+    val prefs = remember(ctx) { Prefs(ctx) }
+    val tracksScreenTime = !(appTypeFlags.isContact || appTypeFlags.isWebSearch ||
+        appTypeFlags.isPinnedShortcut || appTypeFlags.isAppShortcut) &&
+        !app.activityPackage.startsWith("com.inkos.internal.") &&
+        app.user == Process.myUserHandle()
+    var screenTimeCategory by remember(app.activityPackage) {
+        mutableStateOf(prefs.getScreenTimeCategory(app.activityPackage))
+    }
+    val screenTimeCategoryLabel = stringResource(
+        when (screenTimeCategory) {
+            ScreenTimeCategory.Online -> R.string.screen_time_category_online
+            ScreenTimeCategory.Offline -> R.string.screen_time_category_offline
+            ScreenTimeCategory.Uncounted -> R.string.screen_time_category_uncounted
+        }
+    )
+
     val deleteOrUnpinIcon = if (appTypeFlags.isPinnedShortcut || appTypeFlags.isAppShortcut)
         Icons.Rounded.PushPin else Icons.Rounded.Delete
     val displayName = if (app.customLabel.isNotEmpty()) app.customLabel else app.label
@@ -1443,6 +1463,15 @@ fun AppContextMenuSheet(
             if (isLocked) Icons.Rounded.LockOpen else Icons.Rounded.Lock,
             if (isLocked) stringResource(R.string.unlock) else stringResource(R.string.lock),
             { onLock(app); onDismiss() }
+        ))
+        if (tracksScreenTime) add(AppSheetAction(
+            Icons.Rounded.HourglassBottom,
+            stringResource(R.string.screen_time_category, screenTimeCategoryLabel),
+            {
+                val next = ScreenTimeCategory.entries[(screenTimeCategory.ordinal + 1) % ScreenTimeCategory.entries.size]
+                prefs.setScreenTimeCategory(app.activityPackage, next)
+                screenTimeCategory = next
+            }
         ))
         if (menuItemsEnabled[4]) add(AppSheetAction(
             Icons.Rounded.Info,
