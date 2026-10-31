@@ -208,6 +208,14 @@ class Prefs(val context: Context) {
         get() = prefs.getBoolean("SHOW_NOTIFICATION_COUNT", true)
         set(value) = prefs.edit { putBoolean("SHOW_NOTIFICATION_COUNT", value) }
 
+    var showScreenTimeSplit: Boolean
+        get() = prefs.getBoolean(Constants.PrefKeys.SHOW_SCREEN_TIME_SPLIT, false)
+        set(value) = prefs.edit { putBoolean(Constants.PrefKeys.SHOW_SCREEN_TIME_SPLIT, value) }
+
+    var showUnlockCount: Boolean
+        get() = prefs.getBoolean(Constants.PrefKeys.SHOW_UNLOCK_COUNT, false)
+        set(value) = prefs.edit { putBoolean(Constants.PrefKeys.SHOW_UNLOCK_COUNT, value) }
+
     var notificationCountSource: Int
         get() = prefs.getInt("NOTIFICATION_COUNT_SOURCE", 0)
         set(value) = prefs.edit { putInt("NOTIFICATION_COUNT_SOURCE", value) }
@@ -326,6 +334,7 @@ class Prefs(val context: Context) {
         "APP_DRAWER_AZ_FILTER", "APP_DRAWER_PAGER",
         SHOW_CLOCK, CLOCK_MODE, CLOCK_STYLE, SHOW_AM_PM, SHOW_SECOND_CLOCK,
         SECOND_CLOCK_OFFSET_HOURS, "SHOW_DATE_BATTERY_COMBO", "SHOW_NOTIFICATION_COUNT", "NOTIFICATION_COUNT_SOURCE", "DATE_FORMAT_STYLE",
+        Constants.PrefKeys.SHOW_SCREEN_TIME_SPLIT, Constants.PrefKeys.SHOW_UNLOCK_COUNT,
         Constants.PrefKeys.BOTTOM_WIDGET_TYPE, QUOTE_TEXT, "top_widget_margin", "bottom_widget_margin",
         TEXT_ISLANDS, TEXT_ISLANDS_INVERTED, TEXT_ISLANDS_SHAPE,
         "SHOW_DATE", SHOW_QUOTE, SMALL_CAPS_APPS, ALL_CAPS_APPS,

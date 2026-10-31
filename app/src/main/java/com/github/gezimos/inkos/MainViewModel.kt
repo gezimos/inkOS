@@ -15,6 +15,8 @@ import com.github.gezimos.inkos.data.Constants
 import com.github.gezimos.inkos.data.Constants.AppDrawerFlag
 import com.github.gezimos.inkos.data.HomeAppUiState
 import com.github.gezimos.inkos.data.Prefs
+import com.github.gezimos.inkos.data.screentime.ScreenTimeReader
+import com.github.gezimos.inkos.data.screentime.ScreenTimeSummary
 import com.github.gezimos.inkos.style.resolveThemeColors
 import com.github.gezimos.inkos.data.Constants.PrefKeys
 import com.github.gezimos.inkos.helper.AudioWidgetHelper
@@ -23,6 +25,7 @@ import com.github.gezimos.inkos.helper.IconUtility
 import com.github.gezimos.inkos.helper.isinkosDefault
 import com.github.gezimos.inkos.services.NotificationManager
 import com.github.gezimos.inkos.ui.compose.HomeUiRenderState
+import com.github.gezimos.inkos.ui.compose.ScreenTimeDisplay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -42,6 +45,8 @@ data class HomeUiState(
     val showDateBatteryCombo: Boolean = false,
     val showNotificationCount: Boolean = false,
     val notificationCountSource: Int = 0, // 0 = SimpleTray, 1 = Letters
+    val showScreenTimeSplit: Boolean = false,
+    val showUnlockCount: Boolean = false,
     val showQuote: Boolean = false,
     val showAmPm: Boolean = true,
     val showSecondClock: Boolean = false,
@@ -302,55 +307,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _clockState = MutableStateFlow(ClockState())
 
-    private val _dailyTotalUsageMs = MutableStateFlow(0L)
-    val dailyTotalUsageMs: StateFlow<Long> = _dailyTotalUsageMs.asStateFlow()
+    private val _dailyScreenTime = MutableStateFlow(ScreenTimeSummary())
 
     fun loadDailyTotalUsage() {
         viewModelScope.launch(Dispatchers.IO) {
             val result = try {
-                val appOps = appContext.getSystemService(Context.APP_OPS_SERVICE) as android.app.AppOpsManager
-                val hasPermission = appOps.checkOpNoThrow(
-                    android.app.AppOpsManager.OPSTR_GET_USAGE_STATS,
-                    Process.myUid(),
-                    appContext.packageName
-                ) == android.app.AppOpsManager.MODE_ALLOWED
-                if (!hasPermission) 0L
-                else {
-                    val usm = appContext.getSystemService(Context.USAGE_STATS_SERVICE) as android.app.usage.UsageStatsManager
-                    val endTime = System.currentTimeMillis()
-                    val cal = java.util.Calendar.getInstance()
-                    cal.set(java.util.Calendar.HOUR_OF_DAY, 0)
-                    cal.set(java.util.Calendar.MINUTE, 0)
-                    cal.set(java.util.Calendar.SECOND, 0)
-                    cal.set(java.util.Calendar.MILLISECOND, 0)
-                    val startTime = cal.timeInMillis
-                    val installedPackages = appsRepository.appList.value
-                        .map { it.activityPackage }
-                        .filterNot { it == "app.inkos" || it == "app.inkos.debug" || it == appContext.packageName }
-                        .toSet()
-                    val usageMap = usm.queryUsageStats(android.app.usage.UsageStatsManager.INTERVAL_DAILY, startTime, endTime)
-                        .filter { it.totalTimeInForeground > 0 && it.lastTimeUsed > 0 }
-                        .groupBy { it.packageName }
-                        .mapValues { (_, stats) ->
-                            stats.fold(0L) { acc, stat -> acc + stat.totalTimeInForeground }
-                        }
-                    usageMap.entries
-                        .filter { installedPackages.contains(it.key) }
-                        .sumOf { it.value }
-                }
-            } catch (_: Exception) { 0L }
-            _dailyTotalUsageMs.value = result
-        }
-    }
-
-    private fun formatDailyUsage(ms: Long): String {
-        val totalMinutes = (ms / 60_000).toInt()
-        val hours = totalMinutes / 60
-        val minutes = totalMinutes % 60
-        return when {
-            hours > 0 && minutes > 0 -> "${hours}h ${minutes}min"
-            hours > 0 -> "${hours}h"
-            else -> "${minutes}min"
+                val reader = ScreenTimeReader(appContext)
+                if (!reader.hasUsageAccess()) ScreenTimeSummary()
+                else reader.today(reader.categories(prefs))
+            } catch (_: Exception) { ScreenTimeSummary() }
+            _dailyScreenTime.value = result
         }
     }
 
@@ -377,6 +343,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         showDateBatteryCombo = prefs.showDateBatteryCombo,
         showNotificationCount = prefs.showNotificationCount,
         notificationCountSource = prefs.notificationCountSource,
+        showScreenTimeSplit = prefs.showScreenTimeSplit,
+        showUnlockCount = prefs.showUnlockCount,
         showQuote = prefs.showQuote,
         showAmPm = prefs.showAmPm,
         showSecondClock = prefs.showSecondClock,
@@ -531,12 +499,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         AudioWidgetHelper.getInstance(appContext).mediaPlayerState,
         com.github.gezimos.inkos.services.NotificationService.sbnState,
         appsRepository.iconCodes,
-        _dailyTotalUsageMs,
+        _dailyScreenTime,
         _clockState
     ) { values ->
         @Suppress("UNCHECKED_CAST")
         val homeUi = values[0] as HomeUiState
-        val dailyUsageMs = values[6] as Long
+        val dailyScreenTime = values[6] as ScreenTimeSummary
         @Suppress("UNCHECKED_CAST")
         val notifications = values[1] as Map<String, NotificationManager.NotificationInfo>
         val mediaInfo = values[3] as? AudioWidgetHelper.MediaPlayerInfo
@@ -677,7 +645,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             shortcutRightAction = homeUi.shortcutRightAction,
             shortcutPageDots = homeUi.shortcutPageDots,
             shortcutHideOutline = homeUi.shortcutHideOutline,
-            totalUsageText = formatDailyUsage(dailyUsageMs)
+            screenTime = ScreenTimeDisplay(
+                summary = dailyScreenTime,
+                includeTotal = true,
+                showSplit = homeUi.showScreenTimeSplit,
+                showUnlocks = homeUi.showUnlockCount
+            )
         )
     }.stateIn(
         scope = viewModelScope,
@@ -977,6 +950,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             PrefKeys.SHOW_DATE_BATTERY_COMBO -> currentState.copy(showDateBatteryCombo = prefs.showDateBatteryCombo)
             PrefKeys.SHOW_NOTIFICATION_COUNT -> currentState.copy(showNotificationCount = prefs.showNotificationCount)
             PrefKeys.NOTIFICATION_COUNT_SOURCE -> currentState.copy(notificationCountSource = prefs.notificationCountSource)
+            PrefKeys.SHOW_SCREEN_TIME_SPLIT -> currentState.copy(showScreenTimeSplit = prefs.showScreenTimeSplit)
+            PrefKeys.SHOW_UNLOCK_COUNT -> currentState.copy(showUnlockCount = prefs.showUnlockCount)
             PrefKeys.BACKGROUND_OPACITY -> currentState.copy(backgroundOpacity = prefs.backgroundOpacity)
             // Update new fields
             PrefKeys.HOME_ALIGNMENT -> currentState.copy(homeAlignment = prefs.homeAlignment)
@@ -1437,6 +1412,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setShowNotificationCount(visibility: Boolean) {
         _homeUiState.value = _homeUiState.value.copy(showNotificationCount = visibility)
         prefs.showNotificationCount = visibility
+    }
+
+    fun setShowScreenTimeSplit(visibility: Boolean) {
+        _homeUiState.value = _homeUiState.value.copy(showScreenTimeSplit = visibility)
+        prefs.showScreenTimeSplit = visibility
+    }
+
+    fun setShowUnlockCount(visibility: Boolean) {
+        _homeUiState.value = _homeUiState.value.copy(showUnlockCount = visibility)
+        prefs.showUnlockCount = visibility
     }
 
     fun setNotificationCountSource(source: Int) {
