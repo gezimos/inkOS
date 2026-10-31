@@ -161,6 +161,8 @@ dependencies {
     // Biometric support
     implementation(libs.biometric)
 
+    testImplementation(libs.junit)
+
     // AndroidX Test - Espresso
     androidTestImplementation(libs.espresso.core)
     androidTestImplementation(libs.espresso.contrib)

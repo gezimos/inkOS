@@ -45,6 +45,7 @@ material-icons-extended = "1.7.8"
 glide = "4.16.0"
 
 # AndroidX Test Libraries
+junit = "4.13.2"
 espresso = "3.7.0"
 test-core-ktx = "1.7.0"
 test-runner = "1.7.0"
@@ -95,6 +96,7 @@ material-icons-extended = { group = "androidx.compose.material", name = "materia
 glide = { group = "com.github.bumptech.glide", name = "glide", version.ref = "glide" }
 
 # Testing Libraries
+junit = { group = "junit", name = "junit", version.ref = "junit" }
 espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espresso" }
 espresso-contrib = { group = "androidx.test.espresso", name = "espresso-contrib", version.ref = "espresso" }
 espresso-idling-resource = { group = "androidx.test.espresso", name = "espresso-idling-resource", version.ref = "espresso" }
