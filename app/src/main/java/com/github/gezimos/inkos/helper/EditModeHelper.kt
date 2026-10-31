@@ -2315,6 +2315,9 @@ object EditModeHelper {
                     onUpdate()
                 }
 
+                val homeUiState by vm.homeUiState.collectAsState()
+                ScreenTimeToggles(vm, homeUiState)
+
                 if (uiState.recentsUsageUnit == 1) { // Money
                     SettingRow("Currency Symbol", uiState.recentsUnitCurrencyChar) {
                         currentSheet?.dismiss()
