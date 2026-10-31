@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.os.UserHandle
 import com.github.gezimos.inkos.R
+import com.github.gezimos.inkos.data.screentime.ScreenTimeCategory
 import android.util.Log
 import androidx.core.content.edit
 import com.github.gezimos.inkos.helper.getUserHandleFromString
@@ -44,6 +45,8 @@ private const val LONG_SWIPE_THRESHOLD_RATIO = "LONG_SWIPE_THRESHOLD_RATIO"
 private const val DOUBLE_TAP_ACTION = "DOUBLE_TAP_ACTION"
 private const val HIDDEN_APPS = "HIDDEN_APPS"
 private const val LOCKED_APPS = "LOCKED_APPS"
+private const val SCREEN_TIME_OFFLINE_APPS = "SCREEN_TIME_OFFLINE_APPS"
+private const val SCREEN_TIME_UNCOUNTED_APPS = "SCREEN_TIME_UNCOUNTED_APPS"
 private const val LAUNCHER_FONT = "LAUNCHER_FONT"
 private const val APP_NAME = "APP_NAME"
 private const val APP_PACKAGE = "APP_PACKAGE"
@@ -711,7 +714,8 @@ class Prefs(val context: Context) {
             for ((key, value) in all) {
                 if (key in deprecatedImportKeys) continue
                 if (key == "allowed_notification_apps" || key == "allowed_badge_notification_apps" ||
-                    key == HIDDEN_APPS || key == LOCKED_APPS
+                    key == HIDDEN_APPS || key == LOCKED_APPS ||
+                    key == SCREEN_TIME_OFFLINE_APPS || key == SCREEN_TIME_UNCOUNTED_APPS
                 ) {
                     val set = when (value) {
                         is Collection<*> -> value.filterIsInstance<String>().toMutableSet()
@@ -1371,6 +1375,27 @@ class Prefs(val context: Context) {
     var lockedApps: MutableSet<String>
         get() = prefs.getStringSet(LOCKED_APPS, mutableSetOf()) as MutableSet<String>
         set(value) = prefs.edit { putStringSet(LOCKED_APPS, value) }
+
+    val screenTimeOfflineApps: Set<String>
+        get() = prefs.getStringSet(SCREEN_TIME_OFFLINE_APPS, emptySet()).orEmpty()
+
+    val screenTimeUncountedApps: Set<String>
+        get() = prefs.getStringSet(SCREEN_TIME_UNCOUNTED_APPS, emptySet()).orEmpty()
+
+    fun getScreenTimeCategory(packageName: String): ScreenTimeCategory = when (packageName) {
+        in screenTimeUncountedApps -> ScreenTimeCategory.Uncounted
+        in screenTimeOfflineApps -> ScreenTimeCategory.Offline
+        else -> ScreenTimeCategory.Online
+    }
+
+    fun setScreenTimeCategory(packageName: String, category: ScreenTimeCategory) {
+        val offline = screenTimeOfflineApps - packageName
+        val uncounted = screenTimeUncountedApps - packageName
+        prefs.edit {
+            putStringSet(SCREEN_TIME_OFFLINE_APPS, if (category == ScreenTimeCategory.Offline) offline + packageName else offline)
+            putStringSet(SCREEN_TIME_UNCOUNTED_APPS, if (category == ScreenTimeCategory.Uncounted) uncounted + packageName else uncounted)
+        }
+    }
     fun notifyPinnedShortcutsChanged() {
         try { _preferenceChangeFlow.tryEmit(PINNED_SHORTCUTS) } catch (e: Exception) { Log.w("Prefs", "notifyPinnedShortcutsChanged emit failed", e) }
     }
