@@ -1419,7 +1419,7 @@ class SettingsFragment : Fragment() {
             SettingsSwitch(text = stringResource(R.string.show_icons), fontSize = titleFontSize,
                 description = stringResource(R.string.desc_drawer_icons),
                 defaultState = drawerState.drawerShowIcons, onCheckedChange = { viewModel.setDrawerShowIcons(it) })
-            SettingsTitle(text = stringResource(R.string.filtring), fontSize = titleFontSize)
+            SettingsTitle(text = stringResource(R.string.filtering), fontSize = titleFontSize)
             SettingsSwitch(text = stringResource(R.string.az_filter), fontSize = titleFontSize,
                 description = stringResource(R.string.desc_az_filter),
                 defaultState = uiState.appDrawerAzFilter, onCheckedChange = { viewModel.setAppDrawerAzFilter(it) })
