@@ -1060,6 +1060,28 @@ class Prefs(val context: Context) {
         get() = prefs.getInt("ANDROID_WIDGET_MARGIN_END", Constants.DEFAULT_ANDROID_WIDGET_MARGIN)
         set(value) = prefs.edit { putInt("ANDROID_WIDGET_MARGIN_END", value.coerceIn(0, Constants.MAX_ANDROID_WIDGET_MARGIN)) }
 
+    // --- Top Android Widget ---
+    var topWidgetType: String
+        get() = prefs.getString(Constants.PrefKeys.TOP_WIDGET_TYPE, Constants.TopWidgetType.Clock.value)
+            ?: Constants.TopWidgetType.Clock.value
+        set(value) = prefs.edit { putString(Constants.PrefKeys.TOP_WIDGET_TYPE, value) }
+
+    var topAndroidWidgetId: Int
+        get() = prefs.getInt(Constants.PrefKeys.TOP_ANDROID_WIDGET_ID, -1)
+        set(value) = prefs.edit { putInt(Constants.PrefKeys.TOP_ANDROID_WIDGET_ID, value) }
+
+    var topAndroidWidgetHeight: Int
+        get() = prefs.getInt(Constants.PrefKeys.TOP_ANDROID_WIDGET_HEIGHT, Constants.DEFAULT_ANDROID_WIDGET_HEIGHT)
+        set(value) = prefs.edit { putInt(Constants.PrefKeys.TOP_ANDROID_WIDGET_HEIGHT, value.coerceIn(Constants.MIN_ANDROID_WIDGET_HEIGHT, Constants.MAX_ANDROID_WIDGET_HEIGHT)) }
+
+    var topAndroidWidgetMarginStart: Int
+        get() = prefs.getInt(Constants.PrefKeys.TOP_ANDROID_WIDGET_MARGIN_START, Constants.DEFAULT_ANDROID_WIDGET_MARGIN)
+        set(value) = prefs.edit { putInt(Constants.PrefKeys.TOP_ANDROID_WIDGET_MARGIN_START, value.coerceIn(0, Constants.MAX_ANDROID_WIDGET_MARGIN)) }
+
+    var topAndroidWidgetMarginEnd: Int
+        get() = prefs.getInt(Constants.PrefKeys.TOP_ANDROID_WIDGET_MARGIN_END, Constants.DEFAULT_ANDROID_WIDGET_MARGIN)
+        set(value) = prefs.edit { putInt(Constants.PrefKeys.TOP_ANDROID_WIDGET_MARGIN_END, value.coerceIn(0, Constants.MAX_ANDROID_WIDGET_MARGIN)) }
+
     var showNotificationBadge: Boolean
         get() = prefs.getBoolean(SHOW_NOTIFICATION_BADGE, true)
         set(value) = prefs.edit { putBoolean(SHOW_NOTIFICATION_BADGE, value) }

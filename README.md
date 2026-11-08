@@ -43,12 +43,13 @@ You can download the apk directly on the Release section on the rightside of git
 
 **Home Screen**
 - Multi-page home screen support.
-- 9 clock styles: Default, Flip, Boxed, Round, Split, Horizontal, Box Outline, Analog, Stacked.
+- 11 clock styles: Default, Flip, Boxed, Round, Split, Horizontal, Box Outline, Analog, Stacked, Digital, Matrix.
 - Dual clocks with configurable timezone offset.
 - Per-element alignment: clock, date, apps, and quote each align independently (left/center/right).
+- **Top widget area**: switchable between Clock and any Android Widget (adjustable height and margins).
 - 7 bottom widget types: Quote, Calendar Events, Android Widget, Shortcuts, Total Usage, Page Dots, or Disabled.
 - Audio widget: appears on playback, persists when paused, dismissible.
-- Embed any native Android widget with adjustable height and margins.
+- Embed any native Android widget in the top or bottom area with adjustable height and margins.
 - Separators (empty space, em dash, dots) for visual grouping.
 - Edit Mode: tap any element to open its settings live on screen.
 

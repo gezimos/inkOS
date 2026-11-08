@@ -38,8 +38,13 @@ class AppWidgetHelper private constructor(private val context: Context) {
     private val appWidgetManager = AppWidgetManager.getInstance(context)
     private val prefs = Prefs(context)
 
+    // Bottom widget
     private val _widgetView = MutableStateFlow<AppWidgetHostView?>(null)
     val widgetViewState: StateFlow<AppWidgetHostView?> = _widgetView
+
+    // Top widget
+    private val _topWidgetView = MutableStateFlow<AppWidgetHostView?>(null)
+    val topWidgetViewState: StateFlow<AppWidgetHostView?> = _topWidgetView
 
     private var isListening = false
     fun startListening() {
@@ -51,8 +56,9 @@ class AppWidgetHelper private constructor(private val context: Context) {
                 Log.e(TAG, "Failed to start AppWidgetHost listening", e)
             }
         }
-        // Restore previously bound widget if available
+        // Restore previously bound widgets if available
         restoreWidget()
+        restoreTopWidget()
     }
     fun stopListening() {
         if (isListening) {
@@ -126,6 +132,20 @@ class AppWidgetHelper private constructor(private val context: Context) {
         }
         _widgetView.value = null
     }
+    // Top widget equivalents
+    fun onTopWidgetPicked(widgetId: Int) {
+        prefs.topAndroidWidgetId = widgetId
+        val view = createWidgetView(widgetId)
+        _topWidgetView.value = view
+    }
+    fun removeTopWidget() {
+        val currentId = prefs.topAndroidWidgetId
+        if (currentId != -1) {
+            deallocateWidgetId(currentId)
+            prefs.topAndroidWidgetId = -1
+        }
+        _topWidgetView.value = null
+    }
     fun getConfigureIntent(widgetId: Int): Intent? {
         val info = getWidgetInfo(widgetId) ?: return null
         val configureActivity = info.configure ?: return null
@@ -150,8 +170,34 @@ class AppWidgetHelper private constructor(private val context: Context) {
             _widgetView.value = null
         }
     }
+    private fun restoreTopWidget() {
+        val widgetId = prefs.topAndroidWidgetId
+        val isTopWidget = prefs.topWidgetType == Constants.TopWidgetType.AndroidWidget.value
+        if (widgetId != -1 && isTopWidget) {
+            val view = createWidgetView(widgetId)
+            if (view != null) {
+                _topWidgetView.value = view
+            } else {
+                Log.w(TAG, "Stored top widget ID $widgetId is no longer valid, clearing")
+                prefs.topAndroidWidgetId = -1
+                _topWidgetView.value = null
+            }
+        } else {
+            _topWidgetView.value = null
+        }
+    }
     fun getCurrentWidgetLabel(): String? {
         val widgetId = prefs.androidWidgetId
+        if (widgetId == -1) return null
+        val info = getWidgetInfo(widgetId) ?: return null
+        return try {
+            info.loadLabel(context.packageManager)
+        } catch (_: Exception) {
+            info.provider.shortClassName
+        }
+    }
+    fun getCurrentTopWidgetLabel(): String? {
+        val widgetId = prefs.topAndroidWidgetId
         if (widgetId == -1) return null
         val info = getWidgetInfo(widgetId) ?: return null
         return try {
@@ -246,12 +292,14 @@ class AppWidgetHelper private constructor(private val context: Context) {
         providerInfo: AppWidgetProviderInfo,
         onSuccess: (widgetId: Int) -> Unit,
         onNeedsPermission: (widgetId: Int, intent: Intent) -> Unit,
-        onNeedsConfigure: (widgetId: Int, configIntent: Intent) -> Unit
+        onNeedsConfigure: (widgetId: Int, configIntent: Intent) -> Unit,
+        isTop: Boolean = false
     ) {
         // Clean up old widget
-        val oldId = prefs.androidWidgetId
-        if (oldId != -1) {
-            removeWidget()
+        if (isTop) {
+            if (prefs.topAndroidWidgetId != -1) removeTopWidget()
+        } else {
+            if (prefs.androidWidgetId != -1) removeWidget()
         }
 
         val widgetId = allocateWidgetId()
@@ -279,7 +327,11 @@ class AppWidgetHelper private constructor(private val context: Context) {
         }
 
         // All good — create view and persist
-        onWidgetPicked(widgetId)
+        if (isTop) {
+            onTopWidgetPicked(widgetId)
+        } else {
+            onWidgetPicked(widgetId)
+        }
         onSuccess(widgetId)
     }
 }
