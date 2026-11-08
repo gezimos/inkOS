@@ -65,6 +65,7 @@ fun RecentsLayout(
     paddedRecentApps: List<RecentAppItem?>,
     isCalculated: Boolean,
     showStats: Boolean = false,
+    screenTime: ScreenTimeDisplay? = null,
     onStatsToggle: () -> Unit = {},
     onSettingsClick: () -> Unit = {},
     headerFocused: Boolean = false,
@@ -188,6 +189,26 @@ fun RecentsLayout(
                         }
                     }
                     
+                    if (showStats && screenTime != null) {
+                        item(key = "recents_screen_time") {
+                            val ctx = LocalContext.current
+                            val appTypefaceNullable = remember(uiState.appsFont, uiState.customFontPath) { uiState.appsFont.getFont(ctx, uiState.customFontPath) }
+                            val screenTimeLine = screenTimeLine(screenTime, iconTint = Theme.colors.text)
+                            Text(
+                                text = screenTimeLine.text,
+                                inlineContent = screenTimeLine.inlineContent,
+                                color = Theme.colors.text,
+                                fontSize = (uiState.appDrawerSize * 0.6f).sp.scaled(screenScale),
+                                fontFamily = appTypefaceNullable?.let { FontFamily(it) } ?: FontFamily.Default,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = uiState.appDrawerGap.dp)
+                            )
+                        }
+                    }
+
                     itemsIndexed(
                         items = paddedRecentApps,
                         key = { index, recentApp ->

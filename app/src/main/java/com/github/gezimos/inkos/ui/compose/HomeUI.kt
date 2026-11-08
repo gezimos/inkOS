@@ -2378,15 +2378,18 @@ private fun TotalUsageBlock(
             .graphicsLayer(alpha = if (showEditMode && state.bottomWidgetType != Constants.BottomWidgetType.TotalUsage.value) 0.5f else 1f),
         horizontalAlignment = blockAlignment
     ) {
+        val textColor = when {
+            isFocused && showTextIslands -> focusTextColor
+            isFocused -> Theme.colors.background
+            showTextIslands -> islandTextColor
+            else -> Theme.colors.text
+        }
+        val screenTimeLine = screenTimeLine(state.screenTime, iconTint = textColor)
         Text(
-            text = state.totalUsageText,
+            text = screenTimeLine.text,
+            inlineContent = screenTimeLine.inlineContent,
             style = TextStyle(
-                color = when {
-                    isFocused && showTextIslands -> focusTextColor
-                    isFocused -> Theme.colors.background
-                    showTextIslands -> islandTextColor
-                    else -> Theme.colors.text
-                },
+                color = textColor,
                 fontSize = scaledQuoteSize.sp,
                 fontFamily = quoteFontFamily,
                 textAlign = textAlign
@@ -4372,7 +4375,7 @@ data class HomeUiRenderState(
     val shortcutPageDots: Boolean = false,
     val shortcutHideOutline: Boolean = false,
     // Total Usage widget
-    val totalUsageText: String = "0min"
+    val screenTime: ScreenTimeDisplay = ScreenTimeDisplay()
 )
 data class HomeUiCallbacks(
     val onAppClick: (HomeAppUiState) -> Unit,

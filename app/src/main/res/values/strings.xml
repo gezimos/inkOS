@@ -179,6 +179,13 @@
     <string name="shortcut_right_icon">Right Icon</string>
     <string name="shortcut_right_action">Right Action</string>
     <string name="hide_outline">Hide Outline</string>
+    <string name="screen_time_split">Split Online / Offline</string>
+    <string name="screen_time_show_unlocks">Show Unlocks</string>
+    <string name="screen_time_unlocks">Unlocks</string>
+    <string name="screen_time_category">Screen time: %1$s</string>
+    <string name="screen_time_category_online">Online</string>
+    <string name="screen_time_category_offline">Offline</string>
+    <string name="screen_time_category_uncounted">Not counted</string>
 
     <!-- Android widget -->
     <string name="android_widget_height">Widget Height</string>

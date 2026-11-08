@@ -27,6 +27,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -58,6 +59,7 @@ import com.github.gezimos.inkos.MainViewModel
 import com.github.gezimos.inkos.data.AppListItem
 import com.github.gezimos.inkos.data.Constants
 import com.github.gezimos.inkos.data.Prefs
+import com.github.gezimos.inkos.data.screentime.ScreenTimeReader
 import com.github.gezimos.inkos.helper.getHexForOpacity
 import com.github.gezimos.inkos.helper.openAppInfo
 import com.github.gezimos.inkos.helper.utils.VibrationHelper
@@ -71,8 +73,11 @@ import com.github.gezimos.inkos.ui.compose.NavHelper
 import com.github.gezimos.inkos.ui.dialogs.SheetTitle
 import com.github.gezimos.inkos.ui.compose.RecentAppItem
 import com.github.gezimos.inkos.ui.compose.RecentsLayout
+import com.github.gezimos.inkos.ui.compose.ScreenTimeDisplay
 import com.github.gezimos.inkos.ui.compose.gestureHelper
 import com.github.gezimos.inkos.ui.dialogs.ComposeBottomSheetHost
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 class RecentsFragment : Fragment() {
 
     private lateinit var prefs: Prefs
@@ -206,6 +211,16 @@ class RecentsFragment : Fragment() {
                     }
                 }
                 
+                val homeUi by viewModel.homeUiState.collectAsState()
+                val screenTime by produceState<ScreenTimeDisplay?>(
+                    null, localRefreshTrigger, showStats, appsDrawer.recentsUsageFilter,
+                    homeUi.showScreenTimeSplit, homeUi.showUnlockCount
+                ) {
+                    value = if (!showStats) null else withContext(Dispatchers.IO) {
+                        getScreenTimeDisplay(context, appsDrawer.recentsUsageFilter, homeUi.showScreenTimeSplit, homeUi.showUnlockCount)
+                    }
+                }
+
                 LaunchedEffect(refreshTriggerCounter) {
                     localRefreshTrigger++
                 }
@@ -264,8 +279,8 @@ class RecentsFragment : Fragment() {
                 val rowHeightPx = remember(rowTextHeightPx, gapPx) {
                     ((rowTextHeightPx * 0.95f) + (gapPx * 2)).toInt().coerceAtLeast(1)
                 }
-                val headerRows = 1
-                val appsPerPageCalculated = remember(containerSize.height, rowHeightPx) {
+                val headerRows = if (showStats && screenTime != null) 2 else 1
+                val appsPerPageCalculated = remember(containerSize.height, rowHeightPx, headerRows) {
                     val h = containerSize.height
                     if (h <= 0) 1
                     else {
@@ -546,6 +561,7 @@ class RecentsFragment : Fragment() {
                                 paddedRecentApps = paddedDisplayRecentApps,
                                 isCalculated = isCalculated,
                                 showStats = showStats,
+                                screenTime = screenTime,
                                 hasPermission = hasPermission,
                                 onStatsToggle = {
                                     if (isEditMode) {
@@ -626,23 +642,36 @@ class RecentsFragment : Fragment() {
         }
     }
 
+    private fun usageFilterStart(usageFilter: Int, endTime: Long): Long = when (usageFilter) {
+        0 -> ScreenTimeReader.startOfToday() // Today — from midnight
+        1 -> endTime - (7L * 24 * 60 * 60 * 1000)   // This Week (7 days)
+        2 -> endTime - (30L * 24 * 60 * 60 * 1000)  // This Month (30 days)
+        else -> endTime - (365L * 24 * 60 * 60 * 1000) // All Time (~1 year)
+    }
+
+    private fun getScreenTimeDisplay(context: Context, usageFilter: Int, showSplit: Boolean, showUnlockCount: Boolean): ScreenTimeDisplay? {
+        val showUnlocks = showUnlockCount && ScreenTimeReader.unlocksSupported
+        if (!showSplit && !showUnlocks) return null
+        return try {
+            val reader = ScreenTimeReader(context)
+            val categories = reader.categories(prefs)
+            val summary = if (usageFilter == 0) {
+                reader.today(categories)
+            } else {
+                val endTime = System.currentTimeMillis()
+                reader.period(usageFilterStart(usageFilter, endTime), endTime, categories)
+            }
+            ScreenTimeDisplay(summary, includeTotal = false, showSplit = showSplit, showUnlocks = showUnlocks)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     private fun getRecentApps(context: Context, installedApps: List<AppListItem>, showStats: Boolean = false, usageFilter: Int = 1): List<RecentAppItem> {
         return try {
             val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
             val endTime = System.currentTimeMillis()
-            val startTime = when (usageFilter) {
-                0 -> { // Today — from midnight
-                    val cal = java.util.Calendar.getInstance()
-                    cal.set(java.util.Calendar.HOUR_OF_DAY, 0)
-                    cal.set(java.util.Calendar.MINUTE, 0)
-                    cal.set(java.util.Calendar.SECOND, 0)
-                    cal.set(java.util.Calendar.MILLISECOND, 0)
-                    cal.timeInMillis
-                }
-                1 -> endTime - (7L * 24 * 60 * 60 * 1000)   // This Week (7 days)
-                2 -> endTime - (30L * 24 * 60 * 60 * 1000)  // This Month (30 days)
-                else -> endTime - (365L * 24 * 60 * 60 * 1000) // All Time (~1 year)
-            }
+            val startTime = usageFilterStart(usageFilter, endTime)
 
             val usageStatsList = usageStatsManager.queryUsageStats(
                 UsageStatsManager.INTERVAL_DAILY,

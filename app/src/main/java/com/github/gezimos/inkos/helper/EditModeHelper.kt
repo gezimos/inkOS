@@ -60,6 +60,7 @@ import com.github.gezimos.inkos.BuildConfig
 import com.github.gezimos.inkos.R
 import com.github.gezimos.inkos.data.Constants
 import com.github.gezimos.inkos.data.Prefs
+import com.github.gezimos.inkos.data.screentime.ScreenTimeReader
 import com.github.gezimos.inkos.helper.utils.ProfileManager
 import com.github.gezimos.inkos.helper.utils.VibrationHelper
 import com.github.gezimos.inkos.style.SettingsTheme
@@ -804,6 +805,9 @@ object EditModeHelper {
                                 ToggleRow(stringResource(R.string.hide_outline), uiState.shortcutHideOutline) { checked ->
                                     vm.setShortcutHideOutline(checked)
                                 }
+                            }
+                            Constants.BottomWidgetType.TotalUsage.value -> {
+                                ScreenTimeToggles(vm, uiState)
                             }
                             else -> {}
                         }
@@ -2311,6 +2315,9 @@ object EditModeHelper {
                     onUpdate()
                 }
 
+                val homeUiState by vm.homeUiState.collectAsState()
+                ScreenTimeToggles(vm, homeUiState)
+
                 if (uiState.recentsUsageUnit == 1) { // Money
                     SettingRow("Currency Symbol", uiState.recentsUnitCurrencyChar) {
                         currentSheet?.dismiss()
@@ -2402,6 +2409,18 @@ object EditModeHelper {
                 .fillMaxWidth()
                 .padding(bottom = 16.dp)
         )
+    }
+
+    @Composable
+    private fun ScreenTimeToggles(vm: com.github.gezimos.inkos.MainViewModel, uiState: com.github.gezimos.inkos.HomeUiState) {
+        ToggleRow(stringResource(R.string.screen_time_split), uiState.showScreenTimeSplit) { checked ->
+            vm.setShowScreenTimeSplit(checked)
+        }
+        if (ScreenTimeReader.unlocksSupported) {
+            ToggleRow(stringResource(R.string.screen_time_show_unlocks), uiState.showUnlockCount) { checked ->
+                vm.setShowUnlockCount(checked)
+            }
+        }
     }
 
     @Composable
