@@ -1,6 +1,9 @@
 # Changelog
 
-## v0.6 - June 2026
+## v0.6 - November 2026
+
+### Home Screen
+- **Top widget: Android Widget support.** The top area of the home screen (previously only showing the clock) can now be switched to an Android Widget. Choose between "Clock" and "Android Widget" in Settings → Top Widgets. When set to Android Widget, the widget picker appears on first tap and the clock is replaced completely. Height, left margin, and right margin are all configurable — the same resize/drag handles as the bottom widget work here too.
 
 ### Fixes
 - **Fixed crash when tapping apps on the home screen.** Apps with saved message notifications (Signal, WhatsApp, Phone, etc.) could crash the launcher when opened from the home screen. Corrupted leftover notification data is now cleaned up automatically.

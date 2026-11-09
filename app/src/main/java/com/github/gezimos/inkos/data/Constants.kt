@@ -184,6 +184,11 @@ object Constants {
         const val ANDROID_WIDGET_MARGIN_START = "ANDROID_WIDGET_MARGIN_START"
         const val ANDROID_WIDGET_MARGIN_END = "ANDROID_WIDGET_MARGIN_END"
         const val BOTTOM_WIDGET_TYPE = "BOTTOM_WIDGET_TYPE"
+        const val TOP_WIDGET_TYPE = "TOP_WIDGET_TYPE"
+        const val TOP_ANDROID_WIDGET_ID = "TOP_ANDROID_WIDGET_ID"
+        const val TOP_ANDROID_WIDGET_HEIGHT = "TOP_ANDROID_WIDGET_HEIGHT"
+        const val TOP_ANDROID_WIDGET_MARGIN_START = "TOP_ANDROID_WIDGET_MARGIN_START"
+        const val TOP_ANDROID_WIDGET_MARGIN_END = "TOP_ANDROID_WIDGET_MARGIN_END"
         const val EVENTS_CALENDAR_ID = "EVENTS_CALENDAR_ID"
         const val EVENTS_FILTER = "EVENTS_FILTER"
         const val EVENTS_INDEX = "EVENTS_INDEX"
@@ -212,6 +217,12 @@ object Constants {
         Shortcuts("search"), // value kept as "search" for backward compat
         TotalUsage("total_usage"),
         PageDots("page_dots")
+    }
+
+    /** Widget type for the top (header) area of the homescreen. */
+    enum class TopWidgetType(val value: String) {
+        Clock("clock"),
+        AndroidWidget("android_widget")
     }
 
     enum class NotificationIndicator(val symbol: String, val label: String, val isSuperscript: Boolean) {

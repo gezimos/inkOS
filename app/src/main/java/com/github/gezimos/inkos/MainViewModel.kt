@@ -141,12 +141,18 @@ data class HomeUiState(
     val shortcutRightAction: Constants.Action = Constants.Action.OpenApp,
     val shortcutPageDots: Boolean = false,
     val shortcutHideOutline: Boolean = false,
-    // Android AppWidget hosting
+    // Android AppWidget hosting (bottom)
     val showAndroidWidget: Boolean = false,
     val androidWidgetId: Int = -1,
     val androidWidgetHeight: Int = 120,
     val androidWidgetMarginStart: Int = 0,
     val androidWidgetMarginEnd: Int = 0,
+    // Top widget
+    val topWidgetType: String = Constants.TopWidgetType.Clock.value,
+    val topAndroidWidgetId: Int = -1,
+    val topAndroidWidgetHeight: Int = Constants.DEFAULT_ANDROID_WIDGET_HEIGHT,
+    val topAndroidWidgetMarginStart: Int = 0,
+    val topAndroidWidgetMarginEnd: Int = 0,
     // Gesture Settings
     val shortSwipeThresholdRatio: Float = 0f,
     val longSwipeThresholdRatio: Float = 0f,
@@ -492,6 +498,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         androidWidgetHeight = prefs.androidWidgetHeight,
         androidWidgetMarginStart = prefs.androidWidgetMarginStart,
         androidWidgetMarginEnd = prefs.androidWidgetMarginEnd,
+        // Top widget
+        topWidgetType = prefs.topWidgetType,
+        topAndroidWidgetId = prefs.topAndroidWidgetId,
+        topAndroidWidgetHeight = prefs.topAndroidWidgetHeight,
+        topAndroidWidgetMarginStart = prefs.topAndroidWidgetMarginStart,
+        topAndroidWidgetMarginEnd = prefs.topAndroidWidgetMarginEnd,
         // Gesture Settings
         shortSwipeThresholdRatio = prefs.shortSwipeThresholdRatio,
         longSwipeThresholdRatio = prefs.longSwipeThresholdRatio,
@@ -664,6 +676,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             androidWidgetHeight = homeUi.androidWidgetHeight,
             androidWidgetMarginStart = homeUi.androidWidgetMarginStart,
             androidWidgetMarginEnd = homeUi.androidWidgetMarginEnd,
+            topWidgetType = homeUi.topWidgetType,
+            topAndroidWidgetId = homeUi.topAndroidWidgetId,
+            topAndroidWidgetHeight = homeUi.topAndroidWidgetHeight,
+            topAndroidWidgetMarginStart = homeUi.topAndroidWidgetMarginStart,
+            topAndroidWidgetMarginEnd = homeUi.topAndroidWidgetMarginEnd,
             eventsList = homeUi.eventsList,
             eventsIndex = homeUi.eventsIndex,
             hasCalendarPermission = homeUi.hasCalendarPermission,
@@ -765,6 +782,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             androidWidgetHeight = 120,
             androidWidgetMarginStart = 0,
             androidWidgetMarginEnd = 0,
+            topWidgetType = Constants.TopWidgetType.Clock.value,
+            topAndroidWidgetId = -1,
+            topAndroidWidgetHeight = Constants.DEFAULT_ANDROID_WIDGET_HEIGHT,
+            topAndroidWidgetMarginStart = 0,
+            topAndroidWidgetMarginEnd = 0,
             eventsList = emptyList(),
             eventsIndex = 0,
             hasCalendarPermission = false,
@@ -967,6 +989,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             PrefKeys.ANDROID_WIDGET_HEIGHT -> currentState.copy(androidWidgetHeight = prefs.androidWidgetHeight)
             PrefKeys.ANDROID_WIDGET_MARGIN_START -> currentState.copy(androidWidgetMarginStart = prefs.androidWidgetMarginStart)
             PrefKeys.ANDROID_WIDGET_MARGIN_END -> currentState.copy(androidWidgetMarginEnd = prefs.androidWidgetMarginEnd)
+            PrefKeys.TOP_WIDGET_TYPE -> currentState.copy(topWidgetType = prefs.topWidgetType)
+            PrefKeys.TOP_ANDROID_WIDGET_ID -> currentState.copy(topAndroidWidgetId = prefs.topAndroidWidgetId)
+            PrefKeys.TOP_ANDROID_WIDGET_HEIGHT -> currentState.copy(topAndroidWidgetHeight = prefs.topAndroidWidgetHeight)
+            PrefKeys.TOP_ANDROID_WIDGET_MARGIN_START -> currentState.copy(topAndroidWidgetMarginStart = prefs.topAndroidWidgetMarginStart)
+            PrefKeys.TOP_ANDROID_WIDGET_MARGIN_END -> currentState.copy(topAndroidWidgetMarginEnd = prefs.topAndroidWidgetMarginEnd)
             PrefKeys.SHOW_DATE -> currentState.copy(showDate = prefs.showDate)
             PrefKeys.SHOW_CLOCK -> currentState.copy(showClock = prefs.showClock)
             PrefKeys.SHOW_AM_PM -> currentState.copy(showAmPm = prefs.showAmPm)
@@ -1509,6 +1536,32 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setAndroidWidgetMarginEnd(margin: Int) {
         _homeUiState.value = _homeUiState.value.copy(androidWidgetMarginEnd = margin)
         prefs.androidWidgetMarginEnd = margin
+    }
+
+    // Top widget setters
+    fun setTopWidgetType(type: String) {
+        prefs.topWidgetType = type
+        _homeUiState.value = _homeUiState.value.copy(topWidgetType = type)
+    }
+
+    fun setTopAndroidWidgetId(widgetId: Int) {
+        _homeUiState.value = _homeUiState.value.copy(topAndroidWidgetId = widgetId)
+        prefs.topAndroidWidgetId = widgetId
+    }
+
+    fun setTopAndroidWidgetHeight(height: Int) {
+        _homeUiState.value = _homeUiState.value.copy(topAndroidWidgetHeight = height)
+        prefs.topAndroidWidgetHeight = height
+    }
+
+    fun setTopAndroidWidgetMarginStart(margin: Int) {
+        _homeUiState.value = _homeUiState.value.copy(topAndroidWidgetMarginStart = margin)
+        prefs.topAndroidWidgetMarginStart = margin
+    }
+
+    fun setTopAndroidWidgetMarginEnd(margin: Int) {
+        _homeUiState.value = _homeUiState.value.copy(topAndroidWidgetMarginEnd = margin)
+        prefs.topAndroidWidgetMarginEnd = margin
     }
 
     fun setEventsIndex(index: Int) {

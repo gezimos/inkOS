@@ -41,6 +41,27 @@ E.g., `[Calendar] → [      Calendar      ]`
 
 ### Top Widgets
 
+**Top Widget**
+Choose what to display in the top area of the home screen. Options:
+- **Clock** — Shows the clock (default)
+- **Android Widget** — Embeds any Android widget in place of the clock
+
+#### Top Android Widget
+
+When **Android Widget** is selected as the top widget type:
+
+**Choose Widget**
+Select an Android widget from installed apps.
+
+**Widget Height**
+Height of the embedded top widget (in dp).
+
+**Left Margin / Right Margin**
+Horizontal margins for the top widget (in %).
+
+**Remove Widget**
+Remove the currently set top widget.
+
 #### Clock
 
 **Show Clock**
@@ -50,7 +71,7 @@ Enables the clock widget at the top of the home screen.
 Choose between System, 24-hour, 12-hour, or 12-hour alt format.
 
 **Clock Style**
-Visual style of the clock display. Options: Default, Flip, Boxed, Round, Split, Horizontal, Box Outline, Analog.
+Visual style of the clock display. Options: Default, Flip, Boxed, Round, Split, Horizontal, Box Outline, Analog, Stacked, Digital, Matrix.
 
 **Show AM/PM**
 Displays AM/PM indicator for 12-hour format.

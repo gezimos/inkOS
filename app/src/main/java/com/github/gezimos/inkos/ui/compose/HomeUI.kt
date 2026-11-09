@@ -312,23 +312,47 @@ fun HomeUI(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .align(headerAlign)
+                .align(Alignment.TopStart)
                 .offset(y = topOffset)
                 .padding(horizontal = 32.dp.scaled(screenScale))
                 .onGloballyPositioned { headerHeightDp = with(density) { it.size.height.toDp() } }
         ) {
-            HomeHeader(
-                state = state,
-                onClockClick = callbacks.onClockClick,
-                onDateClick = callbacks.onDateClick,
-                onBatteryClick = callbacks.onBatteryClick,
-                onNotificationCountClick = callbacks.onNotificationCountClick,
-                modifier = Modifier,
-                isClockFocused = showDpadMode && focusZone == FocusZone.CLOCK,
-                isDateFocused = showDpadMode && focusZone == FocusZone.DATE,
-                showTextIslands = state.textIslands,
-                showEditMode = showEditMode
-            )
+            if (state.topWidgetType == Constants.TopWidgetType.AndroidWidget.value) {
+                HomeAndroidWidget(
+                    widgetHeight = state.topAndroidWidgetHeight,
+                    marginStart = state.topAndroidWidgetMarginStart,
+                    marginEnd = state.topAndroidWidgetMarginEnd,
+                    hasWidget = state.topAndroidWidgetId != -1,
+                    isEditMode = showEditMode,
+                    onClick = callbacks.onTopWidgetClick,
+                    onHeightChange = callbacks.onTopAndroidWidgetHeightChange,
+                    onMarginStartChange = callbacks.onTopAndroidWidgetMarginStartChange,
+                    onMarginEndChange = callbacks.onTopAndroidWidgetMarginEndChange,
+                    isTop = true
+                )
+            } else {
+                // Default: show clock header
+                Box(modifier = Modifier.fillMaxWidth().wrapContentHeight().then(
+                    when (state.clockAlignment) {
+                        0 -> Modifier.wrapContentWidth(Alignment.Start)
+                        2 -> Modifier.wrapContentWidth(Alignment.End)
+                        else -> Modifier.wrapContentWidth(Alignment.CenterHorizontally)
+                    }
+                )) {
+                    HomeHeader(
+                        state = state,
+                        onClockClick = callbacks.onClockClick,
+                        onDateClick = callbacks.onDateClick,
+                        onBatteryClick = callbacks.onBatteryClick,
+                        onNotificationCountClick = callbacks.onNotificationCountClick,
+                        modifier = Modifier,
+                        isClockFocused = showDpadMode && focusZone == FocusZone.CLOCK,
+                        isDateFocused = showDpadMode && focusZone == FocusZone.DATE,
+                        showTextIslands = state.textIslands,
+                        showEditMode = showEditMode
+                    )
+                }
+            }
         }
 
         Box(
@@ -3268,7 +3292,8 @@ private fun HomeAndroidWidget(
     onClick: () -> Unit,
     onHeightChange: (Int) -> Unit,
     onMarginStartChange: (Int) -> Unit,
-    onMarginEndChange: (Int) -> Unit
+    onMarginEndChange: (Int) -> Unit,
+    isTop: Boolean = false
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
@@ -3326,7 +3351,8 @@ private fun HomeAndroidWidget(
                     val appWidgetHelper = remember {
                         com.github.gezimos.inkos.helper.AppWidgetHelper.getInstance(context)
                     }
-                    val widgetView by appWidgetHelper.widgetViewState.collectAsState()
+                    val widgetView by if (isTop) appWidgetHelper.topWidgetViewState.collectAsState()
+                        else appWidgetHelper.widgetViewState.collectAsState()
 
                     widgetView?.let { view ->
                         key(view) {
@@ -4350,12 +4376,18 @@ data class HomeUiRenderState(
     val notificationCustomFontPath: String?,
     val extendHomeAppsArea: Boolean,
     val bottomWidgetType: String = "quote",
-    // Android AppWidget hosting
+    // Android AppWidget hosting (bottom)
     val showAndroidWidget: Boolean = false,
     val androidWidgetId: Int = -1,
     val androidWidgetHeight: Int = 120,
     val androidWidgetMarginStart: Int = 0,
     val androidWidgetMarginEnd: Int = 0,
+    // Top widget
+    val topWidgetType: String = Constants.TopWidgetType.Clock.value,
+    val topAndroidWidgetId: Int = -1,
+    val topAndroidWidgetHeight: Int = Constants.DEFAULT_ANDROID_WIDGET_HEIGHT,
+    val topAndroidWidgetMarginStart: Int = 0,
+    val topAndroidWidgetMarginEnd: Int = 0,
     // Events widget
     val eventsList: List<com.github.gezimos.inkos.helper.CalendarEventsHelper.CalendarEvent> = emptyList(),
     val eventsIndex: Int = 0,
@@ -4400,6 +4432,10 @@ data class HomeUiCallbacks(
     val onAndroidWidgetHeightChange: (Int) -> Unit = {},
     val onAndroidWidgetMarginStartChange: (Int) -> Unit = {},
     val onAndroidWidgetMarginEndChange: (Int) -> Unit = {},
+    val onTopWidgetClick: () -> Unit = {},
+    val onTopAndroidWidgetHeightChange: (Int) -> Unit = {},
+    val onTopAndroidWidgetMarginStartChange: (Int) -> Unit = {},
+    val onTopAndroidWidgetMarginEndChange: (Int) -> Unit = {},
     val onTopMarginDrag: (Int) -> Unit = {},
     val onAppsYOffsetDrag: (Int) -> Unit = {},
     val onBottomMarginDrag: (Int) -> Unit = {}

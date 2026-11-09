@@ -1275,6 +1275,73 @@ object EditModeHelper {
             }
         }
     }
+    fun showTopWidgetPickerSheet(
+        context: Context,
+        fragment: Fragment,
+        prefs: Prefs,
+        appWidgetHelper: AppWidgetHelper,
+        vm: com.github.gezimos.inkos.MainViewModel,
+        onUpdate: () -> Unit
+    ) {
+        val widgetApps = appWidgetHelper.getInstalledWidgetsByApp()
+        if (widgetApps.isEmpty()) {
+            android.widget.Toast.makeText(context, "No widgets available", android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        showDialog(context, prefs) {
+            val selectedApp = remember { mutableStateOf<AppWidgetHelper.WidgetApp?>(null) }
+            val app = selectedApp.value
+
+            if (app == null) {
+                WidgetAppListContent(
+                    context = context,
+                    widgetApps = widgetApps,
+                    onAppSelected = { selectedApp.value = it },
+                    onClose = { currentSheet?.dismiss() }
+                )
+            } else {
+                WidgetListContent(
+                    app = app,
+                    appWidgetHelper = appWidgetHelper,
+                    onBack = { selectedApp.value = null },
+                    onWidgetPicked = { providerInfo ->
+                        currentSheet?.dismiss()
+                        appWidgetHelper.pickWidgetFromProvider(
+                            providerInfo = providerInfo,
+                            isTop = true,
+                            onSuccess = { widgetId ->
+                                vm.setTopAndroidWidgetId(widgetId)
+                                onUpdate()
+                            },
+                            onNeedsPermission = { widgetId, bindIntent ->
+                                val homeFragment = fragment as? com.github.gezimos.inkos.ui.HomeFragmentCompose
+                                if (homeFragment != null) {
+                                    homeFragment.pendingWidgetId = widgetId
+                                    homeFragment.pendingWidgetIsTop = true
+                                    homeFragment.widgetBindLauncher.launch(bindIntent)
+                                }
+                            },
+                            onNeedsConfigure = { widgetId, configIntent ->
+                                val homeFragment = fragment as? com.github.gezimos.inkos.ui.HomeFragmentCompose
+                                if (homeFragment != null) {
+                                    homeFragment.pendingWidgetId = widgetId
+                                    homeFragment.pendingWidgetIsTop = true
+                                    try {
+                                        homeFragment.widgetConfigureLauncher.launch(configIntent)
+                                    } catch (e: SecurityException) {
+                                        android.util.Log.e("EditModeHelper", "Widget configure activity not exported", e)
+                                        context.showLongToast("Widget configuration not available")
+                                    }
+                                }
+                            }
+                        )
+                    }
+                )
+            }
+        }
+    }
+
     fun showAppSettings(context: Context, fragment: Fragment, prefs: Prefs, initialTabIndex: Int = 0, onUpdate: () -> Unit = {}) {
         currentSheet?.dismiss()
 

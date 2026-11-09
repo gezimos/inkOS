@@ -180,6 +180,12 @@
     <string name="shortcut_right_action">Right Action</string>
     <string name="hide_outline">Hide Outline</string>
 
+    <!-- Top widget -->
+    <string name="top_widget">Top Widget</string>
+    <string name="top_widget_clock">Clock</string>
+    <string name="top_widget_android">Android Widget</string>
+    <string name="desc_top_widget">Choose what to display in the top area</string>
+
     <!-- Android widget -->
     <string name="android_widget_height">Widget Height</string>
     <string name="android_widget_margin_start">Left Margin</string>

@@ -974,6 +974,122 @@ class SettingsFragment : Fragment() {
                 description = stringResource(R.string.desc_home_alignment),
                 onClick = { viewModel.setHomeAlignment((homeUiState.homeAlignment + 1) % 3) }
             )
+            // Top Widget Section
+            SettingsTitle(text = stringResource(R.string.top_widgets), fontSize = titleFontSize)
+            val topWidgetLabels = listOf(
+                stringResource(R.string.top_widget_clock),
+                stringResource(R.string.top_widget_android)
+            )
+            val topWidgetValues = listOf(
+                Constants.TopWidgetType.Clock.value,
+                Constants.TopWidgetType.AndroidWidget.value
+            )
+            val currentTopWidgetIndex = topWidgetValues.indexOf(homeUiState.topWidgetType).coerceAtLeast(0)
+            SettingsSelect(
+                title = stringResource(R.string.top_widget),
+                option = topWidgetLabels.getOrElse(currentTopWidgetIndex) { topWidgetLabels[0] },
+                fontSize = titleFontSize,
+                description = stringResource(R.string.desc_top_widget),
+                onClick = {
+                    dialogBuilder.showSingleChoiceDialog(
+                        context = requireContext(), options = topWidgetLabels.toTypedArray(),
+                        titleResId = R.string.top_widget, selectedIndex = currentTopWidgetIndex,
+                        onItemSelected = { selectedLabel ->
+                            val idx = topWidgetLabels.indexOf(selectedLabel)
+                            if (idx >= 0) viewModel.setTopWidgetType(topWidgetValues[idx])
+                        }
+                    )
+                }
+            )
+            if (homeUiState.topWidgetType == Constants.TopWidgetType.AndroidWidget.value) {
+                val topWidgetLabel = remember(homeUiState.topAndroidWidgetId) {
+                    com.github.gezimos.inkos.helper.AppWidgetHelper.getInstance(requireContext())
+                        .getCurrentTopWidgetLabel() ?: "None"
+                }
+                SettingsSelect(
+                    title = stringResource(R.string.choose_android_widget), option = topWidgetLabel, fontSize = titleFontSize,
+                    description = stringResource(R.string.desc_choose_widget),
+                    onClick = {
+                        val appWidgetHelper = com.github.gezimos.inkos.helper.AppWidgetHelper.getInstance(requireContext())
+                        val widgetApps = appWidgetHelper.getInstalledWidgetsByApp()
+                        if (widgetApps.isEmpty()) {
+                            android.widget.Toast.makeText(requireContext(), "No widgets available", android.widget.Toast.LENGTH_SHORT).show()
+                            return@SettingsSelect
+                        }
+                        val ctx = requireContext()
+                        val navController = findNavController()
+                        dialogBuilder.showSheet {
+                            val selectedApp = remember { mutableStateOf<com.github.gezimos.inkos.helper.AppWidgetHelper.WidgetApp?>(null) }
+                            val app = selectedApp.value
+                            if (app == null) {
+                                com.github.gezimos.inkos.helper.WidgetAppListContent(
+                                    context = ctx, widgetApps = widgetApps,
+                                    onAppSelected = { selectedApp.value = it },
+                                    onClose = { dialogBuilder.dismissAll() }
+                                )
+                            } else {
+                                com.github.gezimos.inkos.helper.WidgetListContent(
+                                    app = app, appWidgetHelper = appWidgetHelper,
+                                    onBack = { selectedApp.value = null },
+                                    onWidgetPicked = { providerInfo ->
+                                        dialogBuilder.dismissAll()
+                                        appWidgetHelper.pickWidgetFromProvider(
+                                            providerInfo = providerInfo,
+                                            isTop = true,
+                                            onSuccess = { widgetId -> viewModel.setTopAndroidWidgetId(widgetId) },
+                                            onNeedsPermission = { _, _ ->
+                                                HomeFragmentCompose.pendingWidgetPickerSignal = true
+                                                try { navController.popBackStack(R.id.mainFragment, false) } catch (_: Exception) {}
+                                            },
+                                            onNeedsConfigure = { _, _ ->
+                                                HomeFragmentCompose.pendingWidgetPickerSignal = false
+                                                try { navController.popBackStack(R.id.mainFragment, false) } catch (_: Exception) {}
+                                            }
+                                        )
+                                    }
+                                )
+                            }
+                        }
+                    }
+                )
+                SettingsSelect(
+                    title = stringResource(R.string.android_widget_height), option = "${homeUiState.topAndroidWidgetHeight}dp", fontSize = titleFontSize,
+                    description = stringResource(R.string.desc_widget_height),
+                    onClick = {
+                        dialogBuilder.showSliderDialog(requireContext(), getString(R.string.android_widget_height),
+                            Constants.MIN_ANDROID_WIDGET_HEIGHT, Constants.MAX_ANDROID_WIDGET_HEIGHT, homeUiState.topAndroidWidgetHeight,
+                            liveUpdate = true) { viewModel.setTopAndroidWidgetHeight(it) }
+                    }
+                )
+                SettingsSelect(
+                    title = stringResource(R.string.android_widget_margin_start), option = "${homeUiState.topAndroidWidgetMarginStart}%", fontSize = titleFontSize,
+                    description = stringResource(R.string.desc_widget_margin_start),
+                    onClick = {
+                        dialogBuilder.showSliderDialog(requireContext(), getString(R.string.android_widget_margin_start),
+                            0, Constants.MAX_ANDROID_WIDGET_MARGIN, homeUiState.topAndroidWidgetMarginStart,
+                            liveUpdate = true) { viewModel.setTopAndroidWidgetMarginStart(it) }
+                    }
+                )
+                SettingsSelect(
+                    title = stringResource(R.string.android_widget_margin_end), option = "${homeUiState.topAndroidWidgetMarginEnd}%", fontSize = titleFontSize,
+                    description = stringResource(R.string.desc_widget_margin_end),
+                    onClick = {
+                        dialogBuilder.showSliderDialog(requireContext(), getString(R.string.android_widget_margin_end),
+                            0, Constants.MAX_ANDROID_WIDGET_MARGIN, homeUiState.topAndroidWidgetMarginEnd,
+                            liveUpdate = true) { viewModel.setTopAndroidWidgetMarginEnd(it) }
+                    }
+                )
+                if (homeUiState.topAndroidWidgetId != -1) {
+                    SettingsSelect(
+                        title = stringResource(R.string.remove_android_widget), option = "", fontSize = titleFontSize,
+                        description = stringResource(R.string.desc_remove_widget),
+                        onClick = {
+                            com.github.gezimos.inkos.helper.AppWidgetHelper.getInstance(requireContext()).removeTopWidget()
+                            viewModel.setTopAndroidWidgetId(-1)
+                        }
+                    )
+                }
+            }
             // Clock Section
             SettingsTitle(text = stringResource(R.string.clock_section), fontSize = titleFontSize)
             SettingsSwitch(text = stringResource(R.string.show_clock), fontSize = titleFontSize,

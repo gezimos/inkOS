@@ -120,6 +120,7 @@ class HomeFragmentCompose : Fragment() {
 
     // Widget picker launcher
     var pendingWidgetId: Int = -1
+    var pendingWidgetIsTop: Boolean = false
     private lateinit var widgetPickerLauncher: ActivityResultLauncher<Intent>
     private lateinit var calendarPermissionLauncher: ActivityResultLauncher<String>
     lateinit var widgetConfigureLauncher: ActivityResultLauncher<Intent>
@@ -150,8 +151,13 @@ class HomeFragmentCompose : Fragment() {
                         pendingWidgetId = widgetId
                         widgetConfigureLauncher.launch(configIntent)
                     } else {
-                        appWidgetHelper.onWidgetPicked(widgetId)
-                        viewModel.setAndroidWidgetId(widgetId)
+                        if (pendingWidgetIsTop) {
+                            appWidgetHelper.onTopWidgetPicked(widgetId)
+                            viewModel.setTopAndroidWidgetId(widgetId)
+                        } else {
+                            appWidgetHelper.onWidgetPicked(widgetId)
+                            viewModel.setAndroidWidgetId(widgetId)
+                        }
                     }
                 }
             } else {
@@ -160,17 +166,24 @@ class HomeFragmentCompose : Fragment() {
                     pendingWidgetId = -1
                 }
             }
+            pendingWidgetIsTop = false
         }
 
         // Register widget configure result handler
         widgetConfigureLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == android.app.Activity.RESULT_OK && pendingWidgetId != -1) {
-                appWidgetHelper.onWidgetPicked(pendingWidgetId)
-                viewModel.setAndroidWidgetId(pendingWidgetId)
+                if (pendingWidgetIsTop) {
+                    appWidgetHelper.onTopWidgetPicked(pendingWidgetId)
+                    viewModel.setTopAndroidWidgetId(pendingWidgetId)
+                } else {
+                    appWidgetHelper.onWidgetPicked(pendingWidgetId)
+                    viewModel.setAndroidWidgetId(pendingWidgetId)
+                }
             } else if (pendingWidgetId != -1) {
                 appWidgetHelper.deallocateWidgetId(pendingWidgetId)
             }
             pendingWidgetId = -1
+            pendingWidgetIsTop = false
         }
 
         // Register calendar permission for Events widget
@@ -507,6 +520,10 @@ class HomeFragmentCompose : Fragment() {
                                 onAndroidWidgetHeightChange = { height -> viewModel.setAndroidWidgetHeight(height) },
                                 onAndroidWidgetMarginStartChange = { margin -> viewModel.setAndroidWidgetMarginStart(margin) },
                                 onAndroidWidgetMarginEndChange = { margin -> viewModel.setAndroidWidgetMarginEnd(margin) },
+                                onTopWidgetClick = { handleTopWidgetClick() },
+                                onTopAndroidWidgetHeightChange = { height -> viewModel.setTopAndroidWidgetHeight(height) },
+                                onTopAndroidWidgetMarginStartChange = { margin -> viewModel.setTopAndroidWidgetMarginStart(margin) },
+                                onTopAndroidWidgetMarginEndChange = { margin -> viewModel.setTopAndroidWidgetMarginEnd(margin) },
                                 onTopMarginDrag = { viewModel.setTopWidgetMargin(it) },
                                 onAppsYOffsetDrag = { viewModel.setHomeAppsYOffset(it) },
                                 onBottomMarginDrag = { viewModel.setBottomWidgetMargin(it) }
@@ -832,6 +849,16 @@ class HomeFragmentCompose : Fragment() {
                 } catch (_: Exception) {}
             }
             else -> {}
+        }
+    }
+
+    private fun handleTopWidgetClick() {
+        if (prefs.topWidgetType == Constants.TopWidgetType.AndroidWidget.value && prefs.topAndroidWidgetId == -1) {
+            EditModeHelper.showTopWidgetPickerSheet(
+                requireContext(), this, prefs, appWidgetHelper, viewModel
+            ) {
+                viewModel.refreshHomeAppsUiState(requireContext())
+            }
         }
     }
 
