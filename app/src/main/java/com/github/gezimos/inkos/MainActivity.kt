@@ -239,8 +239,50 @@ class MainActivity : AppCompatActivity() {
 
     var suppressKeyForwarding: Boolean = false
 
+    // Digit key held on the home screen of a keypad phone: true once its long-press action ran.
+    private var t9DigitLongPressed = false
+
+    /**
+     * On a phone keypad, a short digit press types into T9 app search and a long press runs the
+     * key's home action (2 double tap, 6 clock, 7 date, 8 quote, 9 quick menu). Without this the
+     * home actions swallow 2/6/7/8 and T9 search can't start with those letters.
+     */
+    private fun handleT9Digit(event: KeyEvent): Boolean? {
+        val digit = com.github.gezimos.inkos.helper.SearchHelper.keypadDigit(event) ?: return null
+        if (!prefs.appDrawerSearchEnabled || suppressKeyForwarding) return null
+        if (!::navController.isInitialized) return null
+        if (!com.github.gezimos.inkos.helper.SearchHelper.hasNumericKeypad()) return null
+        // Only the home screen needs this; the drawer's search already receives digit keys.
+        if (navController.currentDestination?.id != R.id.mainFragment) return null
+        when (event.action) {
+            KeyEvent.ACTION_DOWN -> {
+                if (event.repeatCount == 0) {
+                    t9DigitLongPressed = false
+                } else if (event.isLongPress && !t9DigitLongPressed) {
+                    t9DigitLongPressed = true
+                    try { fragmentKeyHandler?.handleKeyEvent(event.keyCode, event) } catch (_: Exception) {}
+                }
+            }
+            KeyEvent.ACTION_UP -> {
+                if (!t9DigitLongPressed && !event.isCanceled) {
+                    try { viewModel.emitTypedChar(digit) } catch (_: Exception) {}
+                    try {
+                        navController.navigate(
+                            R.id.action_mainFragment_to_appListFragment,
+                            androidx.core.os.bundleOf("searchMode" to 0, "t9" to true)
+                        )
+                    } catch (_: Exception) {}
+                }
+                t9DigitLongPressed = false
+            }
+        }
+        return true
+    }
+
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (isOnboarding()) return super.dispatchKeyEvent(event)
+
+        handleT9Digit(event)?.let { return it }
 
         // --- Fragment key handler ---
         val fragHandler = fragmentKeyHandler

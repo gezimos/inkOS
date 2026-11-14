@@ -700,6 +700,12 @@ class HomeFragmentCompose : Fragment() {
         }
         
         val homeApp = prefs.getHomeAppModel(app.id)
+        if (homeApp.activityPackage.isEmpty() && !prefs.homeLocked) {
+            // An empty "Select App" slot picks its app on a plain click, so keypad users
+            // don't need to discover the long press.
+            showAppList(AppDrawerFlag.SetHomeApp, includeHiddenApps = true, n = app.id)
+            return
+        }
         if (homeApp.activityPackage.isEmpty() || Constants.isSeparator(homeApp.activityPackage)) {
             return
         }

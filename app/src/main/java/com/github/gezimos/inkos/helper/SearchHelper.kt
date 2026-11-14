@@ -127,13 +127,43 @@ object SearchHelper {
         return TextFieldValue(text = newText, selection = TextRange(newText.length))
     }
 
+    /**
+     * True when the phone's only physical keyboard is a numeric keypad (Qin, Light Phone, flip
+     * phones). The virtual keyboard used by ADB and IMEs doesn't count.
+     */
+    fun hasNumericKeypad(): Boolean {
+        var numeric = false
+        for (id in android.view.InputDevice.getDeviceIds()) {
+            val device = android.view.InputDevice.getDevice(id) ?: continue
+            if (device.isVirtual) continue
+            when (device.keyboardType) {
+                android.view.InputDevice.KEYBOARD_TYPE_ALPHABETIC -> return false
+                android.view.InputDevice.KEYBOARD_TYPE_NON_ALPHABETIC ->
+                    if (device.hasKeys(KeyEvent.KEYCODE_2, KeyEvent.KEYCODE_9).all { it }) numeric = true
+            }
+        }
+        return numeric
+    }
+
+    /** The digit a keypad press stands for, or null for non-digit keys. */
+    fun keypadDigit(event: KeyEvent): Char? =
+        if (event.keyCode in KeyEvent.KEYCODE_0..KeyEvent.KEYCODE_9) '0' + (event.keyCode - KeyEvent.KEYCODE_0) else null
+
+    /** A digit-only query typed on a phone keypad, matched by T9 rather than literally. */
+    fun isT9Query(query: String): Boolean = T9_QUERY_REGEX.matches(query) && hasNumericKeypad()
+
     fun keyEventToChar(event: KeyEvent): Char? {
         return try {
             val unicode = event.unicodeChar
             if (unicode == 0) return null
             val ch = unicode.toChar()
             val lower = ch.lowercaseChar()
-            if (lower in 'a'..'z') lower else null
+            when {
+                lower in 'a'..'z' -> lower
+                // Keypad digits drive T9 search ("3827" finds "Etar")
+                ch in '0'..'9' && hasNumericKeypad() -> ch
+                else -> null
+            }
         } catch (_: Exception) {
             null
         }
@@ -159,7 +189,54 @@ object SearchHelper {
         return 0
     }
 
+    /** Phone keypad letter groups: ABC=2 ... WXYZ=9. Other characters map to themselves. */
+    internal fun toT9(normalizedLabel: String): String = buildString(normalizedLabel.length) {
+        for (c in normalizedLabel) {
+            append(
+                when (c) {
+                    'A', 'B', 'C' -> '2'
+                    'D', 'E', 'F' -> '3'
+                    'G', 'H', 'I' -> '4'
+                    'J', 'K', 'L' -> '5'
+                    'M', 'N', 'O' -> '6'
+                    'P', 'Q', 'R', 'S' -> '7'
+                    'T', 'U', 'V' -> '8'
+                    'W', 'X', 'Y', 'Z' -> '9'
+                    else -> c
+                }
+            )
+        }
+    }
+
+    private val T9_QUERY_REGEX = Regex("[0-9]+")
+
+    /**
+     * T9 match for a digit-only query typed on a phone keypad: "3827" matches "Etar".
+     * Only prefix and word-start matches count; a single digit matches a third of all labels mid-word.
+     */
+    fun scoreT9(normalizedLabel: String, normalizedQuery: String, topScore: Int, originalLabel: String? = null): Int {
+        if (!T9_QUERY_REGEX.matches(normalizedQuery)) return 0
+        val t9Label = toT9(normalizedLabel)
+        if (t9Label.startsWith(normalizedQuery)) return (topScore * 0.95).toInt()
+        if (originalLabel == null) return 0
+        val spacedLabel = normalizeKeepSpaces(originalLabel)
+        var searchFrom = 0
+        while (true) {
+            val idx = t9Label.indexOf(normalizedQuery, searchFrom)
+            if (idx < 0) return 0
+            val spacedIdx = mapStrippedToSpaced(spacedLabel, idx)
+            if (spacedIdx > 0 && spacedLabel[spacedIdx - 1] == ' ') return (topScore * 0.85).toInt()
+            searchFrom = idx + 1
+        }
+    }
+
     fun scorePreNormalized(normalizedLabel: String, normalizedQuery: String, topScore: Int, originalLabel: String? = null): Int {
+        val t9Score = scoreT9(normalizedLabel, normalizedQuery, topScore, originalLabel)
+        if (t9Score > 0) return maxOf(t9Score, scoreLiteral(normalizedLabel, normalizedQuery, topScore, originalLabel))
+        return scoreLiteral(normalizedLabel, normalizedQuery, topScore, originalLabel)
+    }
+
+    private fun scoreLiteral(normalizedLabel: String, normalizedQuery: String, topScore: Int, originalLabel: String? = null): Int {
         if (normalizedLabel.startsWith(normalizedQuery)) return topScore
         if (normalizedLabel.contains(normalizedQuery)) {
             if (originalLabel != null) {

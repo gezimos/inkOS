@@ -91,6 +91,9 @@ class AppsFragment : Fragment() {
     private var currentSearchQuery: String = ""
     private var showSearchArg: Boolean = false
     private var searchMode: Int = -1 // -1=normal, 0=search (forces search bar + keyboard), 1=contacts (pre-loads all contacts)
+    // Opened by a keypad digit on home: keep the search field unfocused so further digits arrive as
+    // raw key presses for T9 matching instead of going through the IME.
+    private var t9Launch: Boolean = false
 
     private var pendingUninstallPackage: String? = null
     private val uninstallLauncher =
@@ -121,6 +124,7 @@ class AppsFragment : Fragment() {
         appPosition = arguments?.getInt("n", 0) ?: 0
         showSearchArg = arguments?.getBoolean("showSearch", false) ?: false
         searchMode = arguments?.getInt("searchMode", -1) ?: -1
+        t9Launch = arguments?.getBoolean("t9", false) ?: false
 
         val includeHidden = flag == Constants.AppDrawerFlag.SetHomeApp || flag == Constants.AppDrawerFlag.HiddenApps || flag == Constants.AppDrawerFlag.EditFavorites || flag == Constants.AppDrawerFlag.EditHiddenApps
 
@@ -679,7 +683,7 @@ class AppsFragment : Fragment() {
                 val keyPressTracker = remember { com.github.gezimos.inkos.ui.compose.KeyPressTracker() }
 
                 LaunchedEffect(state.searchQuery.text) {
-                    if (state.searchQuery.text.isNotBlank() && state.searchEnabled) {
+                    if (state.searchQuery.text.isNotBlank() && state.searchEnabled && !SearchHelper.isT9Query(state.searchQuery.text)) {
                         delay(300)
                         try { searchFocusRequester.requestFocus() } catch (_: Exception) {}
                     }
@@ -687,7 +691,7 @@ class AppsFragment : Fragment() {
 
                 LaunchedEffect(appsDrawer.appDrawerAutoShowKeyboard, appsDrawer.appDrawerSearchEnabled, state.searchEnabled) {
                     try {
-                        if ((appsDrawer.appDrawerAutoShowKeyboard || searchMode >= 0) && state.searchEnabled) {
+                        if ((appsDrawer.appDrawerAutoShowKeyboard || searchMode >= 0) && state.searchEnabled && !t9Launch) {
                             // the window where space-as-home-button can fire.
                             delay(if (searchMode >= 0) 10L else 50L)
                             try { searchFocusRequester.requestFocus() } catch (_: Exception) {}
@@ -1009,6 +1013,7 @@ class AppsFragment : Fragment() {
                                             else -> {
                                                 if (state.searchEnabled) {
                                                     val char = SearchHelper.keyToChar(keyEvent.key)
+                                                        ?: SearchHelper.keyEventToChar(keyEvent.nativeKeyEvent)
                                                     if (char != null) {
                                                         state.searchQuery = SearchHelper.appendCharToSearch(state.searchQuery, char)
                                                         return@onPreviewKeyEvent true

@@ -44,6 +44,7 @@ import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -143,6 +144,15 @@ object OnboardingScreen {
         var settingsConfirmed by remember { mutableStateOf(false) }
         var settingsToastShown by remember { mutableStateOf(false) }
         val totalPages = 7
+        // The agree/confirm checkboxes sit far above the footer; focus them so the D-pad reaches them.
+        val checkboxFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+        val hasKeypad = remember { com.github.gezimos.inkos.helper.SearchHelper.hasNumericKeypad() }
+        LaunchedEffect(page) {
+            if (page == 1 || page == 4) {
+                kotlinx.coroutines.delay(100)
+                try { checkboxFocus.requestFocus() } catch (_: Exception) {}
+            }
+        }
 
         // Persist page so onboarding resumes
         LaunchedEffect(page) {
@@ -344,9 +354,9 @@ object OnboardingScreen {
                                 1 -> "inkOS does not collect, store, or share any data. There are no server connections and no tracking. Everything stays on your device."
                                 2 -> "To get the most out of inkOS, grant notification permissions so inkOS can forward you Android notifications in Home, Letters or Simple Tray."
                                 3 -> "To make inkOS your new app home, set it as a default launcher. You can change this later in Settings."
-                                4 -> "To access settings, Pinch (zoom out) in home (empty areas) to open the quick settings. That will allow you to access All Settings or enable Edit Mode for the front-end editor."
+                                4 -> "To access settings, Pinch (zoom out) in home (empty areas)" + (if (hasKeypad) " or hold the 9 key" else "") + " to open the quick settings. That will allow you to access All Settings or enable Edit Mode for the front-end editor."
                                 5 -> "Choose a color preset for your launcher, or skip to keep your current theme and start from scratch."
-                                6 -> "Select your home shortcuts and order them using Edit Favorites. You can still longpress on single apps in home to replace them individually like before."
+                                6 -> "Select your home shortcuts and order them using Edit Favorites. You can still longpress on single apps in home to replace them individually like before." + (if (hasKeypad) " On the keypad, type a name in T9 (3827 for Etar) to search apps, and hold OK on a home app to replace it." else "")
                                 else -> ""
                             },
                             style = SettingsTheme.typography.body,
@@ -390,6 +400,7 @@ object OnboardingScreen {
                                     })
                                     .clip(buttonShape)
                                     .background(if (confirmFocused) textColor else bgColor)
+                                    .focusRequester(checkboxFocus)
                                     .clickable(
                                         interactionSource = confirmInteraction,
                                         indication = null
@@ -508,6 +519,7 @@ object OnboardingScreen {
                                     })
                                     .clip(buttonShape)
                                     .background(if (agreeFocused) textColor else bgColor)
+                                    .focusRequester(checkboxFocus)
                                     .clickable(
                                         interactionSource = agreeInteraction,
                                         indication = null
@@ -736,6 +748,7 @@ object OnboardingScreen {
                                 indication = null
                             ) {
                                 if (page == 1 && !privacyAgreed) {
+                                    try { checkboxFocus.requestFocus() } catch (_: Exception) {}
                                     if (!privacyToastShown) {
                                         android.widget.Toast.makeText(
                                             context,
@@ -747,6 +760,7 @@ object OnboardingScreen {
                                     return@clickable
                                 }
                                 if (page == 4 && !settingsConfirmed) {
+                                    try { checkboxFocus.requestFocus() } catch (_: Exception) {}
                                     if (!settingsToastShown) {
                                         android.widget.Toast.makeText(
                                             context,
