@@ -46,6 +46,8 @@ glide = "4.16.0"
 
 # AndroidX Test Libraries
 espresso = "3.7.0"
+junit = "4.13.2"
+robolectric = "4.18"
 test-core-ktx = "1.7.0"
 test-runner = "1.7.0"
 test-rules = "1.7.0"
@@ -62,6 +64,7 @@ palette-ktx = { group = "androidx.palette", name = "palette-ktx", version.ref = 
 
 # Android Lifecycle
 lifecycle-viewmodel-ktx = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-ktx", version.ref = "lifecycle-viewmodel-ktx" }
+lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "lifecycle-viewmodel-ktx" }
 
 # Navigation
 navigation-fragment-ktx = { group = "androidx.navigation", name = "navigation-fragment-ktx", version.ref = "navigation-fragment-ktx" }
@@ -104,6 +107,9 @@ test-rules = { group = "androidx.test", name = "rules", version.ref = "test-rule
 fragment-testing = { group = "androidx.fragment", name = "fragment-testing", version.ref = "fragment-testing" }
 ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4", version.ref = "ui-test-junit4" }
 ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest", version.ref = "ui-test-manifest" }
+
+junit = { group = "junit", name = "junit", version.ref = "junit" }
+robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

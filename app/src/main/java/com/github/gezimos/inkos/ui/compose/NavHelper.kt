@@ -82,6 +82,23 @@ enum class ColorEditorFocusZone {
 
 object NavHelper {
     const val LONG_PRESS_THRESHOLD_MS = 700L
+    /**
+     * When D-pad mode is off (e.g. right after HOME or a touch), the selection
+     * highlight is hidden. Turn it on without moving, so the user sees where
+     * they are before the next press moves them.
+     */
+    private fun revealSelectionOnFirstPress(
+        dpadMode: MutableState<Boolean>,
+        focusZone: MutableState<FocusZone>?,
+        appsOnPageSize: Int
+    ): Boolean {
+        if (dpadMode.value) return false
+        if (focusZone != null && focusZone.value != FocusZone.APPS) return false
+        if (appsOnPageSize <= 0) return false
+        dpadMode.value = true
+        return true
+    }
+
     fun handleHomeKeyEvent(
         keyEvent: KeyEvent,
         keyPressTracker: KeyPressTracker,
@@ -162,6 +179,9 @@ object NavHelper {
 
         return when (keyEvent.key) {
             Key.DirectionDown -> {
+                // First arrow press only reveals the current selection, so the
+                // first app on the page is reachable instead of being skipped.
+                if (revealSelectionOnFirstPress(dpadMode, focusZone, appsOnPageSize)) return true
                 dpadMode.value = true
                 if (focusZone != null) {
                     when (focusZone.value) {
@@ -225,6 +245,7 @@ object NavHelper {
                 true
             }
             Key.DirectionUp -> {
+                if (revealSelectionOnFirstPress(dpadMode, focusZone, appsOnPageSize)) return true
                 dpadMode.value = true
                 if (focusZone != null) {
                     when (focusZone.value) {

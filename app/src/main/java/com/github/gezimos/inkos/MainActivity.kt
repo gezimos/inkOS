@@ -239,8 +239,51 @@ class MainActivity : AppCompatActivity() {
 
     var suppressKeyForwarding: Boolean = false
 
+    /**
+     * On a phone keypad, a short digit press types into T9 app search and a long press runs the
+     * key's home action (2 double tap, 6 clock, 7 date, 8 quote, 9 quick menu). Without this the
+     * home actions swallow 2/6/7/8 and T9 search can't start with those letters. Long presses are
+     * detected by the framework's key tracking (startTracking / onKeyLongPress).
+     */
+    private val t9DigitCallback = object : KeyEvent.Callback {
+        override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+            event.startTracking()
+            return true
+        }
+
+        override fun onKeyLongPress(keyCode: Int, event: KeyEvent): Boolean {
+            fragmentKeyHandler?.handleKeyEvent(keyCode, event)
+            return true
+        }
+
+        override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+            // Canceled after a long press, or if the press was interrupted.
+            if (!event.isTracking || event.isCanceled) return true
+            viewModel.emitTypedChar(event.number)
+            navController.navigate(
+                R.id.action_mainFragment_to_appListFragment,
+                androidx.core.os.bundleOf("searchMode" to 0, "t9" to true)
+            )
+            return true
+        }
+
+        override fun onKeyMultiple(keyCode: Int, count: Int, event: KeyEvent) = false
+    }
+
+    private fun handleT9Digit(event: KeyEvent): Boolean? {
+        com.github.gezimos.inkos.helper.SearchHelper.keypadDigit(event) ?: return null
+        if (!prefs.appDrawerSearchEnabled || suppressKeyForwarding) return null
+        if (!::navController.isInitialized) return null
+        // Only the home screen needs this; the drawer's search already receives digit keys.
+        if (navController.currentDestination?.id != R.id.mainFragment) return null
+        if (!com.github.gezimos.inkos.helper.SearchHelper.hasNumericKeypad()) return null
+        return event.dispatch(t9DigitCallback, window.decorView.keyDispatcherState, this)
+    }
+
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (isOnboarding()) return super.dispatchKeyEvent(event)
+
+        handleT9Digit(event)?.let { return it }
 
         // --- Fragment key handler ---
         val fragHandler = fragmentKeyHandler

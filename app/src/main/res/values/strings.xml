@@ -117,6 +117,9 @@
     <string name="about">About</string>
     <string name="desc_about">Credits &amp; support</string>
     <string name="tooltip_pinch_settings">Pinch in empty areas to open Settings</string>
+    <string name="tooltip_keypad_settings">Hold 9 to open Settings</string>
+    <string name="tooltip_keypad_pages">Press up/down to move between apps and pages</string>
+    <string name="tooltip_keypad_drawer">Type an app name on the keypad to search</string>
     <string name="extra_features">Extras</string>
     <string name="icons_buttons">Icons &amp; Buttons</string>
     <string name="text_islands_section">Text Islands</string>

@@ -264,13 +264,19 @@ fun HomeUI(
                     else -> tooltipKeyLongSwipeDrawer
                 }
                 val isLastStep = tooltipStep == 3
+                // Keypad phones (e.g. Qin F21/F22) can't pinch or swipe; describe the keys instead.
+                val keypadTips = remember { com.github.gezimos.inkos.helper.SearchHelper.hasNumericKeypad() }
                 TooltipBubble(
                     title = when (tooltipStep) {
                         1 -> stringResource(R.string.settings_name)
                         2 -> "Home Pages"
                         else -> "App Drawer"
                     },
-                    lines = when (tooltipStep) {
+                    lines = if (keypadTips) when (tooltipStep) {
+                        1 -> listOf(stringResource(R.string.tooltip_keypad_settings))
+                        2 -> listOf(stringResource(R.string.tooltip_keypad_pages))
+                        else -> listOf(stringResource(R.string.tooltip_keypad_drawer))
+                    } else when (tooltipStep) {
                         1 -> listOf(stringResource(R.string.tooltip_pinch_settings))
                         2 -> listOf("Swipe up/down to move between pages")
                         else -> listOf("Long swipe up to open App Drawer")
@@ -280,7 +286,7 @@ fun HomeUI(
                         3 -> Icons.Rounded.ArrowUpward
                         else -> null
                     },
-                    animFrames = if (tooltipStep == 1) listOf(R.drawable.pinch1, R.drawable.pinch2) else emptyList(),
+                    animFrames = if (tooltipStep == 1 && !keypadTips) listOf(R.drawable.pinch1, R.drawable.pinch2) else emptyList(),
                     alignment = Alignment.Center,
                     nextLabel = if (isLastStep) "Done" else "Next",
                     onNext = {

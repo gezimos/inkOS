@@ -126,6 +126,7 @@ dependencies {
 
     // Android Lifecycle
     implementation(libs.lifecycle.viewmodel.ktx)
+    implementation(libs.lifecycle.runtime.compose)
 
     // Navigation
     implementation(libs.navigation.fragment.ktx)
@@ -173,6 +174,8 @@ dependencies {
 
     // Jetpack Compose Testing
     androidTestImplementation(libs.ui.test.junit4) // For createComposeRule
+    testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
     debugImplementation(libs.ui.test.manifest) // Debug-only dependencies for Compose testing
 
     // Fragment testing
