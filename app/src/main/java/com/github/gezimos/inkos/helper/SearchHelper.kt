@@ -147,10 +147,10 @@ object SearchHelper {
 
     /** The digit a keypad press stands for, or null for non-digit keys. */
     fun keypadDigit(event: KeyEvent): Char? =
-        if (event.keyCode in KeyEvent.KEYCODE_0..KeyEvent.KEYCODE_9) '0' + (event.keyCode - KeyEvent.KEYCODE_0) else null
+        if (event.keyCode in KeyEvent.KEYCODE_0..KeyEvent.KEYCODE_9) event.number else null
 
     /** A digit-only query typed on a phone keypad, matched by T9 rather than literally. */
-    fun isT9Query(query: String): Boolean = T9_QUERY_REGEX.matches(query) && hasNumericKeypad()
+    fun isT9Query(query: String): Boolean = query.isNotEmpty() && query.all(Char::isDigit) && hasNumericKeypad()
 
     fun keyEventToChar(event: KeyEvent): Char? {
         return try {
@@ -171,12 +171,14 @@ object SearchHelper {
 
 
     /** Strict scoring — prefix and word-start contains only, no fuzzy. For music, files, settings. */
-    fun scoreStrict(normalizedLabel: String, normalizedQuery: String, topScore: Int, originalLabel: String? = null): Int {
-        if (normalizedLabel.startsWith(normalizedQuery)) return topScore
-        if (!normalizedLabel.contains(normalizedQuery)) return 0
+    /** [encode] maps the label before matching (one char per char, e.g. [toT9]); word starts come from [originalLabel]. */
+    fun scoreStrict(normalizedLabel: String, normalizedQuery: String, topScore: Int, originalLabel: String? = null, encode: (String) -> String = { it }): Int {
+        val label = encode(normalizedLabel)
+        if (label.startsWith(normalizedQuery)) return topScore
+        if (!label.contains(normalizedQuery)) return 0
         if (originalLabel == null) return (topScore * 0.9).toInt()
         val spacedLabel = normalizeKeepSpaces(originalLabel)
-        val stripped = normalizeString(originalLabel)
+        val stripped = encode(normalizeString(originalLabel))
         var searchFrom = 0
         while (true) {
             val idx = stripped.indexOf(normalizedQuery, searchFrom)
@@ -189,51 +191,20 @@ object SearchHelper {
         return 0
     }
 
-    /** Phone keypad letter groups: ABC=2 ... WXYZ=9. Other characters map to themselves. */
-    internal fun toT9(normalizedLabel: String): String = buildString(normalizedLabel.length) {
-        for (c in normalizedLabel) {
-            append(
-                when (c) {
-                    'A', 'B', 'C' -> '2'
-                    'D', 'E', 'F' -> '3'
-                    'G', 'H', 'I' -> '4'
-                    'J', 'K', 'L' -> '5'
-                    'M', 'N', 'O' -> '6'
-                    'P', 'Q', 'R', 'S' -> '7'
-                    'T', 'U', 'V' -> '8'
-                    'W', 'X', 'Y', 'Z' -> '9'
-                    else -> c
-                }
-            )
-        }
-    }
-
-    private val T9_QUERY_REGEX = Regex("[0-9]+")
+    /** Phone keypad encoding of a label: "ETAR" becomes "3827". Non-letters are kept. */
+    internal fun toT9(label: String): String = android.telephony.PhoneNumberUtils.convertKeypadLettersToDigits(label)
 
     /**
-     * T9 match for a digit-only query typed on a phone keypad: "3827" matches "Etar".
-     * Only prefix and word-start matches count; a single digit matches a third of all labels mid-word.
+     * T9 match for a digit query typed on a phone keypad: "3827" matches "Etar". Uses the same
+     * prefix and word-start rules as [scoreStrict], applied to the keypad encoding of the label.
      */
-    fun scoreT9(normalizedLabel: String, normalizedQuery: String, topScore: Int, originalLabel: String? = null): Int {
-        if (!T9_QUERY_REGEX.matches(normalizedQuery)) return 0
-        val t9Label = toT9(normalizedLabel)
-        if (t9Label.startsWith(normalizedQuery)) return (topScore * 0.95).toInt()
-        if (originalLabel == null) return 0
-        val spacedLabel = normalizeKeepSpaces(originalLabel)
-        var searchFrom = 0
-        while (true) {
-            val idx = t9Label.indexOf(normalizedQuery, searchFrom)
-            if (idx < 0) return 0
-            val spacedIdx = mapStrippedToSpaced(spacedLabel, idx)
-            if (spacedIdx > 0 && spacedLabel[spacedIdx - 1] == ' ') return (topScore * 0.85).toInt()
-            searchFrom = idx + 1
-        }
-    }
+    fun scoreT9(normalizedLabel: String, normalizedQuery: String, topScore: Int, originalLabel: String? = null): Int =
+        scoreStrict(normalizedLabel, normalizedQuery, topScore, originalLabel, ::toT9)
 
-    fun scorePreNormalized(normalizedLabel: String, normalizedQuery: String, topScore: Int, originalLabel: String? = null): Int {
-        val t9Score = scoreT9(normalizedLabel, normalizedQuery, topScore, originalLabel)
-        if (t9Score > 0) return maxOf(t9Score, scoreLiteral(normalizedLabel, normalizedQuery, topScore, originalLabel))
-        return scoreLiteral(normalizedLabel, normalizedQuery, topScore, originalLabel)
+    /** [t9] is [isT9Query] for the current query; callers compute it once per query, not per label. */
+    fun scorePreNormalized(normalizedLabel: String, normalizedQuery: String, topScore: Int, originalLabel: String? = null, t9: Boolean = false): Int {
+        val literal = scoreLiteral(normalizedLabel, normalizedQuery, topScore, originalLabel)
+        return if (t9) maxOf(literal, scoreT9(normalizedLabel, normalizedQuery, topScore, originalLabel)) else literal
     }
 
     private fun scoreLiteral(normalizedLabel: String, normalizedQuery: String, topScore: Int, originalLabel: String? = null): Int {

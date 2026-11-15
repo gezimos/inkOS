@@ -239,44 +239,45 @@ class MainActivity : AppCompatActivity() {
 
     var suppressKeyForwarding: Boolean = false
 
-    // Digit key held on the home screen of a keypad phone: true once its long-press action ran.
-    private var t9DigitLongPressed = false
-
     /**
      * On a phone keypad, a short digit press types into T9 app search and a long press runs the
      * key's home action (2 double tap, 6 clock, 7 date, 8 quote, 9 quick menu). Without this the
-     * home actions swallow 2/6/7/8 and T9 search can't start with those letters.
+     * home actions swallow 2/6/7/8 and T9 search can't start with those letters. Long presses are
+     * detected by the framework's key tracking (startTracking / onKeyLongPress).
      */
+    private val t9DigitCallback = object : KeyEvent.Callback {
+        override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+            event.startTracking()
+            return true
+        }
+
+        override fun onKeyLongPress(keyCode: Int, event: KeyEvent): Boolean {
+            fragmentKeyHandler?.handleKeyEvent(keyCode, event)
+            return true
+        }
+
+        override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+            // Canceled after a long press, or if the press was interrupted.
+            if (!event.isTracking || event.isCanceled) return true
+            viewModel.emitTypedChar(event.number)
+            navController.navigate(
+                R.id.action_mainFragment_to_appListFragment,
+                androidx.core.os.bundleOf("searchMode" to 0, "t9" to true)
+            )
+            return true
+        }
+
+        override fun onKeyMultiple(keyCode: Int, count: Int, event: KeyEvent) = false
+    }
+
     private fun handleT9Digit(event: KeyEvent): Boolean? {
-        val digit = com.github.gezimos.inkos.helper.SearchHelper.keypadDigit(event) ?: return null
+        com.github.gezimos.inkos.helper.SearchHelper.keypadDigit(event) ?: return null
         if (!prefs.appDrawerSearchEnabled || suppressKeyForwarding) return null
         if (!::navController.isInitialized) return null
-        if (!com.github.gezimos.inkos.helper.SearchHelper.hasNumericKeypad()) return null
         // Only the home screen needs this; the drawer's search already receives digit keys.
         if (navController.currentDestination?.id != R.id.mainFragment) return null
-        when (event.action) {
-            KeyEvent.ACTION_DOWN -> {
-                if (event.repeatCount == 0) {
-                    t9DigitLongPressed = false
-                } else if (event.isLongPress && !t9DigitLongPressed) {
-                    t9DigitLongPressed = true
-                    try { fragmentKeyHandler?.handleKeyEvent(event.keyCode, event) } catch (_: Exception) {}
-                }
-            }
-            KeyEvent.ACTION_UP -> {
-                if (!t9DigitLongPressed && !event.isCanceled) {
-                    try { viewModel.emitTypedChar(digit) } catch (_: Exception) {}
-                    try {
-                        navController.navigate(
-                            R.id.action_mainFragment_to_appListFragment,
-                            androidx.core.os.bundleOf("searchMode" to 0, "t9" to true)
-                        )
-                    } catch (_: Exception) {}
-                }
-                t9DigitLongPressed = false
-            }
-        }
-        return true
+        if (!com.github.gezimos.inkos.helper.SearchHelper.hasNumericKeypad()) return null
+        return event.dispatch(t9DigitCallback, window.decorView.keyDispatcherState, this)
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {

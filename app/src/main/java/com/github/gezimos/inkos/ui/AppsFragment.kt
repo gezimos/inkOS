@@ -480,13 +480,14 @@ class AppsFragment : Fragment() {
                         } else {
                             buildList {
                                 val normalizedQuery = SearchHelper.normalizeString(query)
+                                val t9 = SearchHelper.isT9Query(normalizedQuery)
                                 val ctx = requireContext()
                                 val scored = ArrayList<Pair<AppListItem, Int>>()
 
                                 fun scoreApp(app: AppListItem): Int {
-                                    val aliasScore = SearchHelper.scorePreNormalized(app.normalizedLabel, normalizedQuery, 100, app.label)
+                                    val aliasScore = SearchHelper.scorePreNormalized(app.normalizedLabel, normalizedQuery, 100, app.label, t9)
                                     val origScore = app.normalizedOriginalLabel?.let {
-                                        SearchHelper.scorePreNormalized(it, normalizedQuery, 100, app.activityLabel)
+                                        SearchHelper.scorePreNormalized(it, normalizedQuery, 100, app.activityLabel, t9)
                                     } ?: 0
                                     return maxOf(aliasScore, origScore)
                                 }
@@ -510,7 +511,7 @@ class AppsFragment : Fragment() {
 
                                 val contactScored = ArrayList<Pair<AppListItem, Int>>()
                                 for (app in allContacts) {
-                                    val score = SearchHelper.scorePreNormalized(app.normalizedLabel, normalizedQuery, 75, app.label)
+                                    val score = SearchHelper.scorePreNormalized(app.normalizedLabel, normalizedQuery, 75, app.label, t9)
                                     if (score > 0) contactScored.add(app to score)
                                 }
                                 contactScored.sortByDescending { it.second }

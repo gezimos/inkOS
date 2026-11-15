@@ -173,7 +173,8 @@ dependencies {
 
     // Jetpack Compose Testing
     androidTestImplementation(libs.ui.test.junit4) // For createComposeRule
-    testImplementation("junit:junit:4.13.2")
+    testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
     debugImplementation(libs.ui.test.manifest) // Debug-only dependencies for Compose testing
 
     // Fragment testing

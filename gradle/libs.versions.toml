@@ -46,6 +46,8 @@ glide = "4.16.0"
 
 # AndroidX Test Libraries
 espresso = "3.7.0"
+junit = "4.13.2"
+robolectric = "4.18"
 test-core-ktx = "1.7.0"
 test-runner = "1.7.0"
 test-rules = "1.7.0"
@@ -104,6 +106,9 @@ test-rules = { group = "androidx.test", name = "rules", version.ref = "test-rule
 fragment-testing = { group = "androidx.fragment", name = "fragment-testing", version.ref = "fragment-testing" }
 ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4", version.ref = "ui-test-junit4" }
 ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest", version.ref = "ui-test-manifest" }
+
+junit = { group = "junit", name = "junit", version.ref = "junit" }
+robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -3,10 +3,13 @@ package com.github.gezimos.inkos.helper
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
+@RunWith(RobolectricTestRunner::class)
 class T9SearchTest {
-    private fun score(label: String, query: String) =
-        SearchHelper.scorePreNormalized(SearchHelper.normalizeString(label), SearchHelper.normalizeString(query), 100, label)
+    private fun score(label: String, query: String, t9: Boolean = true) =
+        SearchHelper.scorePreNormalized(SearchHelper.normalizeString(label), SearchHelper.normalizeString(query), 100, label, t9)
 
     @Test
     fun encodesKeypadGroups() {
@@ -24,12 +27,19 @@ class T9SearchTest {
     @Test
     fun digitsMatchWordStartButNotMidWord() {
         assertTrue(score("Material Files", "34537") > 0) // "Files"
+        assertTrue(score("WhatsApp", "277") > 0) // camel-case word "App"
         assertEquals(0, score("Calendar", "3") + score("Calendar", "36")) // "e","en" mid-word
     }
 
     @Test
     fun prefixRanksAboveWordStart() {
         assertTrue(score("Files", "345") > score("Material Files", "345"))
+    }
+
+    @Test
+    fun digitsMatchLiterallyWithoutKeypad() {
+        assertEquals(0, score("Etar", "3827", t9 = false))
+        assertEquals(100, score("2048", "2048", t9 = false))
     }
 
     @Test
