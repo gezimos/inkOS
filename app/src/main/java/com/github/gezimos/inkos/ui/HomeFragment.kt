@@ -267,6 +267,14 @@ class HomeFragmentCompose : Fragment() {
                     val focusZone = remember { mutableStateOf(com.github.gezimos.inkos.ui.compose.FocusZone.APPS) }
                     val selectedMediaButton = remember { mutableStateOf(0) }
 
+                    // Coming back to home starts keypad navigation from the first app again;
+                    // otherwise the next arrow press continues from the app launched last time.
+                    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                        dpadMode.value = false
+                        selectedIndex.value = 0
+                        focusZone.value = com.github.gezimos.inkos.ui.compose.FocusZone.APPS
+                    }
+
                     
                     // Observe edit mode state changes
                     val isEditMode by EditModeHelper.isEditModeFlow.collectAsState()

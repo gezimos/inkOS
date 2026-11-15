@@ -126,6 +126,7 @@ dependencies {
 
     // Android Lifecycle
     implementation(libs.lifecycle.viewmodel.ktx)
+    implementation(libs.lifecycle.runtime.compose)
 
     // Navigation
     implementation(libs.navigation.fragment.ktx)
